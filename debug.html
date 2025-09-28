@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ToastMan Debug</title>
+</head>
+<body>
+    <div id="debug">
+        <h1>Debug localStorage</h1>
+        <button onclick="clearStorage()">Clear All Storage</button>
+        <button onclick="showStorage()">Show Storage</button>
+        <pre id="output"></pre>
+    </div>
+
+    <script>
+        function clearStorage() {
+            const keys = ['toastman_collections', 'toastman_environments', 'toastman_settings', 'toastman_active_environment', 'toastman_tabs'];
+            keys.forEach(key => localStorage.removeItem(key));
+            document.getElementById('output').textContent = 'Storage cleared!';
+        }
+
+        function showStorage() {
+            const keys = ['toastman_collections', 'toastman_environments', 'toastman_settings', 'toastman_active_environment', 'toastman_tabs'];
+            const data = {};
+            keys.forEach(key => {
+                const value = localStorage.getItem(key);
+                data[key] = value ? JSON.parse(value) : null;
+            });
+            document.getElementById('output').textContent = JSON.stringify(data, null, 2);
+        }
+
+        // Auto-show storage on load
+        window.onload = () => {
+            showStorage();
+            setInterval(showStorage, 2000); // Update every 2 seconds
+        }
+    </script>
+</body>
+</html>

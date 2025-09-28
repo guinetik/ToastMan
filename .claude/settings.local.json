@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(npm create:*)",
+      "WebFetch(domain:schema.getpostman.com)",
+      "WebFetch(domain:schema.postman.com)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

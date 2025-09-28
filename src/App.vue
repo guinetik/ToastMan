@@ -1,0 +1,208 @@
+<script setup>
+import { ref, onMounted } from 'vue'
+import { Splitpanes, Pane } from 'splitpanes'
+import 'splitpanes/dist/splitpanes.css'
+import Sidebar from './components/Sidebar.vue'
+import RequestTabs from './components/RequestTabs.vue'
+import SettingsDialog from './components/SettingsDialog.vue'
+import { createLogger } from './core/logger.js'
+
+const logger = createLogger('app')
+
+const sidebarWidth = ref(25) // 25% initial width
+const showSettings = ref(false)
+
+const openSettings = () => {
+  logger.debug('Opening settings dialog')
+  showSettings.value = true
+}
+
+const closeSettings = () => {
+  logger.debug('Closing settings dialog')
+  showSettings.value = false
+}
+
+const handleResize = (event) => {
+  try {
+    // Handle different possible event formats from splitpanes
+    if (Array.isArray(event) && event.length > 0 && event[0] && typeof event[0].size === 'number') {
+      sidebarWidth.value = event[0].size
+    } else if (event && typeof event.size === 'number') {
+      sidebarWidth.value = event.size
+    } else if (Array.isArray(event) && event.length > 0 && typeof event[0] === 'number') {
+      sidebarWidth.value = event[0]
+    } else {
+      // Log the event structure to help debug
+      logger.warn('Unexpected resize event format:', event)
+    }
+  } catch (error) {
+    logger.error('Error handling resize:', error)
+  }
+}
+
+// Initialize logging and expose global API
+onMounted(() => {
+  logger.info('ToastMan application mounted')
+  logger.info('Global logging API available at window.toastmanLog')
+
+  // Log initial state for debugging
+  logger.debug('Initial sidebar width:', sidebarWidth.value)
+
+  // Expose additional debugging helpers
+  if (typeof window !== 'undefined') {
+    window.toastmanDebug = {
+      logger: createLogger('debug'),
+      logAllComponents: () => {
+        console.log('🔧 Enabling logging for all ToastMan components...')
+        window.toastmanLog.enableAll()
+      },
+      enableCollections: () => window.toastmanLog.enable('collections'),
+      enableStorage: () => window.toastmanLog.enable('storage'),
+      enableSidebar: () => window.toastmanLog.enable('sidebar'),
+      enableTabs: () => window.toastmanLog.enable('tabs'),
+      status: () => window.toastmanLog.status(),
+      list: () => window.toastmanLog.list()
+    }
+    logger.info('Debug helpers available at window.toastmanDebug')
+  }
+})
+</script>
+
+<template>
+  <div id="app">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="logo-section">
+        <h1 class="app-title">🍞 ToastMan</h1>
+        <span class="app-subtitle">API Testing Tool</span>
+      </div>
+      <div class="header-actions">
+        <button
+          class="settings-button"
+          @click="openSettings"
+          title="Settings"
+        >
+          ⚙️
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="app-main">
+      <Splitpanes class="default-theme" @resize="handleResize">
+        <!-- Left Sidebar -->
+        <Pane :size="sidebarWidth" min-size="20" max-size="40">
+          <Sidebar />
+        </Pane>
+
+        <!-- Right Panel -->
+        <Pane>
+          <RequestTabs />
+        </Pane>
+      </Splitpanes>
+    </div>
+
+    <!-- Settings Dialog -->
+    <SettingsDialog
+      v-if="showSettings"
+      @close="closeSettings"
+    />
+  </div>
+</template>
+
+<style scoped>
+#app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+.app-header {
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 60px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.logo-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-subtitle {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.app-main {
+  flex: 1;
+  overflow: hidden;
+}
+
+.default-theme .splitpanes__splitter {
+  background: var(--color-border);
+  width: 1px;
+  border: none;
+  position: relative;
+}
+
+.default-theme .splitpanes__splitter:before {
+  content: '';
+  position: absolute;
+  left: -2px;
+  top: 0;
+  width: 5px;
+  height: 100%;
+  background: transparent;
+  cursor: col-resize;
+}
+
+.default-theme .splitpanes__splitter:hover:before {
+  background: var(--color-primary-light);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-button {
+  padding: 8px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 36px;
+  min-height: 36px;
+}
+
+.settings-button:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-primary);
+  border-color: var(--color-primary-light);
+}
+</style>
