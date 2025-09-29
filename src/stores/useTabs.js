@@ -123,21 +123,19 @@ function createTabsStore() {
     // Remove tab
     tabs.value.splice(tabIndex, 1)
 
-    // If we closed the active tab, activate another one
+    // If we closed the active tab and there are other tabs, activate another one
     if (wasActive && tabs.value.length > 0) {
       const nextTab = tabs.value[Math.max(0, tabIndex - 1)]
       setActiveTab(nextTab.id)
-    } else if (tabs.value.length === 0) {
-      // Create a new tab if no tabs remain
-      createNewTab()
     }
+    // Allow having zero tabs - don't auto-create a new one
 
     return true
   }
 
   const closeAllTabs = () => {
     tabs.value.length = 0
-    createNewTab()
+    // Allow having zero tabs
   }
 
   const closeOtherTabs = (keepTabId) => {
@@ -337,14 +335,7 @@ function createTabsStore() {
 
   // Initialize default data immediately
   logger.info('Tabs store initialized, current tab count:', allTabs.value.length)
-  if (allTabs.value.length === 0) {
-    logger.info('No tabs found, creating default...')
-    const tab = createNewTab({
-      name: 'New Request',
-      method: 'GET'
-    })
-    logger.info('Created default tab with ID:', tab.id, 'name:', tab.name)
-  }
+  // Don't auto-create a tab - let the UI show empty state
 
   return {
     // Reactive data

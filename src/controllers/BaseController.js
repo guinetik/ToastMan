@@ -13,7 +13,6 @@ export class BaseController {
     this.disposed = false
     this.watchers = []
     this.computedRefs = new Map()
-    this.init()
   }
 
   /**

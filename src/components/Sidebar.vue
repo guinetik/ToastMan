@@ -69,40 +69,47 @@ onUnmounted(() => {
 
 .sidebar-tabs {
   display: flex;
-  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
+  padding: 4px;
+  gap: 2px;
 }
 
 .tab {
   flex: 1;
-  padding: 12px 8px;
+  padding: 10px 12px;
   background: var(--color-bg-tertiary);
-  border: none;
-  border-right: 1px solid var(--color-border);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
-}
-
-.tab:last-child {
-  border-right: none;
+  position: relative;
+  margin-bottom: -1px;
 }
 
 .tab:hover {
   background: var(--color-bg-hover);
   color: var(--color-text-primary);
+  border-color: var(--color-border);
+  transform: translateY(-1px);
 }
 
 .tab.active {
   background: var(--color-bg-secondary);
   color: var(--color-primary);
-  border-bottom: 2px solid var(--color-primary);
+  border-color: var(--color-border);
+  border-bottom-color: var(--color-bg-secondary);
+  font-weight: 600;
+  z-index: 1;
 }
 
 .tab-content {
   flex: 1;
   padding: 16px;
   overflow-y: auto;
+  background: var(--color-bg-secondary);
+  border-top: 1px solid var(--color-border);
 }
 </style>

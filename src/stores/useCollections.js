@@ -278,8 +278,8 @@ function createCollectionsStore() {
   // Initialize default data if needed (async to allow localStorage to load first)
   logger.info('Collections store initialized, current data length:', collections.value?.length || 0)
 
-  // Call async initialization to create default data only if no collections exist
-  initializeDefaultData()
+  // Don't auto-create default collections - let users start with empty state
+  // initializeDefaultData()
 
   return {
     // Reactive data

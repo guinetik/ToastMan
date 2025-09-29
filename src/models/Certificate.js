@@ -27,7 +27,7 @@ export class Certificate extends BaseModel {
     rejectUnauthorized: { type: 'boolean', default: true },
     createdAt: { type: 'string', default: () => BaseModel.getTimestamp() },
     updatedAt: { type: 'string', default: () => BaseModel.getTimestamp() },
-    expiresAt: { type: 'string', default: null }
+    expiresAt: { type: 'string', default: '' }
   }
 
   constructor(data = {}) {
@@ -43,7 +43,9 @@ export class Certificate extends BaseModel {
     if (data.updatedAt && typeof data.updatedAt !== 'string') {
       data.updatedAt = data.updatedAt instanceof Date ? data.updatedAt.toISOString() : String(data.updatedAt)
     }
-    if (data.expiresAt && typeof data.expiresAt !== 'string' && data.expiresAt !== null) {
+    if (data.expiresAt === null || data.expiresAt === undefined) {
+      data.expiresAt = ''
+    } else if (data.expiresAt && typeof data.expiresAt !== 'string') {
       data.expiresAt = data.expiresAt instanceof Date ? data.expiresAt.toISOString() : String(data.expiresAt)
     }
 
@@ -52,6 +54,36 @@ export class Certificate extends BaseModel {
   }
 
   validateCertificate() {
+    // Only validate required files if certificate is enabled and has a host
+    if (this.enabled && this.host) {
+      if (this.type === 'client') {
+        if (!this.pfx && (!this.cert || !this.key)) {
+          throw new Error('Client certificate requires either PFX/P12 or both cert and key files')
+        }
+      }
+
+      if (this.type === 'ca' && !this.ca) {
+        throw new Error('CA certificate requires a CA file')
+      }
+    }
+
+    if (this.host && !this.isValidHostPattern(this.host)) {
+      throw new Error(`Invalid host pattern: ${this.host}`)
+    }
+  }
+
+  /**
+   * Validate certificate for use (stricter validation)
+   */
+  validateForUse() {
+    if (!this.host) {
+      throw new Error('Host is required')
+    }
+
+    if (!this.name) {
+      throw new Error('Certificate name is required')
+    }
+
     if (this.type === 'client') {
       if (!this.pfx && (!this.cert || !this.key)) {
         throw new Error('Client certificate requires either PFX/P12 or both cert and key files')
@@ -62,7 +94,7 @@ export class Certificate extends BaseModel {
       throw new Error('CA certificate requires a CA file')
     }
 
-    if (this.host && !this.isValidHostPattern(this.host)) {
+    if (!this.isValidHostPattern(this.host)) {
       throw new Error(`Invalid host pattern: ${this.host}`)
     }
   }

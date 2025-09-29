@@ -13,7 +13,7 @@ export class SidebarController extends BaseController {
   }
 
   init() {
-    super.init()
+    this.logger.debug(`${this.name} controller initialized`)
   }
 
   /**

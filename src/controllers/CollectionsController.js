@@ -34,6 +34,10 @@ export class CollectionsController extends BaseController {
       this.tabsStore = useTabs()
     }
 
+    this.logger.debug('Initializing computed properties')
+    this.logger.debug('Collections store available:', !!this.collectionsStore)
+    this.logger.debug('Store collections value:', this.collectionsStore?.collections?.value)
+
     this.collections = this.createComputed('collections', () => {
       if (!this.collectionsStore) {
         this.logger.warn('Collections store not available')
@@ -44,6 +48,7 @@ export class CollectionsController extends BaseController {
       const collections = this.collectionsStore.collections.value || []
 
       this.logger.debug('Raw collections from store:', collections.length, 'items')
+      this.logger.debug('Collections data:', JSON.stringify(collections))
 
       if (!Array.isArray(collections)) {
         this.logger.warn('Collections is not an array:', collections)
@@ -62,6 +67,8 @@ export class CollectionsController extends BaseController {
       this.logger.debug('Processed collections:', processedCollections.length, 'items')
       return processedCollections
     })
+
+    this.logger.debug('Collections computed created, test value:', this.getComputed('collections'))
 
     this.filteredCollections = this.createComputed('filteredCollections', () => {
       const collections = this.getComputed('collections')
@@ -87,8 +94,15 @@ export class CollectionsController extends BaseController {
 
     this.createWatcher(
       () => this.getComputed('collections'),
-      (newCollections) => {
-        if (newCollections && newCollections.length > 0 && this.state && this.state.expandedCollections && this.state.expandedCollections.size === 0) {
+      (newCollections, oldCollections) => {
+        // Only auto-expand if we're transitioning from empty to having collections
+        // and we don't already have expanded collections
+        if (newCollections &&
+            newCollections.length > 0 &&
+            (!oldCollections || oldCollections.length === 0) &&
+            this.state &&
+            this.state.expandedCollections &&
+            this.state.expandedCollections.size === 0) {
           const firstCollection = newCollections[0]
           if (firstCollection?.info?.id) {
             this.logger.info('Auto-expanding first collection:', firstCollection.info.name)
@@ -96,7 +110,7 @@ export class CollectionsController extends BaseController {
           }
         }
       },
-      { immediate: true }
+      { immediate: false } // Changed to false to prevent immediate execution
     )
   }
 

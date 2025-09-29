@@ -21,6 +21,8 @@ export class SettingsDialogController extends BaseDialogController {
   init() {
     super.init()
     this.loadSettings()
+    // Initialize formData immediately to prevent undefined access
+    this.resetFormData()
   }
 
   /**
@@ -62,6 +64,12 @@ export class SettingsDialogController extends BaseDialogController {
   open(tab = 'general') {
     super.open()
     this.state.activeTab = tab
+
+    // Ensure settings are loaded before proceeding
+    if (!this.state.settings) {
+      this.loadSettings()
+    }
+
     this.state.originalSettings = this.state.settings.clone()
     this.state.formData = this.state.settings.toJSON()
   }
@@ -219,6 +227,11 @@ export class SettingsDialogController extends BaseDialogController {
    * Update proxy settings
    */
   updateProxySettings(updates) {
+    // Ensure proxy.auth exists if we're updating auth properties
+    if (updates.auth && !this.state.formData.proxy.auth) {
+      this.state.formData.proxy.auth = { type: 'basic', username: '', password: '', domain: '', workstation: '' }
+    }
+
     Object.assign(this.state.formData.proxy, updates)
     this.clearFieldError('proxy')
   }
@@ -397,6 +410,15 @@ export class SettingsDialogController extends BaseDialogController {
     }
 
     return result
+  }
+
+  /**
+   * Update certificates settings
+   */
+  updateCertificatesSettings(certificates) {
+    this.state.formData.certificates = certificates
+    this.clearFieldError('certificates')
+    this.logger.debug('Updated certificates settings')
   }
 
   /**

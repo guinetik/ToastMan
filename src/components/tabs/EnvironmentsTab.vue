@@ -1,26 +1,96 @@
 <script setup>
-import { onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { EnvironmentsController } from '../../controllers/EnvironmentsController.js'
+import NewEnvironmentDialog from '../NewEnvironmentDialog.vue'
+import EnvironmentContextMenu from '../EnvironmentContextMenu.vue'
+import EnvironmentVariablesDialog from '../EnvironmentVariablesDialog.vue'
 
-// Create controller instance
+// Create controller instance and initialize immediately
 const controller = new EnvironmentsController()
+controller.init()
 
 // Access reactive state from controller
 const state = controller.state
 
-// Access computed properties from controller
-const environments = controller.getComputed('environments')
-const activeEnvironment = controller.getComputed('activeEnvironment')
+// Access reactive computed properties from controller
+const environments = computed(() => {
+  return controller.getComputed('environments') || []
+})
+
+const activeEnvironment = computed(() => {
+  return controller.getComputed('activeEnvironment')
+})
+
+// Dialog state
+const showNewEnvironmentDialog = ref(false)
+const showVariablesDialog = ref(false)
+const selectedEnvironment = ref(null)
+
+// Context menu reference
+const contextMenuRef = ref(null)
 
 // Component methods that delegate to controller
-const createNewEnvironment = () => controller.createEnvironment()
+const createNewEnvironment = () => {
+  showNewEnvironmentDialog.value = true
+}
+
+const handleCreateEnvironment = async (name) => {
+  const result = await controller.createEnvironment(name)
+  if (result.success) {
+    showNewEnvironmentDialog.value = false
+  }
+}
+
 const setActiveEnvironment = (envId) => controller.setActiveEnvironment(envId)
-const deleteEnvironment = (envId) => controller.deleteEnvironment(envId)
-const duplicateEnvironment = (envId) => controller.duplicateEnvironment(envId)
+
+// Context menu methods
+const showContextMenu = (event, environment) => {
+  console.log('[DEBUG] showContextMenu called with:', { event, environment })
+  if (contextMenuRef.value) {
+    console.log('[DEBUG] contextMenuRef.value exists, calling show')
+    contextMenuRef.value.show(event, environment)
+  } else {
+    console.log('[DEBUG] contextMenuRef.value is null/undefined')
+  }
+}
+
+const handleContextAction = (event) => {
+  console.log('[DEBUG] handleContextAction called with:', event)
+  console.log('[DEBUG] event.action:', event.action)
+  console.log('[DEBUG] event.environment:', event.environment)
+
+  // Handle variables action specifically
+  if (event.action === 'variables' && event.environment) {
+    console.log('[DEBUG] Condition met - Opening variables dialog for environment:', event.environment)
+    openVariablesDialog(event.environment)
+  } else {
+    console.log('[DEBUG] Condition NOT met - action:', event.action, 'environment:', event.environment)
+  }
+}
+
+// Variables dialog methods
+const openVariablesDialog = (environment) => {
+  console.log('openVariablesDialog called with:', environment)
+  console.log('Current showVariablesDialog:', showVariablesDialog.value)
+  selectedEnvironment.value = environment
+  showVariablesDialog.value = true
+  console.log('After setting - showVariablesDialog:', showVariablesDialog.value)
+  console.log('After setting - selectedEnvironment:', selectedEnvironment.value)
+}
+
+const handleVariablesUpdate = async (updatedEnvironment) => {
+  const result = await controller.updateEnvironment(updatedEnvironment.id, {
+    values: updatedEnvironment.values
+  })
+  if (result.success) {
+    showVariablesDialog.value = false
+    selectedEnvironment.value = null
+  }
+}
 
 // Lifecycle hooks
 onMounted(() => {
-  controller.init()
+  // Controller already initialized above
 })
 
 onUnmounted(() => {
@@ -62,6 +132,7 @@ onUnmounted(() => {
           :key="environment?.id || Date.now()"
           :class="['environment-item', { active: activeEnvironment?.id === environment?.id }]"
           @click="environment && setActiveEnvironment(environment.id)"
+          @contextmenu="showContextMenu($event, environment)"
         >
           <div class="environment-indicator"></div>
           <div class="environment-content">
@@ -70,24 +141,32 @@ onUnmounted(() => {
           </div>
           <div class="environment-actions">
             <span v-if="activeEnvironment?.id === environment?.id" class="active-badge">Active</span>
-            <button
-              class="btn-action"
-              title="Duplicate Environment"
-              @click.stop="duplicateEnvironment(environment.id)"
-            >
-              📋
-            </button>
-            <button
-              class="btn-action danger"
-              title="Delete Environment"
-              @click.stop="deleteEnvironment(environment.id)"
-            >
-              🗑️
-            </button>
           </div>
         </div>
       </template>
     </div>
+
+    <!-- New Environment Dialog -->
+    <NewEnvironmentDialog
+      v-if="showNewEnvironmentDialog"
+      @close="showNewEnvironmentDialog = false"
+      @create="handleCreateEnvironment"
+    />
+
+    <!-- Environment Context Menu -->
+    <EnvironmentContextMenu
+      ref="contextMenuRef"
+      :environments-controller="controller"
+      @action="handleContextAction"
+    />
+
+    <!-- Environment Variables Dialog -->
+    <EnvironmentVariablesDialog
+      v-if="showVariablesDialog && selectedEnvironment"
+      :environment="selectedEnvironment"
+      @close="showVariablesDialog = false; selectedEnvironment = null"
+      @update="handleVariablesUpdate"
+    />
   </div>
 </template>
 
@@ -117,7 +196,7 @@ onUnmounted(() => {
   width: 24px;
   height: 24px;
   padding: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-sm);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   color: var(--color-text-secondary);

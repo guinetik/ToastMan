@@ -1,37 +1,77 @@
 <script setup>
-import { onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { CollectionsController } from '../../controllers/CollectionsController.js'
 import NewCollectionDialog from '../NewCollectionDialog.vue'
+import CollectionContextMenu from '../CollectionContextMenu.vue'
+import RequestContextMenu from '../RequestContextMenu.vue'
 
-// Create controller instance
+// Create controller instance and initialize immediately
 const controller = new CollectionsController()
+controller.init()
 
 // Access reactive state from controller
 const state = controller.state
 
 // Access reactive computed properties from controller
-const collections = controller.collections
-const filteredCollections = controller.filteredCollections
+const collections = computed(() => {
+  const colls = controller.getComputed('collections')
+  console.log('[CollectionsTab] Collections from controller:', colls)
+  return colls || []
+})
+
+const filteredCollections = computed(() => {
+  const filtered = controller.getComputed('filteredCollections')
+  console.log('[CollectionsTab] Filtered collections from controller:', filtered)
+  return filtered || []
+})
+
+// Context menu references
+const contextMenuRef = ref(null)
+const requestContextMenuRef = ref(null)
 
 // Component methods that delegate to controller
 const toggleCollection = (id) => controller.toggleCollection(id)
 const openRequest = (collectionId, requestId) => controller.openRequest(collectionId, requestId)
 const createNewCollection = () => controller.toggleNewCollectionDialog(true)
 
-// Event handlers
-const handleCreateCollection = async (name) => {
-  const result = await controller.createCollection(name)
-  if (result.success) {
-    // Collection created successfully, dialog will close automatically
+// Context menu methods
+const showContextMenu = (event, collection) => {
+  if (contextMenuRef.value) {
+    contextMenuRef.value.show(event, collection)
   }
 }
+
+const showRequestContextMenu = (event, collection, request) => {
+  event.stopPropagation() // Prevent triggering collection context menu
+  if (requestContextMenuRef.value) {
+    requestContextMenuRef.value.show(event, collection, request)
+  }
+}
+
+const handleContextAction = (event) => {
+  // Action is handled by the context menu controller
+  console.log('Context action completed:', event)
+}
+
+const handleRequestContextAction = (event) => {
+  // Action is handled by the request context menu controller
+  console.log('Request context action completed:', event)
+}
+
+// Event handlers - no longer needed since dialog handles creation internally
+// const handleCreateCollection = async (name) => {
+//   const result = await controller.createCollection(name)
+//   if (result.success) {
+//     // Collection created successfully, dialog will close automatically
+//   }
+// }
 
 // Utility methods
 const getMethodColor = (method) => controller.getMethodColor(method)
 
 // Lifecycle hooks
 onMounted(() => {
-  // Additional initialization if needed
+  // Controller already initialized above
 })
 
 onUnmounted(() => {
@@ -77,6 +117,7 @@ onUnmounted(() => {
             v-if="collection && collection.info"
             class="collection-header"
             @click="toggleCollection(collection.info.id)"
+            @contextmenu="showContextMenu($event, collection)"
           >
             <span class="expand-icon">
               {{ controller.isCollectionExpanded(collection.info.id) ? '📂' : '📁' }}
@@ -94,6 +135,7 @@ onUnmounted(() => {
               :key="request.id"
               class="request-item"
               @click="openRequest(collection.info.id, request.id)"
+              @contextmenu="showRequestContextMenu($event, collection, request)"
             >
               <span
                 class="method-badge"
@@ -112,7 +154,20 @@ onUnmounted(() => {
     <NewCollectionDialog
       v-if="state.showNewCollectionDialog"
       @close="controller.toggleNewCollectionDialog(false)"
-      @create="handleCreateCollection"
+    />
+
+    <!-- Collection Context Menu -->
+    <CollectionContextMenu
+      ref="contextMenuRef"
+      :collections-controller="controller"
+      @action="handleContextAction"
+    />
+
+    <!-- Request Context Menu -->
+    <RequestContextMenu
+      ref="requestContextMenuRef"
+      :collections-controller="controller"
+      @action="handleRequestContextAction"
     />
   </div>
 </template>
@@ -143,7 +198,7 @@ onUnmounted(() => {
   width: 24px;
   height: 24px;
   padding: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-sm);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   color: var(--color-text-secondary);

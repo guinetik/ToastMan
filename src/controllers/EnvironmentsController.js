@@ -21,45 +21,54 @@ export class EnvironmentsController extends BaseController {
     super.init()
 
     this.environments = this.createComputed('environments', () => {
-      if (!this.environmentsStore) return []
+      if (!this.environmentsStore) {
+        this.logger.warn('Environments store not available')
+        return []
+      }
 
-      const envs = this.environmentsStore.environments
-      const actualEnvs = envs?.value || envs
-      const environments = Array.isArray(actualEnvs) ? actualEnvs : []
+      // Access the reactive computed from the store
+      const environments = this.environmentsStore.environments.value || []
 
-      return environments.map(e => {
+      this.logger.debug('Raw environments from store:', environments.length, 'items')
+
+      if (!Array.isArray(environments)) {
+        this.logger.warn('Environments is not an array:', environments)
+        return []
+      }
+
+      const processedEnvironments = environments.map(e => {
         try {
-          this.logger.debug('Creating Environment instance for:', e?.name || 'unnamed', 'with data:', e)
           return new Environment(e)
         } catch (error) {
           this.logger.error('Failed to parse environment:', error)
           this.logger.error('Raw environment data:', e)
-          this.logger.error('Environment data types:', {
-            id: typeof e?.id,
-            name: typeof e?.name,
-            createdAt: typeof e?.createdAt,
-            updatedAt: typeof e?.updatedAt
-          })
           return e
         }
       })
+
+      this.logger.debug('Processed environments:', processedEnvironments.length, 'items')
+      return processedEnvironments
     })
 
     this.activeEnvironment = this.createComputed('activeEnvironment', () => {
-      if (!this.environmentsStore) return null
+      if (!this.environmentsStore) {
+        this.logger.warn('Environments store not available for active environment')
+        return null
+      }
 
-      const active = this.environmentsStore.activeEnvironment
-      const actualActive = active?.value || active
-      if (!actualActive) return null
+      // Access the reactive computed from the store
+      const activeEnvironment = this.environmentsStore.activeEnvironment.value
+
+      this.logger.debug('Raw active environment from store:', activeEnvironment)
+
+      if (!activeEnvironment) return null
 
       try {
-        this.logger.debug('Creating Environment instance with data:', actualActive)
-        return new Environment(actualActive)
+        return new Environment(activeEnvironment)
       } catch (error) {
         this.logger.error('Failed to parse active environment:', error)
-        this.logger.error('Raw active environment data:', actualActive)
-        this.logger.error('Active environment ID type:', typeof actualActive?.id, 'Value:', actualActive?.id)
-        return actualActive
+        this.logger.error('Raw active environment data:', activeEnvironment)
+        return activeEnvironment
       }
     })
   }
@@ -94,6 +103,23 @@ export class EnvironmentsController extends BaseController {
     this.environmentsStore.setActiveEnvironment(envId)
     this.logger.info(`Set active environment: ${envId}`)
     this.emit('environmentChanged', envId)
+  }
+
+  /**
+   * Update environment
+   */
+  async updateEnvironment(envId, updates) {
+    const result = await this.executeAsync(async () => {
+      const updatedEnvironment = this.environmentsStore.updateEnvironment(envId, updates)
+      this.logger.info(`Updated environment: ${envId}`)
+      return updatedEnvironment
+    }, 'Failed to update environment')
+
+    if (result.success) {
+      this.emit('environmentUpdated', { environmentId: envId, environment: result.data })
+    }
+
+    return result
   }
 
   /**

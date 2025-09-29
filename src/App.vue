@@ -1,13 +1,28 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { Splitpanes, Pane } from 'splitpanes'
 import 'splitpanes/dist/splitpanes.css'
 import Sidebar from './components/Sidebar.vue'
 import RequestTabs from './components/RequestTabs.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
+import AlertDialog from './components/AlertDialog.vue'
+import { useEnvironments } from './stores/useEnvironments.js'
+import { useTabs } from './stores/useTabs.js'
+import { useAlert } from './composables/useAlert.js'
 import { createLogger } from './core/logger.js'
 
 const logger = createLogger('app')
+const environmentsStore = useEnvironments()
+const tabsStore = useTabs()
+const { alertState, handleConfirm, handleCancel, closeAlert } = useAlert()
+
+// Global environment indicator
+const activeEnvironment = computed(() => {
+  const active = environmentsStore.activeEnvironment
+  const resolved = active?.value || active
+  // Only return if we have a valid environment with a name
+  return resolved && resolved.name ? resolved : null
+})
 
 const sidebarWidth = ref(25) // 25% initial width
 const showSettings = ref(false)
@@ -20,6 +35,15 @@ const openSettings = () => {
 const closeSettings = () => {
   logger.debug('Closing settings dialog')
   showSettings.value = false
+}
+
+const createNewRequest = () => {
+  logger.debug('Creating new request tab')
+  const newTab = tabsStore.createTab({
+    name: 'New Request',
+    method: 'GET'
+  })
+  logger.info('Created new tab:', newTab.id)
 }
 
 const handleResize = (event) => {
@@ -76,7 +100,21 @@ onMounted(() => {
         <h1 class="app-title">🍞 ToastMan</h1>
         <span class="app-subtitle">API Testing Tool</span>
       </div>
+
+      <!-- Global Environment Indicator -->
+      <div class="environment-indicator" v-if="activeEnvironment && activeEnvironment.name">
+        <span class="env-label">Environment:</span>
+        <span class="env-name">{{ activeEnvironment.name }}</span>
+      </div>
+
       <div class="header-actions">
+        <button
+          class="create-request-button"
+          @click="createNewRequest"
+          title="Create New Request"
+        >
+          ➕ New Request
+        </button>
         <button
           class="settings-button"
           @click="openSettings"
@@ -106,6 +144,22 @@ onMounted(() => {
     <SettingsDialog
       v-if="showSettings"
       @close="closeSettings"
+    />
+
+    <!-- Global Alert Dialog -->
+    <AlertDialog
+      v-if="alertState.show"
+      :title="alertState.title"
+      :message="alertState.message"
+      :type="alertState.type"
+      :confirm-text="alertState.confirmText"
+      :cancel-text="alertState.cancelText"
+      :show-input="alertState.showInput"
+      :input-placeholder="alertState.inputPlaceholder"
+      :input-value="alertState.inputValue"
+      @confirm="handleConfirm"
+      @cancel="handleCancel"
+      @close="closeAlert"
     />
   </div>
 </template>
@@ -187,6 +241,27 @@ onMounted(() => {
   gap: 12px;
 }
 
+.create-request-button {
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.create-request-button:hover {
+  background: var(--color-primary-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
 .settings-button {
   padding: 8px;
   border-radius: var(--radius-md);
@@ -204,5 +279,32 @@ onMounted(() => {
   background: var(--color-bg-hover);
   color: var(--color-primary);
   border-color: var(--color-primary-light);
+}
+
+/* Environment Indicator */
+.environment-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.env-label {
+  color: var(--color-text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.env-name {
+  color: var(--color-primary);
+  font-weight: 600;
+  background: rgba(37, 99, 235, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 </style>

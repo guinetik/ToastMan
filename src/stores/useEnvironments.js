@@ -294,8 +294,8 @@ function createEnvironmentsStore() {
     }
   }
 
-  // Initialize default data
-  initializeDefaultData()
+  // Don't auto-initialize default data - let users start with empty state
+  // initializeDefaultData()
 
   return {
     // Reactive data

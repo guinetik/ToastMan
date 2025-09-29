@@ -14,7 +14,7 @@ const state = controller.state
 const createCollection = async () => {
   const result = await controller.submit()
   if (result.success) {
-    emit('create', result.data.info.name)
+    // Collection is already created by the controller, just close the dialog
     emit('close')
   }
 }

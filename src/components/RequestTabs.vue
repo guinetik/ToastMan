@@ -4,6 +4,7 @@ import { Splitpanes, Pane } from 'splitpanes'
 import { useCollections } from '../stores/useCollections.js'
 import { useEnvironments } from '../stores/useEnvironments.js'
 import { useTabs } from '../stores/useTabs.js'
+import CollectionPickerDialog from './CollectionPickerDialog.vue'
 
 const collectionsStore = useCollections()
 const environmentsStore = useEnvironments()
@@ -11,10 +12,11 @@ const tabsStore = useTabs()
 
 // Use real data from stores
 const tabs = computed(() => {
-  const tabsData = tabsStore.tabs
+  const tabsData = tabsStore.tabs.value
+  console.log('[RequestTabs] Current tabs:', tabsData)
   return Array.isArray(tabsData) ? tabsData : []
 })
-const activeTab = computed(() => tabsStore.activeTab)
+const activeTab = computed(() => tabsStore.activeTab.value)
 
 // Get the current request data for the active tab
 const currentRequest = computed(() => {
@@ -63,11 +65,19 @@ const activeRequestTab = ref('params')
 const activeResponseTab = ref('body')
 
 // View toggle state
-const viewMode = ref('both') // 'request', 'response', 'both'
+const viewMode = ref('request') // 'request', 'response', 'both' - default to request only
 const hasResponse = ref(false) // Track if a response has been received
+
+// Save dialog state
+const showSaveDialog = ref(false)
+const pendingSaveName = ref('')
 
 // Load request data into form
 const loadRequestData = () => {
+  // Reset view mode and response status for new/different tabs
+  hasResponse.value = false
+  viewMode.value = 'request'
+
   if (currentRequest.value) {
     const request = currentRequest.value.request
     currentUrl.value = request.url.raw || ''
@@ -145,11 +155,58 @@ const removeHeader = (index) => {
 
 const saveRequest = () => {
   if (activeTab.value) {
-    const result = tabsStore.saveTab(activeTab.value.id)
-    if (result) {
-      console.log('Request saved:', result)
-      // TODO: Show success message
+    pendingSaveName.value = activeTab.value.name || 'New Request'
+    showSaveDialog.value = true
+  }
+}
+
+const handleSaveRequest = ({ collectionId, requestName, isNewCollection }) => {
+  if (activeTab.value) {
+    // First update the tab name
+    tabsStore.updateTab(activeTab.value.id, { name: requestName })
+
+    // If this is a new request (no itemId), add it to the collection
+    if (!activeTab.value.itemId) {
+      const newRequest = collectionsStore.addRequest(collectionId, {
+        method: currentMethod.value,
+        url: { raw: currentUrl.value },
+        header: currentHeaders.value.filter(h => h.enabled && h.key),
+        body: {
+          mode: currentBodyType.value,
+          raw: currentBody.value
+        }
+      })
+
+      // Link the tab to the new request
+      tabsStore.updateTab(activeTab.value.id, {
+        itemId: newRequest.id,
+        collectionId: collectionId,
+        saved: true,
+        modified: false
+      })
+
+      // Update the request name
+      collectionsStore.updateRequest(collectionId, newRequest.id, { name: requestName })
+    } else {
+      // Update existing request
+      collectionsStore.updateRequest(activeTab.value.collectionId, activeTab.value.itemId, {
+        name: requestName,
+        request: {
+          method: currentMethod.value,
+          url: { raw: currentUrl.value },
+          header: currentHeaders.value.filter(h => h.enabled && h.key),
+          body: {
+            mode: currentBodyType.value,
+            raw: currentBody.value
+          }
+        }
+      })
+
+      tabsStore.markTabAsSaved(activeTab.value.id)
     }
+
+    console.log(`Request "${requestName}" saved to collection`)
+    showSaveDialog.value = false
   }
 }
 
@@ -164,9 +221,7 @@ const sendRequest = () => {
 
   // Set response received flag and show response view
   hasResponse.value = true
-  if (viewMode.value === 'request') {
-    viewMode.value = 'both' // Auto-switch to both when response comes in
-  }
+  viewMode.value = 'both' // Always switch to both view to show the response
 
   // TODO: Implement actual request logic
   // TODO: Add to history after sending
@@ -212,7 +267,7 @@ watch(activeTab, (newTab) => {
       <div class="tabs-list">
         <div class="tabs-left">
           <div v-if="tabs.length === 0" class="empty-tabs">
-            <span>Loading...</span>
+            <span class="empty-message">No tabs open - Click + to create your first request</span>
           </div>
           <template v-else>
             <div
@@ -229,7 +284,6 @@ watch(activeTab, (newTab) => {
               <button
                 class="close-tab"
                 @click.stop="tab && closeTab(tab.id)"
-                v-if="tabs.length > 1"
               >
                 ×
               </button>
@@ -256,8 +310,28 @@ watch(activeTab, (newTab) => {
       </div>
     </div>
 
+    <!-- Empty State -->
+    <div v-if="tabs.length === 0" class="empty-state-container">
+      <div class="empty-state">
+        <div class="empty-icon">📭</div>
+        <h2>No Requests Open</h2>
+        <p>Start by creating a new request or selecting one from your collections</p>
+        <button class="btn-primary" @click="addNewTab">
+          ➕ Create New Request
+        </button>
+        <div class="quick-tips">
+          <h4>Quick Tips:</h4>
+          <ul>
+            <li>Click the + button above to create a new request</li>
+            <li>Select requests from collections in the sidebar</li>
+            <li>Use keyboard shortcut Ctrl+T to create a new tab</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
     <!-- Tab Content -->
-    <div class="tab-content" v-if="activeTab">
+    <div class="tab-content" v-else-if="activeTab">
       <Splitpanes horizontal v-if="viewMode === 'both'">
         <!-- Request Section -->
         <Pane size="60" min-size="40">
@@ -286,7 +360,7 @@ watch(activeTab, (newTab) => {
               >
 
               <button class="save-button" @click="saveRequest" title="Save Request">
-                💾 Save
+                💾
               </button>
               <button class="send-button primary large" @click="sendRequest">
                 ▶️ Send
@@ -507,7 +581,7 @@ watch(activeTab, (newTab) => {
             >
 
             <button class="save-button" @click="saveRequest" title="Save Request">
-              💾 Save
+              💾
             </button>
             <button class="send-button primary large" @click="sendRequest">
               ▶️ Send
@@ -701,6 +775,26 @@ watch(activeTab, (newTab) => {
         </div>
       </div>
     </div>
+
+    <!-- Fallback content when no active tab -->
+    <div class="no-tab-content" v-if="!activeTab">
+      <div class="welcome-tab">
+        <div class="welcome-icon">🚀</div>
+        <h3>Ready to test some APIs?</h3>
+        <p>Create a new tab to start building your request</p>
+        <button class="btn-primary" @click="addNewTab">
+          + Create New Request
+        </button>
+      </div>
+    </div>
+
+    <!-- Save Request Dialog -->
+    <CollectionPickerDialog
+      v-if="showSaveDialog"
+      :request-name="pendingSaveName"
+      @close="showSaveDialog = false"
+      @save="handleSaveRequest"
+    />
   </div>
 </template>
 
@@ -736,37 +830,43 @@ watch(activeTab, (newTab) => {
 
 .view-controls {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   align-items: center;
-  background: var(--color-bg-primary);
-  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
   padding: 4px;
-  border: 1px solid var(--color-border);
 }
 
 .view-toggle {
-  background: none;
-  border: none;
+  background: var(--color-bg-tertiary);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
   color: var(--color-text-secondary);
   cursor: pointer;
   font-size: 14px;
-  padding: 6px 8px;
-  border-radius: var(--radius-sm);
+  padding: 8px 12px;
   transition: all 0.2s ease;
   min-width: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+  margin-bottom: -1px;
 }
 
 .view-toggle:hover:not(.disabled) {
   background: var(--color-bg-hover);
   color: var(--color-text-primary);
+  border-color: var(--color-border);
+  transform: translateY(-1px);
 }
 
 .view-toggle.active {
-  background: var(--color-primary);
-  color: white;
+  background: var(--color-bg-secondary);
+  color: var(--color-primary);
+  border-color: var(--color-border);
+  border-bottom-color: var(--color-bg-secondary);
+  font-weight: 600;
+  z-index: 1;
 }
 
 .view-toggle.disabled {
@@ -838,15 +938,17 @@ watch(activeTab, (newTab) => {
 }
 
 .add-tab {
-  background: none;
-  border: none;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
   color: var(--color-text-secondary);
   cursor: pointer;
-  font-size: 18px;
-  padding: 8px;
+  font-size: 16px;
+  padding: 6px 10px;
   margin-left: 8px;
-  border-radius: 50%;
+  border-radius: var(--radius-sm);
   transition: all 0.2s ease;
+  min-width: 32px;
+  height: 32px;
 }
 
 .add-tab:hover {
@@ -893,12 +995,16 @@ watch(activeTab, (newTab) => {
 }
 
 .save-button {
-  min-width: 80px;
-  font-size: 13px;
+  min-width: 36px;
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
   font-weight: 500;
   background: var(--color-bg-tertiary);
   color: var(--color-text-primary);
   border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0;
 }
 
 .save-button:hover {
@@ -908,8 +1014,9 @@ watch(activeTab, (newTab) => {
 
 .send-button {
   min-width: 120px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
+  color: white;
 }
 
 .request-tabs-nav, .response-tabs-nav {
@@ -1235,5 +1342,145 @@ watch(activeTab, (newTab) => {
 .tip-icon {
   font-size: 16px;
   flex-shrink: 0;
+}
+
+/* No Tab Content Styles */
+.no-tab-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-primary);
+}
+
+.welcome-tab {
+  text-align: center;
+  max-width: 400px;
+  padding: 40px 20px;
+}
+
+.welcome-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.8;
+}
+
+.welcome-tab h3 {
+  font-size: 20px;
+  color: var(--color-text-primary);
+  margin: 0 0 12px 0;
+  font-weight: 600;
+}
+
+.welcome-tab p {
+  font-size: 16px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin: 0 0 24px 0;
+}
+
+.empty-message {
+  font-style: italic;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+/* Empty State Styles */
+.empty-state-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  background: var(--color-bg-primary);
+}
+
+.empty-state {
+  text-align: center;
+  max-width: 500px;
+  padding: 60px 40px;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--color-border);
+}
+
+.empty-state .empty-icon {
+  font-size: 64px;
+  margin-bottom: 24px;
+  opacity: 0.8;
+  filter: grayscale(20%);
+}
+
+.empty-state h2 {
+  font-size: 24px;
+  color: var(--color-text-primary);
+  margin: 0 0 12px 0;
+  font-weight: 600;
+}
+
+.empty-state p {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin: 0 0 32px 0;
+}
+
+.empty-state .btn-primary {
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 32px;
+}
+
+.empty-state .btn-primary:hover {
+  background: var(--color-primary-dark);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.empty-state .quick-tips {
+  text-align: left;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  border: 1px solid var(--color-border-light);
+}
+
+.empty-state .quick-tips h4 {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin: 0 0 12px 0;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.empty-state .quick-tips ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.empty-state .quick-tips li {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-bottom: 8px;
+  padding-left: 20px;
+  position: relative;
+}
+
+.empty-state .quick-tips li:before {
+  content: "•";
+  color: var(--color-primary);
+  position: absolute;
+  left: 4px;
+  font-weight: bold;
 }
 </style>
