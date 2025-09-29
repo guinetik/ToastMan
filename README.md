@@ -2,6 +2,8 @@
 
 A lightweight API testing tool built with Vue 3. Think Postman, but simpler and without the bloat.
 
+![demo](public/og-image.png)
+
 ## Why ToastMan?
 
 Sometimes you need to test APIs but can't use Postman (company restrictions, offline environments, or you just want something lightweight). ToastMan gives you the core functionality you actually use without the enterprise features you don't.
