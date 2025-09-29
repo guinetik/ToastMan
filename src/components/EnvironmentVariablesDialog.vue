@@ -24,7 +24,15 @@ const newVariable = ref({
 
 // Initialize variables from environment
 onMounted(() => {
-  variables.value = (props.environment.values || []).map(v => ({ ...v }))
+  console.log('[DEBUG] Environment passed to dialog:', props.environment)
+  console.log('[DEBUG] Environment values:', props.environment.values)
+
+  // Ensure values array exists and copy variables
+  const environmentValues = props.environment.values || []
+  variables.value = environmentValues.map(v => ({ ...v }))
+
+  console.log('[DEBUG] Initialized variables:', variables.value)
+
   // Add an empty row for new variable
   if (variables.value.length === 0) {
     addEmptyVariable()
@@ -101,24 +109,37 @@ const validateVariable = (variable) => {
 }
 
 const hasErrors = computed(() => {
-  return variables.value.some(v => v.key && validateVariable(v))
+  const errors = variables.value.filter(v => v.key && validateVariable(v))
+  console.log('[DEBUG] Variables with errors:', errors)
+  if (errors.length > 0) {
+    errors.forEach(v => {
+      console.log('[DEBUG] Variable error:', v.key, '-', validateVariable(v))
+    })
+  }
+  return errors.length > 0
 })
 
 const saveChanges = () => {
+  console.log('[DEBUG] saveChanges called, hasErrors:', hasErrors.value)
   if (hasErrors.value) return
+
+  console.log('[DEBUG] Raw variables before filtering:', variables.value)
 
   // Filter out empty variables and create EnvironmentVariable instances
   const validVariables = variables.value
     .filter(v => v.key.trim() !== '')
     .map(v => {
+      console.log('[DEBUG] Processing variable:', v)
       try {
-        return new EnvironmentVariable({
+        const envVar = new EnvironmentVariable({
           key: v.key.trim(),
           value: v.value,
           type: v.type,
           description: v.description || '',
           enabled: v.enabled
         }).toJSON()
+        console.log('[DEBUG] Created EnvironmentVariable:', envVar)
+        return envVar
       } catch (error) {
         console.error('Error creating environment variable:', error)
         return null
@@ -126,10 +147,15 @@ const saveChanges = () => {
     })
     .filter(v => v !== null)
 
-  emit('update', {
+  console.log('[DEBUG] Final validVariables:', validVariables)
+
+  const updatedEnvironment = {
     ...props.environment,
     values: validVariables
-  })
+  }
+
+  console.log('[DEBUG] Emitting update with:', updatedEnvironment)
+  emit('update', updatedEnvironment)
   emit('close')
 }
 
@@ -166,7 +192,7 @@ const formatPlaceholder = (type) => {
       <div class="variables-table">
         <div class="table-header">
           <div class="col-checkbox">
-            <input type="checkbox" disabled>
+            <!-- Empty space or visual indicator for enabled/disabled -->
           </div>
           <div class="col-key">Variable</div>
           <div class="col-type">Type</div>
@@ -279,7 +305,7 @@ const formatPlaceholder = (type) => {
     </div>
 
     <!-- Actions -->
-    <template #actions>
+    <template #footer>
       <button @click="emit('close')" class="btn-secondary">
         Cancel
       </button>

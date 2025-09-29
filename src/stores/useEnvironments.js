@@ -53,10 +53,14 @@ function createEnvironmentsStore() {
   }
 
   const updateEnvironment = (id, updates) => {
+    console.log('[DEBUG] updateEnvironment called with id:', id, 'updates:', updates)
     const environment = getEnvironment(id)
+    console.log('[DEBUG] Found environment:', environment)
     if (environment) {
+      console.log('[DEBUG] Before update:', JSON.stringify(environment, null, 2))
       Object.assign(environment, updates)
       environment._postman_exported_at = new Date().toISOString()
+      console.log('[DEBUG] After update:', JSON.stringify(environment, null, 2))
     }
     return environment
   }

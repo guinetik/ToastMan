@@ -22,8 +22,11 @@ const menuRef = ref(null)
 
 const handleAction = async (action) => {
   try {
-    await props.controller.executeAction(action, props.controller.state.item)
+    console.log('[DEBUG] BaseContextMenu.handleAction - emitting action event first:', { action, item: props.controller.state.item })
     emit('action', { action, item: props.controller.state.item })
+
+    console.log('[DEBUG] BaseContextMenu.handleAction - executing action:', action, 'with item:', props.controller.state.item)
+    await props.controller.executeAction(action, props.controller.state.item)
   } catch (error) {
     console.error('Menu action failed:', error)
   }

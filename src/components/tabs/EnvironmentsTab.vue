@@ -57,14 +57,14 @@ const showContextMenu = (event, environment) => {
 const handleContextAction = (event) => {
   console.log('[DEBUG] handleContextAction called with:', event)
   console.log('[DEBUG] event.action:', event.action)
-  console.log('[DEBUG] event.environment:', event.environment)
+  console.log('[DEBUG] event.item:', event.item)
 
   // Handle variables action specifically
-  if (event.action === 'variables' && event.environment) {
-    console.log('[DEBUG] Condition met - Opening variables dialog for environment:', event.environment)
-    openVariablesDialog(event.environment)
+  if (event.action === 'variables' && event.item) {
+    console.log('[DEBUG] Condition met - Opening variables dialog for environment:', event.item)
+    openVariablesDialog(event.item)
   } else {
-    console.log('[DEBUG] Condition NOT met - action:', event.action, 'environment:', event.environment)
+    console.log('[DEBUG] Condition NOT met - action:', event.action, 'item:', event.item)
   }
 }
 
@@ -79,12 +79,22 @@ const openVariablesDialog = (environment) => {
 }
 
 const handleVariablesUpdate = async (updatedEnvironment) => {
+  console.log('[DEBUG] handleVariablesUpdate called with:', updatedEnvironment)
+  console.log('[DEBUG] Environment ID:', updatedEnvironment.id)
+  console.log('[DEBUG] Variables to save:', updatedEnvironment.values)
+
   const result = await controller.updateEnvironment(updatedEnvironment.id, {
     values: updatedEnvironment.values
   })
+
+  console.log('[DEBUG] Update result:', result)
+
   if (result.success) {
+    console.log('[DEBUG] Update successful, closing dialog')
     showVariablesDialog.value = false
     selectedEnvironment.value = null
+  } else {
+    console.error('[DEBUG] Update failed:', result.error)
   }
 }
 
