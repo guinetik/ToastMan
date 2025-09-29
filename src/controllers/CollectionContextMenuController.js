@@ -99,18 +99,16 @@ export class CollectionContextMenuController extends BaseContextMenuController {
    * Create a new folder in the collection
    */
   async createFolder(collection) {
-    const folderName = await this.alert.prompt('Enter folder name:', 'New Folder', 'Create Folder')
-    if (folderName && folderName.trim()) {
-      const newFolder = this.collectionsController.collectionsStore.addFolderToCollection(collection.info.id, folderName.trim())
-      if (newFolder) {
-        this.logger.info('Created new folder in collection:', collection.info.name, '→', newFolder.name)
-        await this.alert.alertSuccess(`Folder "${newFolder.name}" created successfully`)
-        return { action: 'create-folder', folderId: newFolder.id }
-      }
-      await this.alert.alertError('Failed to create folder')
-      throw new Error('Failed to create folder')
-    }
-    return { action: 'create-folder', cancelled: true }
+    // Emit event to trigger NewFolderDialog instead of using browser prompt
+    this.emit('showFolderDialog', {
+      type: 'create-folder',
+      collectionId: collection.info.id,
+      parentFolderId: null,
+      collection: collection
+    })
+
+    this.logger.info('Requested folder creation dialog for collection:', collection.info.name)
+    return { action: 'create-folder', dialogRequested: true }
   }
 
   /**
