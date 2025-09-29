@@ -9,7 +9,7 @@ import { computed, nextTick } from 'vue'
 import { useEnvironmentsStorage, useActiveEnvironmentStorage } from '../composables/useStorage.js'
 import { Environment, EnvironmentVariable } from '../models/Environment.js'
 import { generateId } from '../models/types.js'
-import { Logger } from '../core/Logger.js'
+import { Logger } from '../core/logger.js'
 
 // Create logger instance
 const logger = new Logger({ prefix: 'useEnvironments', level: 'debug' })

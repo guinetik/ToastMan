@@ -2,7 +2,7 @@
  * Base Model class for all data models
  * Provides common functionality like validation, serialization, and cloning
  */
-import { Logger } from '../core/Logger.js'
+import { Logger } from '../core/logger.js'
 
 // Create logger instance
 const logger = new Logger({ prefix: 'BaseModel', level: 'debug' })

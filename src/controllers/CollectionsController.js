@@ -299,10 +299,11 @@ export class CollectionsController extends BaseController {
 
   /**
    * Add a new folder to a folder
+   * Note: This method is deprecated. Use context menu controllers for UI interactions.
+   * Only use this for programmatic folder creation where the name is already provided.
    */
-  addFolderToFolder(collectionId, parentFolderId) {
+  addFolderToFolder(collectionId, parentFolderId, folderName = 'New Folder') {
     this.logger.info(`Adding folder to folder ${parentFolderId} in collection ${collectionId}`)
-    const folderName = prompt('Enter folder name:') || 'New Folder'
     const folder = this.collectionsStore.addFolderToFolder(collectionId, parentFolderId, folderName)
     if (folder) {
       this.emit('folderAddedToFolder', { collectionId, parentFolderId, folder })
@@ -312,12 +313,13 @@ export class CollectionsController extends BaseController {
 
   /**
    * Rename a folder
+   * Note: This method is deprecated. Use context menu controllers for UI interactions.
+   * Only use this for programmatic renames where the name is already provided.
    */
-  async renameFolder(collectionId, folderId) {
-    const folderName = prompt('Enter new folder name:')
-    if (folderName) {
-      this.logger.info(`Renaming folder ${folderId} to ${folderName}`)
-      const folder = this.collectionsStore.renameFolder(collectionId, folderId, folderName)
+  async renameFolder(collectionId, folderId, newName) {
+    if (newName && newName.trim()) {
+      this.logger.info(`Renaming folder ${folderId} to ${newName}`)
+      const folder = this.collectionsStore.renameFolder(collectionId, folderId, newName.trim())
       if (folder) {
         this.emit('folderRenamed', { collectionId, folderId, folder })
       }
@@ -340,17 +342,15 @@ export class CollectionsController extends BaseController {
 
   /**
    * Delete a folder and all its contents
+   * Note: This method is deprecated. Use context menu controllers for UI interactions.
+   * Only use this for programmatic deletes where confirmation is already handled.
    */
   async deleteFolder(collectionId, folderId) {
-    const confirm = window.confirm('Are you sure you want to delete this folder and all its contents?')
-    if (confirm) {
-      this.logger.info(`Deleting folder ${folderId} from collection ${collectionId}`)
-      const success = this.collectionsStore.deleteFolder(collectionId, folderId)
-      if (success) {
-        this.emit('folderDeleted', { collectionId, folderId })
-      }
-      return success
+    this.logger.info(`Deleting folder ${folderId} from collection ${collectionId}`)
+    const success = this.collectionsStore.deleteFolder(collectionId, folderId)
+    if (success) {
+      this.emit('folderDeleted', { collectionId, folderId })
     }
-    return false
+    return success
   }
 }

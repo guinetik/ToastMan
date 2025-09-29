@@ -1,4 +1,5 @@
 import { BaseContextMenuController } from './BaseContextMenuController.js'
+import { useAlert } from '../composables/useAlert.js'
 
 /**
  * Folder Context Menu Controller
@@ -10,6 +11,7 @@ export class FolderContextMenuController extends BaseContextMenuController {
 
     this.collectionsController = collectionsController
     this.currentCollection = null
+    this.alert = useAlert()
   }
 
   /**
@@ -112,28 +114,37 @@ export class FolderContextMenuController extends BaseContextMenuController {
    * Add a new folder to this folder
    */
   async addFolderToFolder(folder) {
-    const newFolder = this.collectionsController.addFolderToFolder(
-      this.currentCollection.info.id,
-      folder.id
-    )
-    if (newFolder) {
-      this.logger.info('Added new folder to folder:', folder.name)
-      return { action: 'new-folder', folderId: newFolder.id }
-    }
-    throw new Error('Failed to add folder to folder')
+    // Emit event to trigger NewFolderDialog instead of using browser prompt
+    this.emit('showFolderDialog', {
+      type: 'new-folder',
+      collectionId: this.currentCollection.info.id,
+      parentFolderId: folder.id,
+      collection: this.currentCollection,
+      parentFolder: folder
+    })
+
+    this.logger.info('Requested folder creation dialog for folder:', folder.name)
+    return { action: 'new-folder', dialogRequested: true }
   }
 
   /**
    * Rename the folder
    */
   async renameFolder(folder) {
-    const result = await this.collectionsController.renameFolder(
-      this.currentCollection.info.id,
-      folder.id
-    )
-    if (result) {
-      this.logger.info('Renamed folder:', folder.name, '→', result.name)
-      return { action: 'rename', oldName: folder.name, newName: result.name }
+    const newName = await this.alert.prompt('Enter new folder name:', folder.name, 'Rename Folder')
+    if (newName && newName.trim() && newName.trim() !== folder.name) {
+      const result = this.collectionsController.collectionsStore.renameFolder(
+        this.currentCollection.info.id,
+        folder.id,
+        newName.trim()
+      )
+      if (result) {
+        this.logger.info('Renamed folder from', folder.name, 'to', newName.trim())
+        await this.alert.alertSuccess(`Folder renamed to "${newName.trim()}"`)
+        return { action: 'rename', oldName: folder.name, newName: newName.trim() }
+      }
+      await this.alert.alertError('Failed to rename folder')
+      throw new Error('Failed to rename folder')
     }
     return { action: 'rename', cancelled: true }
   }
@@ -157,14 +168,25 @@ export class FolderContextMenuController extends BaseContextMenuController {
    * Delete the folder
    */
   async deleteFolder(folder) {
-    const success = await this.collectionsController.deleteFolder(
-      this.currentCollection.info.id,
-      folder.id
+    const confirmDelete = await this.alert.confirmDelete(
+      `Are you sure you want to delete the folder "${folder.name}"?\n\nThis action cannot be undone and will delete all contents inside the folder.`,
+      'Delete Folder'
     )
-    if (success) {
-      this.logger.info('Deleted folder:', folder.name)
-      return { action: 'delete', folderId: folder.id, folderName: folder.name }
+
+    if (confirmDelete) {
+      const success = this.collectionsController.collectionsStore.deleteFolder(
+        this.currentCollection.info.id,
+        folder.id
+      )
+      if (success) {
+        this.logger.info('Deleted folder:', folder.name)
+        await this.alert.alertSuccess(`Folder "${folder.name}" has been deleted`)
+        return { action: 'delete', folderId: folder.id, folderName: folder.name }
+      }
+      await this.alert.alertError('Failed to delete folder')
+      throw new Error('Failed to delete folder')
     }
-    throw new Error('Failed to delete folder')
+
+    return { action: 'delete', cancelled: true }
   }
 }

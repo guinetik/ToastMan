@@ -1,88 +1,101 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { CollectionsController } from '../../controllers/CollectionsController.js'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { CollectionsTabController } from '../../controllers/CollectionsTabController.js'
 import NewCollectionDialog from '../dialogs/NewCollectionDialog.vue'
+import NewFolderDialog from '../dialogs/NewFolderDialog.vue'
 import CollectionContextMenu from '../menu/CollectionContextMenu.vue'
 import RequestContextMenu from '../menu/RequestContextMenu.vue'
 import FolderContextMenu from '../menu/FolderContextMenu.vue'
 import CollectionItem from '../CollectionItem.vue'
 
-// Create controller instance and initialize immediately
-const controller = new CollectionsController()
-controller.init()
+// Controller instance
+let controller = null
 
-// Access reactive state from controller
-const state = controller.state
-
-// Access reactive computed properties from controller
-const collections = computed(() => {
-  const colls = controller.getComputed('collections')
-  return colls || []
-})
-
-const filteredCollections = computed(() => {
-  const filtered = controller.getComputed('filteredCollections')
-  return filtered || []
-})
+// Reactive refs that will be bound to controller state
+const state = ref({})
 
 // Context menu references
 const contextMenuRef = ref(null)
 const requestContextMenuRef = ref(null)
 const folderContextMenuRef = ref(null)
 
-// Component methods that delegate to controller
-const toggleCollection = (id) => controller.toggleCollection(id)
-const openRequest = (collectionId, requestId) => controller.openRequest(collectionId, requestId)
-const createNewCollection = () => controller.toggleNewCollectionDialog(true)
-
-// Context menu methods
-const showContextMenu = (event, collection) => {
-  if (contextMenuRef.value) {
-    contextMenuRef.value.show(event, collection)
-  }
-}
-
-const showRequestContextMenu = (event, collection, request) => {
-  event.stopPropagation() // Prevent triggering collection context menu
-  if (requestContextMenuRef.value) {
-    requestContextMenuRef.value.show(event, collection, request)
-  }
-}
-
-const showFolderContextMenu = (event, collection, folder) => {
-  event.stopPropagation() // Prevent triggering collection context menu
-  if (folderContextMenuRef.value) {
-    folderContextMenuRef.value.show(event, collection, folder)
-  }
-}
-
-const handleContextAction = (event) => {
-  // Action is handled by the context menu controller
-}
-
-const handleRequestContextAction = (event) => {
-  // Action is handled by the request context menu controller
-}
-
-// Event handlers - no longer needed since dialog handles creation internally
-// const handleCreateCollection = async (name) => {
-//   const result = await controller.createCollection(name)
-//   if (result.success) {
-//     // Collection created successfully, dialog will close automatically
-//   }
-// }
-
-// Utility methods
-const getMethodColor = (method) => controller.getMethodColor(method)
-
-// Lifecycle hooks
+// Initialize controller
 onMounted(() => {
-  // Controller already initialized above
+  // Create controller instance
+  controller = new CollectionsTabController()
+
+  // Bind reactive state to controller state
+  state.value = controller.getCollectionsState()
+
+  // Set context menu references
+  controller.setContextMenuRefs(
+    contextMenuRef.value,
+    requestContextMenuRef.value,
+    folderContextMenuRef.value
+  )
+
+  // Setup event handlers
+  controller.on('collectionCreated', (data) => {
+    // Collection created, no additional handling needed
+  })
+
+  controller.on('collectionDeleted', (collectionId) => {
+    // Collection deleted, no additional handling needed
+  })
+
+  // Setup reactive binding for computed properties
+  const updateComputedValues = () => {
+    // These are handled by the controller's reactive state
+    // No additional computed updates needed
+  }
+
+  // Update computed values periodically (simple reactive binding)
+  const intervalId = setInterval(updateComputedValues, 100)
+
+  // Store interval ID for cleanup
+  controller._intervalId = intervalId
 })
 
 onUnmounted(() => {
-  controller.dispose()
+  // Clean up controller
+  if (controller) {
+    if (controller._intervalId) {
+      clearInterval(controller._intervalId)
+    }
+    controller.dispose()
+    controller = null
+  }
 })
+
+// Watch for context menu ref changes
+watch([contextMenuRef, requestContextMenuRef, folderContextMenuRef], () => {
+  if (controller) {
+    controller.setContextMenuRefs(
+      contextMenuRef.value,
+      requestContextMenuRef.value,
+      folderContextMenuRef.value
+    )
+  }
+})
+
+// Component methods that delegate to controller
+const toggleCollection = (id) => controller?.toggleCollection(id)
+const openRequest = (collectionId, requestId) => controller?.openRequest(collectionId, requestId)
+const createNewCollection = () => controller?.toggleNewCollectionDialog(true)
+
+// Context menu methods
+const showContextMenu = (event, collection) => controller?.showContextMenu(event, collection)
+const showRequestContextMenu = (event, collection, request) => controller?.showRequestContextMenu(event, collection, request)
+const showFolderContextMenu = (event, collection, folder) => controller?.showFolderContextMenu(event, collection, folder)
+
+const handleContextAction = (event) => controller?.handleContextAction(event)
+const handleRequestContextAction = (event) => controller?.handleRequestContextAction(event)
+
+// Utility methods
+const getMethodColor = (method) => controller?.getMethodColor(method) || '#6b7280'
+const getCollections = () => controller?.getCollections() || []
+const getFilteredCollections = () => controller?.getFilteredCollections() || []
+const isCollectionExpanded = (id) => controller?.isCollectionExpanded(id) || false
 </script>
 
 <template>
@@ -93,11 +106,11 @@ onUnmounted(() => {
     </div>
 
     <div class="collections-list">
-      <div v-if="!collections" class="empty-state">
+      <div v-if="!getCollections()" class="empty-state">
         <div class="loading-spinner">⏳</div>
         <p>Loading collections...</p>
       </div>
-      <div v-else-if="collections.length === 0" class="empty-state welcome-state">
+      <div v-else-if="getCollections().length === 0" class="empty-state welcome-state">
         <div class="welcome-icon">📁</div>
         <h3>Welcome to ToastMan!</h3>
         <p>Get started by creating your first collection to organize your API requests.</p>
@@ -115,7 +128,7 @@ onUnmounted(() => {
       </div>
       <template v-else>
         <div
-          v-for="collection in filteredCollections"
+          v-for="collection in getFilteredCollections()"
           :key="collection?.info?.id || Date.now()"
           class="collection-item"
         >
@@ -126,14 +139,14 @@ onUnmounted(() => {
             @contextmenu="showContextMenu($event, collection)"
           >
             <span class="expand-icon">
-              {{ controller.isCollectionExpanded(collection.info.id) ? '📂' : '📁' }}
+              {{ isCollectionExpanded(collection.info.id) ? '📂' : '📁' }}
             </span>
             <span class="collection-name">{{ collection.info.name }}</span>
             <span class="request-count">{{ (collection.item || []).length }}</span>
           </div>
 
           <div
-            v-if="collection && collection.info && controller.isCollectionExpanded(collection.info.id) && collection.item"
+            v-if="collection && collection.info && isCollectionExpanded(collection.info.id) && collection.item"
             class="requests-list"
           >
             <CollectionItem
@@ -141,7 +154,7 @@ onUnmounted(() => {
               :key="item.id"
               :item="item"
               :collection-id="collection.info.id"
-              :controller="controller"
+              :controller="controller?.collectionsController"
               @open-request="(collectionId, requestId) => openRequest(collectionId, requestId)"
               @show-context-menu="(event, request) => showRequestContextMenu(event, collection, request)"
               @show-folder-context-menu="(event, folder) => showFolderContextMenu(event, collection, folder)"
@@ -154,29 +167,41 @@ onUnmounted(() => {
     <!-- New Collection Dialog -->
     <NewCollectionDialog
       v-if="state.showNewCollectionDialog"
-      @close="controller.toggleNewCollectionDialog(false)"
+      @close="() => controller?.toggleNewCollectionDialog(false)"
     />
 
-    <!-- Collection Context Menu -->
-    <CollectionContextMenu
-      ref="contextMenuRef"
-      :collections-controller="controller"
-      @action="handleContextAction"
+    <!-- New Folder Dialog -->
+    <NewFolderDialog
+      v-if="controller?.state?.showNewFolderDialog && controller?.state?.newFolderDialogData"
+      :collection-id="controller.state.newFolderDialogData.collectionId"
+      :parent-folder-id="controller.state.newFolderDialogData.parentFolderId"
+      @close="() => controller?.hideNewFolderDialog()"
+      @create="() => controller?.hideNewFolderDialog()"
     />
 
-    <!-- Request Context Menu -->
-    <RequestContextMenu
-      ref="requestContextMenuRef"
-      :collections-controller="controller"
-      @action="handleRequestContextAction"
-    />
+    <!-- Context Menus - only render after controller is ready -->
+    <template v-if="controller">
+      <!-- Collection Context Menu -->
+      <CollectionContextMenu
+        ref="contextMenuRef"
+        :collections-controller="controller.collectionsController"
+        @action="handleContextAction"
+      />
 
-    <!-- Folder Context Menu -->
-    <FolderContextMenu
-      ref="folderContextMenuRef"
-      :collections-controller="controller"
-      @action="handleContextAction"
-    />
+      <!-- Request Context Menu -->
+      <RequestContextMenu
+        ref="requestContextMenuRef"
+        :collections-controller="controller.collectionsController"
+        @action="handleRequestContextAction"
+      />
+
+      <!-- Folder Context Menu -->
+      <FolderContextMenu
+        ref="folderContextMenuRef"
+        :collections-controller="controller.collectionsController"
+        @action="handleContextAction"
+      />
+    </template>
   </div>
 </template>
 

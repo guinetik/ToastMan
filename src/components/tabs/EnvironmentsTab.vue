@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { EnvironmentsController } from '../../controllers/EnvironmentsController.js'
-import { Logger } from '../../core/Logger.js'
+import { Logger } from '../../core/logger.js'
 import NewEnvironmentDialog from '../dialogs/NewEnvironmentDialog.vue'
 import EnvironmentContextMenu from '../menu/EnvironmentContextMenu.vue'
 import EnvironmentVariablesDialog from '../dialogs/EnvironmentVariablesDialog.vue'

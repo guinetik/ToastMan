@@ -9,7 +9,7 @@ import AlertDialog from './components/dialogs/AlertDialog.vue'
 import { useEnvironments } from './stores/useEnvironments.js'
 import { useTabs } from './stores/useTabs.js'
 import { useAlert } from './composables/useAlert.js'
-import { createLogger } from './core/Logger.js'
+import { createLogger } from './core/logger.js'
 
 const logger = createLogger('app')
 const environmentsStore = useEnvironments()

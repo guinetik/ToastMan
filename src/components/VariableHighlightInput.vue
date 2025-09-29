@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
 import { useVariableInterpolation } from '../composables/useVariableInterpolation.js'
-import { Logger } from '../core/Logger.js'
+import { Logger } from '../core/logger.js'
 
 // Create logger instance
 const logger = new Logger({ prefix: 'VariableHighlightInput', level: 'debug' })
