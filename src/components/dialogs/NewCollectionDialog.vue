@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { NewCollectionDialogController } from '../controllers/NewCollectionDialogController.js'
-import BaseDialog from './BaseDialog.vue'
+import { NewCollectionDialogController } from '../../controllers/NewCollectionDialogController.js'
+import BaseDialog from '../base/BaseDialog.vue'
 
 const emit = defineEmits(['close', 'create'])
 

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import BaseDialog from './BaseDialog.vue'
+import BaseDialog from '../base/BaseDialog.vue'
 
 const emit = defineEmits(['close', 'create'])
 

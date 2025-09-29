@@ -1,453 +1,84 @@
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { Splitpanes, Pane } from 'splitpanes'
-import { useCollections } from '../stores/useCollections.js'
-import { useEnvironments } from '../stores/useEnvironments.js'
-import { useTabs } from '../stores/useTabs.js'
-import { useVariableInterpolation } from '../composables/useVariableInterpolation.js'
-import { HttpClientFactory } from '../core/http/HttpClient.js'
-import '../core/http/FetchHttpClient.js' // Register FetchHttpClient
-import CollectionPickerDialog from './CollectionPickerDialog.vue'
+import { RequestTabsController } from '../controllers/RequestTabsController.js'
+import CollectionPickerDialog from './dialogs/CollectionPickerDialog.vue'
 import VariableInput from './VariableInput.vue'
 import SyntaxHighlighter from './SyntaxHighlighter.vue'
+import RequestBodyEditor from './editors/RequestBodyEditor.vue'
 
-const collectionsStore = useCollections()
-const environmentsStore = useEnvironments()
-const tabsStore = useTabs()
-const { interpolateText } = useVariableInterpolation()
+// Controller instance
+let controller = null
 
-// Create HTTP client instance
-const httpClient = HttpClientFactory.create('fetch')
+// Reactive refs that will be bound to controller state
+const state = ref({})
+const tabs = ref([])
+const activeTab = ref(null)
+const currentRequest = ref(null)
 
-// Use real data from stores
-const tabs = computed(() => {
-  const tabsData = tabsStore.tabs.value
-  console.log('[RequestTabs] Current tabs:', tabsData)
-  return Array.isArray(tabsData) ? tabsData : []
+// Initialize controller
+onMounted(() => {
+  // Create controller instance
+  controller = new RequestTabsController()
+
+  // Bind reactive state to controller state
+  state.value = controller.state
+
+  // Bind computed properties
+  tabs.value = controller.getComputed('tabs')
+  activeTab.value = controller.getComputed('activeTab')
+  currentRequest.value = controller.getComputed('currentRequest')
+
+  // Setup reactive binding for computed properties
+  const updateComputedValues = () => {
+    tabs.value = controller.getComputed('tabs')
+    activeTab.value = controller.getComputed('activeTab')
+    currentRequest.value = controller.getComputed('currentRequest')
+  }
+
+  // Update computed values periodically (simple reactive binding)
+  const intervalId = setInterval(updateComputedValues, 100)
+
+  // Store interval ID for cleanup
+  controller._intervalId = intervalId
 })
-const activeTab = computed(() => tabsStore.activeTab.value)
 
-// Get the current request data for the active tab
-const currentRequest = computed(() => {
-  if (activeTab.value?.itemId && activeTab.value?.collectionId) {
-    return collectionsStore.getRequest(activeTab.value.collectionId, activeTab.value.itemId)
+onUnmounted(() => {
+  // Clean up controller
+  if (controller) {
+    if (controller._intervalId) {
+      clearInterval(controller._intervalId)
+    }
+    controller.dispose()
+    controller = null
   }
-  return null
 })
 
-const addNewTab = () => {
-  tabsStore.createTab()
-}
+// Delegate all methods to controller
+const addNewTab = () => controller?.addNewTab()
+const closeTab = (tabId) => controller?.closeTab(tabId)
+const setActiveTab = (tabId) => controller?.setActiveTab(tabId)
+const addParam = () => controller?.addParam()
+const removeParam = (index) => controller?.removeParam(index)
+const addHeader = () => controller?.addHeader()
+const removeHeader = (index) => controller?.removeHeader(index)
+const saveRequest = () => controller?.saveRequest()
+const handleSaveRequest = (data) => controller?.handleSaveRequest(data)
+const sendRequest = () => controller?.sendRequest()
+const toggleView = (mode) => controller?.toggleView(mode)
+const setActiveRequestTab = (tab) => controller?.setActiveRequestTab(tab)
+const setActiveResponseTab = (tab) => controller?.setActiveResponseTab(tab)
+const closeSaveDialog = () => controller?.closeSaveDialog()
 
-const closeTab = (tabId) => {
-  tabsStore.closeTab(tabId)
-}
-
-const setActiveTab = (tabId) => {
-  tabsStore.setActiveTab(tabId)
-}
-
-const httpMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
-
-// Form data - reactive representations of current request data
-const currentUrl = ref('')
-const currentMethod = ref('GET')
-const currentHeaders = ref([])
-const currentParams = ref([])
-const currentBody = ref('')
-const currentBodyType = ref('raw')
-
-// Response data
-const responseData = ref(null)
-const isLoading = ref(false)
-const requestError = ref(null)
-
-const activeRequestTab = ref('params')
-const activeResponseTab = ref('body')
-
-// View toggle state
-const viewMode = ref('request') // 'request', 'response', 'both' - default to request only
-const hasResponse = ref(false) // Track if a response has been received
-
-// Save dialog state
-const showSaveDialog = ref(false)
-const pendingSaveName = ref('')
-
-// Load request data into form
-const loadRequestData = () => {
-  // Reset view mode and response status for new/different tabs
-  hasResponse.value = false
-  viewMode.value = 'request'
-
-  if (currentRequest.value) {
-    const request = currentRequest.value.request
-    currentUrl.value = request.url.raw || ''
-    currentMethod.value = request.method || 'GET'
-    currentHeaders.value = [...(request.header || [])]
-    currentParams.value = [...(request.url.query || [])]
-
-    if (request.body) {
-      currentBodyType.value = request.body.mode || 'raw'
-      currentBody.value = request.body.raw || ''
-    } else {
-      currentBodyType.value = 'raw'
-      currentBody.value = ''
-    }
-  } else {
-    // New request defaults
-    currentUrl.value = ''
-    currentMethod.value = 'GET'
-    currentHeaders.value = [{ key: 'Content-Type', value: 'application/json', enabled: true, id: Date.now() }]
-    currentParams.value = []
-    currentBody.value = ''
-    currentBodyType.value = 'raw'
-  }
-}
-
-// Save current form data back to the request
-const saveRequestData = () => {
-  if (activeTab.value) {
-    // Update tab info
-    tabsStore.updateTab(activeTab.value.id, {
-      name: currentUrl.value ? `${currentMethod.value} ${currentUrl.value}` : 'New Request',
-      method: currentMethod.value
-    })
-
-    // If linked to a request, update the actual request data
-    if (activeTab.value.itemId && activeTab.value.collectionId) {
-      collectionsStore.updateRequest(activeTab.value.collectionId, activeTab.value.itemId, {
-        request: {
-          method: currentMethod.value,
-          url: {
-            raw: currentUrl.value,
-            query: currentParams.value.filter(p => p.key)
-          },
-          header: currentHeaders.value.filter(h => h.key),
-          body: {
-            mode: currentBodyType.value,
-            raw: currentBody.value
-          }
-        }
-      })
-    }
-  }
-}
-
-// Auto-save when form data changes
-watch([currentUrl, currentMethod, currentHeaders, currentParams, currentBody, currentBodyType], () => {
-  saveRequestData()
-}, { deep: true })
-
-const addParam = () => {
-  currentParams.value.push({ key: '', value: '', enabled: true, id: Date.now() })
-}
-
-const removeParam = (index) => {
-  currentParams.value.splice(index, 1)
-}
-
-const addHeader = () => {
-  currentHeaders.value.push({ key: '', value: '', enabled: true, id: Date.now() })
-}
-
-const removeHeader = (index) => {
-  currentHeaders.value.splice(index, 1)
-}
-
-const saveRequest = () => {
-  if (activeTab.value) {
-    pendingSaveName.value = activeTab.value.name || 'New Request'
-    showSaveDialog.value = true
-  }
-}
-
-const handleSaveRequest = ({ collectionId, requestName, isNewCollection }) => {
-  if (activeTab.value) {
-    // First update the tab name
-    tabsStore.updateTab(activeTab.value.id, { name: requestName })
-
-    // If this is a new request (no itemId), add it to the collection
-    if (!activeTab.value.itemId) {
-      const newRequest = collectionsStore.addRequest(collectionId, {
-        method: currentMethod.value,
-        url: { raw: currentUrl.value },
-        header: currentHeaders.value.filter(h => h.enabled && h.key),
-        body: {
-          mode: currentBodyType.value,
-          raw: currentBody.value
-        }
-      })
-
-      // Link the tab to the new request
-      tabsStore.updateTab(activeTab.value.id, {
-        itemId: newRequest.id,
-        collectionId: collectionId,
-        saved: true,
-        modified: false
-      })
-
-      // Update the request name
-      collectionsStore.updateRequest(collectionId, newRequest.id, { name: requestName })
-    } else {
-      // Update existing request
-      collectionsStore.updateRequest(activeTab.value.collectionId, activeTab.value.itemId, {
-        name: requestName,
-        request: {
-          method: currentMethod.value,
-          url: { raw: currentUrl.value },
-          header: currentHeaders.value.filter(h => h.enabled && h.key),
-          body: {
-            mode: currentBodyType.value,
-            raw: currentBody.value
-          }
-        }
-      })
-
-      tabsStore.markTabAsSaved(activeTab.value.id)
-    }
-
-    console.log(`Request "${requestName}" saved to collection`)
-    showSaveDialog.value = false
-  }
-}
-
-const sendRequest = async () => {
-  // Clear previous response and errors
-  responseData.value = null
-  requestError.value = null
-  isLoading.value = true
-
-  // Add a small delay to ensure loading state is visible
-  await new Promise(resolve => setTimeout(resolve, 100))
-
-  // Interpolate variables in URL, headers, params, and body
-  const interpolatedUrl = interpolateText(currentUrl.value)
-  const interpolatedHeaders = currentHeaders.value.map(header => ({
-    ...header,
-    key: interpolateText(header.key || ''),
-    value: interpolateText(header.value || '')
-  }))
-  const interpolatedParams = currentParams.value.map(param => ({
-    ...param,
-    key: interpolateText(param.key || ''),
-    value: interpolateText(param.value || '')
-  }))
-  const interpolatedBody = interpolateText(currentBody.value)
-
-  console.log('Sending request...', {
-    method: currentMethod.value,
-    url: interpolatedUrl,
-    params: interpolatedParams,
-    headers: interpolatedHeaders,
-    body: interpolatedBody
-  })
-
-  try {
-    // Send the actual HTTP request
-    const response = await httpClient.send({
-      method: currentMethod.value,
-      url: interpolatedUrl,
-      params: interpolatedParams,
-      headers: interpolatedHeaders,
-      body: interpolatedBody,
-      bodyType: currentBodyType.value
-    })
-
-    // Store response data
-    responseData.value = response
-
-    // Format response for display
-    if (response.success || response.status) {
-      // Set response received flag and show response view
-      hasResponse.value = true
-      viewMode.value = 'both' // Always switch to both view to show the response
-    }
-
-    // Log response for debugging
-    console.log('Response received:', response)
-
-    // TODO: Add to history after sending
-
-  } catch (error) {
-    console.error('Request failed:', error)
-    requestError.value = error.message || 'Request failed'
-
-    // Still show response view to display error
-    hasResponse.value = true
-    viewMode.value = 'both'
-
-    // Create error response object
-    responseData.value = {
-      success: false,
-      status: 0,
-      statusText: 'Error',
-      error: error.message || 'Request failed',
-      headers: {},
-      body: null,
-      time: 0
-    }
-  } finally {
-    isLoading.value = false
-  }
-}
-
-// View toggle functions
-const toggleView = (mode) => {
-  viewMode.value = mode
-}
-
-const getViewLabel = (mode) => {
-  switch (mode) {
-    case 'request': return '📝 Request Only'
-    case 'response': return '📄 Response Only'
-    case 'both': return '📑 Split View'
-    default: return mode
-  }
-}
-
-const getMethodColor = (method) => {
-  const colors = {
-    'GET': 'var(--color-get)',
-    'POST': 'var(--color-post)',
-    'PUT': 'var(--color-put)',
-    'PATCH': 'var(--color-patch)',
-    'DELETE': 'var(--color-delete)'
-  }
-  return colors[method] || 'var(--color-text-secondary)'
-}
-
-// Format time for display
-const formatTime = (milliseconds) => {
-  if (!milliseconds && milliseconds !== 0) return 'N/A'
-  if (milliseconds < 1000) return `${Math.round(milliseconds)}ms`
-  return `${(milliseconds / 1000).toFixed(2)}s`
-}
-
-// Format size for display
-const formatSize = (bytes) => {
-  if (!bytes && bytes !== 0) return 'N/A'
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
-}
-
-// Format response body for display
-const formatResponseBody = (body) => {
-  if (!body) return 'No response body'
-
-  // If it's an object, pretty print it as JSON
-  if (typeof body === 'object') {
-    try {
-      return JSON.stringify(body, null, 2)
-    } catch (e) {
-      return String(body)
-    }
-  }
-
-  // If it's a string that looks like JSON, try to format it
-  if (typeof body === 'string') {
-    try {
-      const parsed = JSON.parse(body)
-      return JSON.stringify(parsed, null, 2)
-    } catch (e) {
-      // Not JSON, return as-is
-      return body
-    }
-  }
-
-  return String(body)
-}
-
-// Get appropriate status text
-const getStatusText = (responseData) => {
-  if (!responseData) return 'Unknown'
-
-  // If we have a valid statusText, use it
-  if (responseData.statusText && responseData.statusText !== 'Network Error') {
-    return responseData.statusText
-  }
-
-  // Map common status codes to text
-  const statusTexts = {
-    200: 'OK',
-    201: 'Created',
-    204: 'No Content',
-    400: 'Bad Request',
-    401: 'Unauthorized',
-    403: 'Forbidden',
-    404: 'Not Found',
-    405: 'Method Not Allowed',
-    422: 'Unprocessable Entity',
-    500: 'Internal Server Error',
-    502: 'Bad Gateway',
-    503: 'Service Unavailable'
-  }
-
-  if (responseData.status && statusTexts[responseData.status]) {
-    return statusTexts[responseData.status]
-  }
-
-  // If status is 0, it's likely a network error
-  if (responseData.status === 0) {
-    return 'Network Error'
-  }
-
-  // If we have an error but no status, show the error
-  if (responseData.error && !responseData.status) {
-    return 'Error'
-  }
-
-  // Default fallback
-  return responseData.statusText || 'Unknown'
-}
-
-// Detect response language based on content-type and content
-const detectResponseLanguage = (responseData) => {
-  if (!responseData) return 'plaintext'
-
-  // Check content-type header first
-  const contentType = responseData.headers?.['content-type'] || ''
-
-  if (contentType.includes('application/json')) {
-    return 'json'
-  } else if (contentType.includes('text/html')) {
-    return 'html'
-  } else if (contentType.includes('text/xml') || contentType.includes('application/xml')) {
-    return 'xml'
-  } else if (contentType.includes('text/css')) {
-    return 'css'
-  } else if (contentType.includes('application/javascript') || contentType.includes('text/javascript')) {
-    return 'javascript'
-  }
-
-  // Fallback to auto-detection based on content
-  const body = formatResponseBody(responseData.body)
-
-  // Try to detect JSON
-  try {
-    JSON.parse(body)
-    return 'json'
-  } catch (e) {
-    // Not JSON
-  }
-
-  // Check for HTML/XML
-  if (body.trim().startsWith('<') && body.includes('>')) {
-    if (body.includes('<!DOCTYPE') || body.includes('<html')) {
-      return 'html'
-    }
-    return 'xml'
-  }
-
-  return 'auto' // Let SyntaxHighlighter auto-detect
-}
-
-// Watch for active tab changes and load request data
-watch(activeTab, (newTab) => {
-  if (newTab) {
-    loadRequestData()
-  }
-}, { immediate: true })
+// Utility methods
+const getHttpMethods = () => controller?.getHttpMethods() || []
+const getMethodColor = (method) => controller?.getMethodColor(method) || ''
+const getViewLabel = (mode) => controller?.getViewLabel(mode) || mode
+const formatTime = (ms) => controller?.formatTime(ms) || 'N/A'
+const formatSize = (bytes) => controller?.formatSize(bytes) || 'N/A'
+const formatResponseBody = (body) => controller?.formatResponseBody(body) || ''
+const getStatusText = (responseData) => controller?.getStatusText(responseData) || ''
+const detectResponseLanguage = (responseData) => controller?.detectResponseLanguage(responseData) || 'auto'
 </script>
 
 <template>
@@ -488,9 +119,9 @@ watch(activeTab, (newTab) => {
             <button
               v-for="mode in ['request', 'both', 'response']"
               :key="mode"
-              :class="['view-toggle', { active: viewMode === mode, disabled: mode === 'response' && !hasResponse }]"
+              :class="['view-toggle', { active: state.viewMode === mode, disabled: mode === 'response' && !state.hasResponse }]"
               @click="toggleView(mode)"
-              :disabled="mode === 'response' && !hasResponse"
+              :disabled="mode === 'response' && !state.hasResponse"
               :title="getViewLabel(mode)"
             >
               {{ mode === 'request' ? '📝' : mode === 'response' ? '📄' : '📑' }}
@@ -522,19 +153,19 @@ watch(activeTab, (newTab) => {
 
     <!-- Tab Content -->
     <div class="tab-content" v-else-if="activeTab">
-      <Splitpanes horizontal v-if="viewMode === 'both'">
+      <Splitpanes horizontal v-if="state.viewMode === 'both'">
         <!-- Request Section -->
         <Pane size="60" min-size="40">
           <div class="request-section">
             <!-- URL Bar -->
             <div class="url-bar">
               <select
-                v-model="currentMethod"
+                v-model="state.currentMethod"
                 class="method-select"
-                :style="{ color: getMethodColor(currentMethod) }"
+                :style="{ color: getMethodColor(state.currentMethod) }"
               >
                 <option
-                  v-for="method in httpMethods"
+                  v-for="method in getHttpMethods()"
                   :key="method"
                   :value="method"
                   :style="{ color: getMethodColor(method) }"
@@ -543,7 +174,7 @@ watch(activeTab, (newTab) => {
                 </option>
               </select>
               <VariableInput
-                v-model="currentUrl"
+                v-model="state.currentUrl"
                 placeholder="Enter request URL"
                 class="url-input"
               />
@@ -554,10 +185,10 @@ watch(activeTab, (newTab) => {
               <button
                 class="send-button primary large"
                 @click="sendRequest"
-                :disabled="isLoading || !currentUrl"
-                :class="{ loading: isLoading }"
+                :disabled="state.isLoading || !state.currentUrl"
+                :class="{ loading: state.isLoading }"
               >
-                <span v-if="isLoading" class="loading-content">
+                <span v-if="state.isLoading" class="loading-content">
                   <span class="loading-spinner">⏳</span>
                   <span>Sending...</span>
                 </span>
@@ -568,20 +199,20 @@ watch(activeTab, (newTab) => {
             <!-- Request Details Tabs -->
             <div class="request-tabs-nav">
               <button
-                :class="['nav-tab', { active: activeRequestTab === 'params' }]"
-                @click="activeRequestTab = 'params'"
+                :class="['nav-tab', { active: state.activeRequestTab === 'params' }]"
+                @click="setActiveRequestTab('params')"
               >
-                Params ({{ currentParams.filter(p => p.enabled && p.key).length }})
+                Params ({{ state.currentParams.filter(p => p.enabled && p.key).length }})
               </button>
               <button
-                :class="['nav-tab', { active: activeRequestTab === 'headers' }]"
-                @click="activeRequestTab = 'headers'"
+                :class="['nav-tab', { active: state.activeRequestTab === 'headers' }]"
+                @click="setActiveRequestTab('headers')"
               >
-                Headers ({{ currentHeaders.filter(h => h.enabled && h.key).length }})
+                Headers ({{ state.currentHeaders.filter(h => h.enabled && h.key).length }})
               </button>
               <button
-                :class="['nav-tab', { active: activeRequestTab === 'body' }]"
-                @click="activeRequestTab = 'body'"
+                :class="['nav-tab', { active: state.activeRequestTab === 'body' }]"
+                @click="setActiveRequestTab('body')"
               >
                 Body
               </button>
@@ -590,14 +221,14 @@ watch(activeTab, (newTab) => {
             <!-- Request Details Content -->
             <div class="request-details">
               <!-- Params Tab -->
-              <div v-if="activeRequestTab === 'params'" class="params-section">
+              <div v-if="state.activeRequestTab === 'params'" class="params-section">
                 <div class="section-header">
                   <span>Query Parameters</span>
                   <button @click="addParam" class="btn-add">+ Add</button>
                 </div>
                 <div class="key-value-list">
                   <div
-                    v-for="(param, index) in currentParams"
+                    v-for="(param, index) in state.currentParams"
                     :key="param.id || index"
                     class="key-value-row"
                   >
@@ -620,14 +251,14 @@ watch(activeTab, (newTab) => {
               </div>
 
               <!-- Headers Tab -->
-              <div v-if="activeRequestTab === 'headers'" class="headers-section">
+              <div v-if="state.activeRequestTab === 'headers'" class="headers-section">
                 <div class="section-header">
                   <span>Headers</span>
                   <button @click="addHeader" class="btn-add">+ Add</button>
                 </div>
                 <div class="key-value-list">
                   <div
-                    v-for="(header, index) in currentHeaders"
+                    v-for="(header, index) in state.currentHeaders"
                     :key="header.id || index"
                     class="key-value-row"
                   >
@@ -650,21 +281,8 @@ watch(activeTab, (newTab) => {
               </div>
 
               <!-- Body Tab -->
-              <div v-if="activeRequestTab === 'body'" class="body-section">
-                <div class="section-header">
-                  <span>Request Body</span>
-                  <select v-model="currentBodyType" class="body-type-select">
-                    <option value="raw">Raw</option>
-                    <option value="urlencoded">URL Encoded</option>
-                    <option value="formdata">Form Data</option>
-                    <option value="binary">Binary</option>
-                  </select>
-                </div>
-                <textarea
-                  v-model="currentBody"
-                  class="body-textarea"
-                  placeholder="Enter request body..."
-                ></textarea>
+              <div v-if="state.activeRequestTab === 'body'" class="body-section">
+                <RequestBodyEditor v-model="state.currentBody" />
               </div>
             </div>
           </div>
@@ -674,7 +292,7 @@ watch(activeTab, (newTab) => {
         <Pane>
           <div class="response-section">
             <!-- Response Content - Show empty state or actual response -->
-            <div v-if="!hasResponse" class="response-empty-state">
+            <div v-if="!state.hasResponse" class="response-empty-state">
               <div class="empty-icon">📡</div>
               <h3 class="empty-title">No Response Yet</h3>
               <p class="empty-description">
@@ -684,7 +302,7 @@ watch(activeTab, (newTab) => {
                 <button
                   class="empty-action-button primary"
                   @click="sendRequest"
-                  :disabled="!currentUrl"
+                  :disabled="!state.currentUrl"
                 >
                   ▶️ Send Request
                 </button>
@@ -710,67 +328,67 @@ watch(activeTab, (newTab) => {
                     :class="[
                       'status-code',
                       {
-                        'success': responseData.status >= 200 && responseData.status < 300,
-                        'redirect': responseData.status >= 300 && responseData.status < 400,
-                        'client-error': responseData.status >= 400 && responseData.status < 500,
-                        'server-error': responseData.status >= 500,
-                        'network-error': responseData.status === 0
+                        'success': state.responseData?.status >= 200 && state.responseData?.status < 300,
+                        'redirect': state.responseData?.status >= 300 && state.responseData?.status < 400,
+                        'client-error': state.responseData?.status >= 400 && state.responseData?.status < 500,
+                        'server-error': state.responseData?.status >= 500,
+                        'network-error': state.responseData?.status === 0
                       }
                     ]"
                   >
-                    {{ responseData.status || 'Error' }}
+                    {{ state.responseData?.status || 'Error' }}
                   </span>
-                  <span class="status-text">{{ getStatusText(responseData) }}</span>
+                  <span class="status-text">{{ getStatusText(state.responseData) }}</span>
                 </div>
                 <div class="response-meta">
-                  <span class="response-time">Time: {{ formatTime(responseData.time) }}</span>
-                  <span class="response-size">Size: {{ formatSize(responseData.size) }}</span>
+                  <span class="response-time">Time: {{ formatTime(state.responseData?.time) }}</span>
+                  <span class="response-size">Size: {{ formatSize(state.responseData?.size) }}</span>
                 </div>
               </div>
 
               <!-- Response Tabs -->
               <div class="response-tabs-nav">
                 <button
-                  :class="['nav-tab', { active: activeResponseTab === 'body' }]"
-                  @click="activeResponseTab = 'body'"
+                  :class="['nav-tab', { active: state.activeResponseTab === 'body' }]"
+                  @click="setActiveResponseTab('body')"
                 >
                   Body
                 </button>
                 <button
-                  :class="['nav-tab', { active: activeResponseTab === 'headers' }]"
-                  @click="activeResponseTab = 'headers'"
+                  :class="['nav-tab', { active: state.activeResponseTab === 'headers' }]"
+                  @click="setActiveResponseTab('headers')"
                 >
-                  Headers ({{ Object.keys(responseData.headers || {}).length }})
+                  Headers ({{ Object.keys(state.responseData?.headers || {}).length }})
                 </button>
               </div>
 
               <!-- Response Content -->
               <div class="response-content">
                 <!-- Error Display -->
-                <div v-if="responseData.error && !responseData.body" class="response-error">
+                <div v-if="state.responseData?.error && !state.responseData?.body" class="response-error">
                   <div class="error-icon">❌</div>
-                  <div class="error-message">{{ responseData.error }}</div>
+                  <div class="error-message">{{ state.responseData?.error }}</div>
                 </div>
 
                 <!-- Body Tab -->
-                <div v-else-if="activeResponseTab === 'body'" class="response-body">
+                <div v-else-if="state.activeResponseTab === 'body'" class="response-body">
                   <SyntaxHighlighter
-                    :code="formatResponseBody(responseData.body)"
-                    :language="detectResponseLanguage(responseData)"
+                    :code="formatResponseBody(state.responseData.body)"
+                    :language="detectResponseLanguage(state.responseData)"
                     :copyable="true"
                     :show-line-numbers="false"
-                    max-height="400px"
+                    :max-height="state.viewMode === 'response' ? 'none' : '400px'"
                   />
                 </div>
 
                 <!-- Headers Tab -->
-                <div v-if="activeResponseTab === 'headers'" class="response-headers">
-                  <div v-if="!responseData.headers || Object.keys(responseData.headers).length === 0" class="empty-headers">
+                <div v-if="state.activeResponseTab === 'headers'" class="response-headers">
+                  <div v-if="!state.responseData?.headers || Object.keys(state.responseData?.headers).length === 0" class="empty-headers">
                     No headers received
                   </div>
                   <div
                     v-else
-                    v-for="(value, key) in responseData.headers"
+                    v-for="(value, key) in state.responseData?.headers"
                     :key="key"
                     class="header-row"
                   >
@@ -785,17 +403,17 @@ watch(activeTab, (newTab) => {
       </Splitpanes>
 
       <!-- Request Only View -->
-      <div v-else-if="viewMode === 'request'" class="single-view">
+      <div v-else-if="state.viewMode === 'request'" class="single-view">
         <div class="request-section">
           <!-- URL Bar -->
           <div class="url-bar">
             <select
-              v-model="currentMethod"
+              v-model="state.currentMethod"
               class="method-select"
-              :style="{ color: getMethodColor(currentMethod) }"
+              :style="{ color: getMethodColor(state.currentMethod) }"
             >
               <option
-                v-for="method in httpMethods"
+                v-for="method in getHttpMethods()"
                 :key="method"
                 :value="method"
                 :style="{ color: getMethodColor(method) }"
@@ -804,7 +422,7 @@ watch(activeTab, (newTab) => {
               </option>
             </select>
             <VariableInput
-              v-model="currentUrl"
+              v-model="state.currentUrl"
               placeholder="Enter request URL"
               class="url-input"
             />
@@ -820,20 +438,20 @@ watch(activeTab, (newTab) => {
           <!-- Request Details Tabs -->
           <div class="request-tabs-nav">
             <button
-              :class="['nav-tab', { active: activeRequestTab === 'params' }]"
-              @click="activeRequestTab = 'params'"
+              :class="['nav-tab', { active: state.activeRequestTab === 'params' }]"
+              @click="setActiveRequestTab('params')"
             >
-              Params ({{ currentParams.filter(p => p.enabled && p.key).length }})
+              Params ({{ state.currentParams.filter(p => p.enabled && p.key).length }})
             </button>
             <button
-              :class="['nav-tab', { active: activeRequestTab === 'headers' }]"
-              @click="activeRequestTab = 'headers'"
+              :class="['nav-tab', { active: state.activeRequestTab === 'headers' }]"
+              @click="setActiveRequestTab('headers')"
             >
-              Headers ({{ currentHeaders.filter(h => h.enabled && h.key).length }})
+              Headers ({{ state.currentHeaders.filter(h => h.enabled && h.key).length }})
             </button>
             <button
-              :class="['nav-tab', { active: activeRequestTab === 'body' }]"
-              @click="activeRequestTab = 'body'"
+              :class="['nav-tab', { active: state.activeRequestTab === 'body' }]"
+              @click="setActiveRequestTab('body')"
             >
               Body
             </button>
@@ -842,14 +460,14 @@ watch(activeTab, (newTab) => {
           <!-- Request Details Content -->
           <div class="request-details">
             <!-- Params Tab -->
-            <div v-if="activeRequestTab === 'params'" class="params-section">
+            <div v-if="state.activeRequestTab === 'params'" class="params-section">
               <div class="section-header">
                 <span>Query Parameters</span>
                 <button @click="addParam" class="btn-add">+ Add</button>
               </div>
               <div class="key-value-list">
                 <div
-                  v-for="(param, index) in currentParams"
+                  v-for="(param, index) in state.currentParams"
                   :key="param.id || index"
                   class="key-value-row"
                 >
@@ -872,14 +490,14 @@ watch(activeTab, (newTab) => {
             </div>
 
             <!-- Headers Tab -->
-            <div v-if="activeRequestTab === 'headers'" class="headers-section">
+            <div v-if="state.activeRequestTab === 'headers'" class="headers-section">
               <div class="section-header">
                 <span>Headers</span>
                 <button @click="addHeader" class="btn-add">+ Add</button>
               </div>
               <div class="key-value-list">
                 <div
-                  v-for="(header, index) in currentHeaders"
+                  v-for="(header, index) in state.currentHeaders"
                   :key="header.id || index"
                   class="key-value-row"
                 >
@@ -902,31 +520,19 @@ watch(activeTab, (newTab) => {
             </div>
 
             <!-- Body Tab -->
-            <div v-if="activeRequestTab === 'body'" class="body-section">
-              <div class="section-header">
-                <span>Request Body</span>
-                <select v-model="currentBodyType" class="body-type-select">
-                  <option value="raw">Raw</option>
-                  <option value="urlencoded">URL Encoded</option>
-                  <option value="formdata">Form Data</option>
-                  <option value="binary">Binary</option>
-                </select>
-              </div>
-              <textarea
-                v-model="currentBody"
-                class="body-textarea"
-                placeholder="Enter request body..."
-              ></textarea>
+            <div v-if="state.activeRequestTab === 'body'" class="body-section">
+              <RequestBodyEditor v-model="state.currentBody" />
             </div>
           </div>
         </div>
       </div>
 
       <!-- Response Only View -->
-      <div v-else-if="viewMode === 'response'" class="single-view">
-        <div class="response-section">
+      <div v-else-if="state.viewMode === 'response'" class="single-view">
+        <!-- Reuse the same response section from split view -->
+        <div class="response-section response-section-full">
           <!-- Response Content - Show empty state or actual response -->
-          <div v-if="!hasResponse" class="response-empty-state">
+          <div v-if="!state.hasResponse" class="response-empty-state">
             <div class="empty-icon">📡</div>
             <h3 class="empty-title">No Response Yet</h3>
             <p class="empty-description">
@@ -954,44 +560,76 @@ watch(activeTab, (newTab) => {
             </div>
           </div>
 
-          <!-- Actual Response Content -->
+          <!-- Actual Response Content - Same as split view -->
           <template v-else>
             <!-- Response Header -->
             <div class="response-header">
               <div class="response-status">
-                <span class="status-code success">{{ responseData.status }}</span>
-                <span class="status-text">{{ responseData.statusText }}</span>
+                <span
+                  :class="[
+                    'status-code',
+                    {
+                      'success': state.responseData?.status >= 200 && state.responseData?.status < 300,
+                      'redirect': state.responseData?.status >= 300 && state.responseData?.status < 400,
+                      'client-error': state.responseData?.status >= 400 && state.responseData?.status < 500,
+                      'server-error': state.responseData?.status >= 500,
+                      'network-error': state.responseData?.status === 0
+                    }
+                  ]"
+                >
+                  {{ state.responseData?.status || 'Error' }}
+                </span>
+                <span class="status-text">{{ getStatusText(state.responseData) }}</span>
               </div>
               <div class="response-meta">
-                <span class="response-time">Time: {{ responseData.time }}</span>
-                <span class="response-size">Size: {{ responseData.size }}</span>
+                <span class="response-time">Time: {{ formatTime(state.responseData?.time) }}</span>
+                <span class="response-size">Size: {{ formatSize(state.responseData?.size) }}</span>
               </div>
             </div>
 
             <!-- Response Tabs -->
             <div class="response-tabs-nav">
               <button
-                :class="['nav-tab', { active: activeResponseTab === 'body' }]"
-                @click="activeResponseTab = 'body'"
+                :class="['nav-tab', { active: state.activeResponseTab === 'body' }]"
+                @click="setActiveResponseTab('body')"
               >
                 Body
               </button>
               <button
-                :class="['nav-tab', { active: activeResponseTab === 'headers' }]"
-                @click="activeResponseTab = 'headers'"
+                :class="['nav-tab', { active: state.activeResponseTab === 'headers' }]"
+                @click="setActiveResponseTab('headers')"
               >
-                Headers ({{ Object.keys(responseData.headers).length }})
+                Headers ({{ Object.keys(state.responseData?.headers || {}).length }})
               </button>
             </div>
 
             <!-- Response Content -->
             <div class="response-content">
-              <div v-if="activeResponseTab === 'body'" class="response-body">
-                <pre>{{ responseData.body }}</pre>
+              <!-- Error Display -->
+              <div v-if="state.responseData?.error && !state.responseData?.body" class="response-error">
+                <div class="error-icon">❌</div>
+                <div class="error-message">{{ state.responseData?.error }}</div>
               </div>
-              <div v-if="activeResponseTab === 'headers'" class="response-headers">
+
+              <!-- Body Tab -->
+              <div v-else-if="state.activeResponseTab === 'body'" class="response-body">
+                <SyntaxHighlighter
+                  :code="formatResponseBody(state.responseData?.body)"
+                  :language="detectResponseLanguage(state.responseData)"
+                  :copyable="true"
+                  :show-line-numbers="false"
+                  :max-height="state.viewMode === 'response' ? 'none' : '400px'"
+                />
+              </div>
+
+              <!-- Headers Tab -->
+              <div v-if="state.activeResponseTab === 'headers'" class="response-headers">
+                <div v-if="!state.responseData?.headers || Object.keys(state.responseData?.headers).length === 0" class="empty-headers">
+                  No headers received
+                </div>
                 <div
-                  v-for="(value, key) in responseData.headers"
+                  v-else
+                  v-for="(value, key) in state.responseData?.headers"
                   :key="key"
                   class="header-row"
                 >
@@ -1019,9 +657,9 @@ watch(activeTab, (newTab) => {
 
     <!-- Save Request Dialog -->
     <CollectionPickerDialog
-      v-if="showSaveDialog"
-      :request-name="pendingSaveName"
-      @close="showSaveDialog = false"
+      v-if="state.showSaveDialog"
+      :request-name="state.pendingSaveName"
+      @close="closeSaveDialog"
       @save="handleSaveRequest"
     />
   </div>
@@ -1283,6 +921,15 @@ watch(activeTab, (newTab) => {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+}
+
+.body-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Important for flex shrinking */
 }
 
 .section-header {
@@ -1788,5 +1435,21 @@ watch(activeTab, (newTab) => {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* Full response view overrides */
+.response-section-full {
+  overflow: visible !important;
+}
+
+.response-section-full .response-content {
+  overflow: visible !important;
+  max-height: none !important;
+  height: auto !important;
+}
+
+.response-section-full .response-body {
+  max-height: none !important;
+  height: auto !important;
 }
 </style>

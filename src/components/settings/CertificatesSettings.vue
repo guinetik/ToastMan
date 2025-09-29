@@ -47,10 +47,8 @@ const selectCertificateFile = async (certificate) => {
       const result = await controller.importCertificate(file, certificate.id)
       if (result.success) {
         // File imported successfully - could show toast notification
-        console.log('Certificate imported:', result.message)
       } else {
         // Handle error - could show error toast
-        console.error('Certificate import failed:', result.message)
       }
     }
   }

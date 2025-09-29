@@ -55,22 +55,12 @@ export function useVariableInterpolation() {
     const targetEnvironment = environmentId
       ? environmentsStore.getEnvironment(environmentId)
       : environmentsStore.activeEnvironment.value
-
-    console.log('[variableExists] Checking variable:', variableName)
-    console.log('[variableExists] Target environment:', targetEnvironment)
-    console.log('[variableExists] Environment values:', targetEnvironment?.values)
-
     if (!targetEnvironment) {
-      console.log('[variableExists] No target environment found')
       return false
     }
-
     const variable = targetEnvironment.values?.find(v =>
       v.key === variableName && v.enabled
     )
-
-    console.log('[variableExists] Found variable:', variable)
-    console.log('[variableExists] Variable exists:', !!variable)
 
     return !!variable
   }
@@ -102,22 +92,11 @@ export function useVariableInterpolation() {
    * @returns {Array} Array of enhanced variable objects
    */
   const analyzeVariables = (text, environmentId = null) => {
-    console.log('[analyzeVariables] Analyzing text:', text)
     const variables = detectVariables(text)
-    console.log('[analyzeVariables] Detected variables:', variables)
-
     const analyzed = variables.map(variable => {
       const exists = variableExists(variable.name, environmentId)
       const value = getVariableValue(variable.name, environmentId)
       const resolved = value !== null
-
-      console.log('[analyzeVariables] Variable analysis:', {
-        name: variable.name,
-        exists,
-        value,
-        resolved
-      })
-
       return {
         ...variable,
         exists,
@@ -125,8 +104,6 @@ export function useVariableInterpolation() {
         resolved
       }
     })
-
-    console.log('[analyzeVariables] Final analyzed variables:', analyzed)
     return analyzed
   }
 
@@ -203,12 +180,10 @@ export function useVariableInterpolation() {
   // Reactive computed properties for active environment
   const activeEnvironment = computed(() => {
     const env = environmentsStore.activeEnvironment.value
-    console.log('[useVariableInterpolation] Active environment:', env)
     return env
   })
   const availableVariables = computed(() => {
     const vars = environmentsStore.getAvailableVariables()
-    console.log('[useVariableInterpolation] Available variables:', vars)
     return vars
   })
 

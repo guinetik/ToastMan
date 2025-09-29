@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
-import BaseContextMenu from './BaseContextMenu.vue'
-import { RequestContextMenuController } from '../controllers/RequestContextMenuController.js'
+import BaseContextMenu from '../base/BaseContextMenu.vue'
+import { RequestContextMenuController } from '../../controllers/RequestContextMenuController.js'
 
 const props = defineProps({
   collectionsController: {

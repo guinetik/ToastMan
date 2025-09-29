@@ -4,12 +4,12 @@ import { Splitpanes, Pane } from 'splitpanes'
 import 'splitpanes/dist/splitpanes.css'
 import Sidebar from './components/Sidebar.vue'
 import RequestTabs from './components/RequestTabs.vue'
-import SettingsDialog from './components/SettingsDialog.vue'
-import AlertDialog from './components/AlertDialog.vue'
+import SettingsDialog from './components/dialogs/SettingsDialog.vue'
+import AlertDialog from './components/dialogs/AlertDialog.vue'
 import { useEnvironments } from './stores/useEnvironments.js'
 import { useTabs } from './stores/useTabs.js'
 import { useAlert } from './composables/useAlert.js'
-import { createLogger } from './core/logger.js'
+import { createLogger } from './core/Logger.js'
 
 const logger = createLogger('app')
 const environmentsStore = useEnvironments()
@@ -77,7 +77,7 @@ onMounted(() => {
     window.toastmanDebug = {
       logger: createLogger('debug'),
       logAllComponents: () => {
-        console.log('🔧 Enabling logging for all ToastMan components...')
+        logger.info('🔧 Enabling logging for all ToastMan components...')
         window.toastmanLog.enableAll()
       },
       enableCollections: () => window.toastmanLog.enable('collections'),

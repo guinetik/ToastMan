@@ -23,7 +23,6 @@ controller.on('settingsChanged', (newSettings) => {
 // Handle test results
 controller.on('testResult', (result) => {
   // Could show toast notification here
-  console.log('Proxy test result:', result)
 })
 
 // Access reactive state from controller

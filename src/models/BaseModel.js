@@ -2,6 +2,11 @@
  * Base Model class for all data models
  * Provides common functionality like validation, serialization, and cloning
  */
+import { Logger } from '../core/Logger.js'
+
+// Create logger instance
+const logger = new Logger({ prefix: 'BaseModel', level: 'debug' })
+
 export class BaseModel {
   constructor(data = {}) {
     this.validateAndAssign(data)
@@ -155,7 +160,7 @@ export class BaseModel {
       this.validateAndAssign(this.toJSON())
       return true
     } catch (error) {
-      console.error(`Validation error in ${this.constructor.name}:`, error.message)
+      logger.error(`Validation error in ${this.constructor.name}:`, error.message)
       return false
     }
   }

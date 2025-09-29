@@ -1,14 +1,14 @@
 <script setup>
 import { computed, onMounted, onUnmounted } from 'vue'
-import { SettingsDialogController } from '../controllers/SettingsDialogController.js'
-import BaseDialog from './BaseDialog.vue'
+import { SettingsDialogController } from '../../controllers/SettingsDialogController.js'
+import BaseDialog from '../base/BaseDialog.vue'
 
 // Import all settings tab components
-import GeneralSettings from './settings/GeneralSettings.vue'
-import RequestSettings from './settings/RequestSettings.vue'
-import UISettings from './settings/UISettings.vue'
-import ProxySettings from './settings/ProxySettings.vue'
-import CertificatesSettings from './settings/CertificatesSettings.vue'
+import GeneralSettings from '../settings/GeneralSettings.vue'
+import RequestSettings from '../settings/RequestSettings.vue'
+import UISettings from '../settings/UISettings.vue'
+import ProxySettings from '../settings/ProxySettings.vue'
+import CertificatesSettings from '../settings/CertificatesSettings.vue'
 
 const emit = defineEmits(['close'])
 

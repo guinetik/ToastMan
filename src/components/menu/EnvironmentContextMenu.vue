@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
-import BaseContextMenu from './BaseContextMenu.vue'
-import { EnvironmentContextMenuController } from '../controllers/EnvironmentContextMenuController.js'
+import BaseContextMenu from '../base/BaseContextMenu.vue'
+import { EnvironmentContextMenuController } from '../../controllers/EnvironmentContextMenuController.js'
 
 const props = defineProps({
   environmentsController: {
@@ -23,7 +23,6 @@ const menuItems = computed(() => controller.getMenuItems())
 
 // Handle actions
 const handleAction = (event) => {
-  console.log('[DEBUG] EnvironmentContextMenu.handleAction called with:', event)
   emit('action', event)
 }
 

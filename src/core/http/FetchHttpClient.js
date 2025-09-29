@@ -1,4 +1,5 @@
 import { HttpClient, HttpResponse, HttpClientFactory } from './HttpClient.js'
+import { Logger } from '../logger.js'
 
 /**
  * Fetch API based HTTP Client
@@ -12,6 +13,9 @@ import { HttpClient, HttpResponse, HttpClientFactory } from './HttpClient.js'
 export class FetchHttpClient extends HttpClient {
   constructor(options = {}) {
     super(options)
+
+    // Initialize logger
+    this.logger = new Logger({ prefix: 'FetchHttpClient', level: 'debug' })
 
     // Check if running in browser environment
     if (typeof window === 'undefined' || !window.fetch) {
@@ -42,14 +46,6 @@ export class FetchHttpClient extends HttpClient {
       if (!['GET', 'HEAD'].includes(config.method.toUpperCase())) {
         fetchOptions.body = this.prepareBody(config.body, config.bodyType, config.headersObj)
       }
-
-      // Log request details for debugging
-      console.log('[FetchHttpClient] Sending request:', {
-        url: config.fullUrl,
-        method: config.method,
-        headers: config.headersObj,
-        body: config.body
-      })
 
       // Make the request
       const response = await fetch(config.fullUrl, fetchOptions)
@@ -174,7 +170,7 @@ export class FetchHttpClient extends HttpClient {
         body = bodyText
       }
     } catch (error) {
-      console.error('[FetchHttpClient] Error parsing response:', error)
+      this.logger.error('Error parsing response:', error)
       body = null
     }
 
@@ -225,7 +221,7 @@ export class FetchHttpClient extends HttpClient {
    */
   setProxy(proxyConfig) {
     super.setProxy(proxyConfig)
-    console.warn('[FetchHttpClient] Direct proxy configuration is not supported in browsers. Consider using a browser extension or backend proxy.')
+    this.logger.warn('Direct proxy configuration is not supported in browsers. Consider using a browser extension or backend proxy.')
   }
 
   /**
@@ -233,7 +229,7 @@ export class FetchHttpClient extends HttpClient {
    */
   addCertificate(certificate) {
     super.addCertificate(certificate)
-    console.warn('[FetchHttpClient] Client certificates cannot be configured via JavaScript. The browser will handle certificate selection.')
+    this.logger.warn('Client certificates cannot be configured via JavaScript. The browser will handle certificate selection.')
   }
 }
 

@@ -1,7 +1,7 @@
 import { BaseModel } from './BaseModel.js'
 
 export const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS', 'CONNECT', 'TRACE']
-export const BODY_MODES = ['none', 'formdata', 'urlencoded', 'raw', 'binary', 'graphql', 'file']
+export const BODY_MODES = ['none', 'raw', 'form-data', 'x-www-form-urlencoded', 'binary']
 export const RAW_LANGUAGES = ['text', 'javascript', 'json', 'html', 'xml']
 export const AUTH_TYPES = ['none', 'basic', 'bearer', 'apikey', 'oauth2', 'hawk', 'awsv4', 'ntlm', 'digest']
 
@@ -122,10 +122,9 @@ export class RequestBody extends BaseModel {
   static schema = {
     mode: { type: 'string', enum: BODY_MODES, default: 'none' },
     raw: { type: 'string', default: '' },
-    urlencoded: { type: 'array', default: [] },
-    formdata: { type: 'array', default: [] },
-    file: { type: 'object', default: null },
-    graphql: { type: 'object', default: null },
+    formData: { type: 'array', default: [] },
+    urlEncoded: { type: 'array', default: [] },
+    binary: { type: 'object', default: null },
     options: { type: 'object', default: null },
     disabled: { type: 'boolean', default: false }
   }
@@ -142,15 +141,22 @@ export class RequestBody extends BaseModel {
 
   static createFormData(data = []) {
     return new RequestBody({
-      mode: 'formdata',
-      formdata: data.map(item => new KeyValue(item).toJSON())
+      mode: 'form-data',
+      formData: data.map(item => new KeyValue(item).toJSON())
     })
   }
 
   static createUrlEncoded(data = []) {
     return new RequestBody({
-      mode: 'urlencoded',
-      urlencoded: data.map(item => new KeyValue(item).toJSON())
+      mode: 'x-www-form-urlencoded',
+      urlEncoded: data.map(item => new KeyValue(item).toJSON())
+    })
+  }
+
+  static createBinary(file = null) {
+    return new RequestBody({
+      mode: 'binary',
+      binary: file
     })
   }
 

@@ -1,6 +1,10 @@
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
 import { useVariableInterpolation } from '../composables/useVariableInterpolation.js'
+import { Logger } from '../core/Logger.js'
+
+// Create logger instance
+const logger = new Logger({ prefix: 'VariableHighlightInput', level: 'debug' })
 
 const props = defineProps({
   modelValue: {
@@ -25,9 +29,8 @@ try {
   const composable = useVariableInterpolation()
   splitTextForHighlighting = composable.splitTextForHighlighting
   previewInterpolation = composable.previewInterpolation
-  console.log('[VariableHighlightInput] Component loaded successfully')
 } catch (error) {
-  console.error('[VariableHighlightInput] Failed to load composable:', error)
+  logger.error('Failed to load composable:', error)
   // Fallback functions
   splitTextForHighlighting = (text) => [{ type: 'text', content: text }]
   previewInterpolation = (text) => ({ hasVariables: false, original: text, interpolated: text, variables: [] })
@@ -44,22 +47,13 @@ const handleInput = (event) => {
 
 // Split text for highlighting
 const highlightedParts = computed(() => {
-  console.log('[VariableHighlightInput] Processing text:', props.modelValue)
-
-  // Simple regex test first
-  const simpleVariableRegex = /\{\{([^}]+)\}\}/g
-  const matches = [...(props.modelValue?.matchAll(simpleVariableRegex) || [])]
-  console.log('[VariableHighlightInput] Simple regex matches:', matches)
-
   const parts = splitTextForHighlighting(props.modelValue)
-  console.log('[VariableHighlightInput] Highlighted parts:', parts)
   return parts
 })
 
 // Preview information
 const interpolationPreview = computed(() => {
   const preview = previewInterpolation(props.modelValue)
-  console.log('[VariableHighlightInput] Preview:', preview)
   return preview
 })
 
@@ -73,14 +67,12 @@ const syncScroll = () => {
 
 // Handle focus/blur for preview
 const handleFocus = () => {
-  console.log('[VariableHighlightInput] Focus - hasVariables:', interpolationPreview.value.hasVariables)
   if (interpolationPreview.value.hasVariables) {
     showPreview.value = true
   }
 }
 
 const handleBlur = () => {
-  console.log('[VariableHighlightInput] Blur')
   // Delay hiding to allow click on preview
   setTimeout(() => {
     showPreview.value = false

@@ -268,4 +268,89 @@ export class CollectionsController extends BaseController {
     }
     return colors[method] || 'var(--color-text-secondary)'
   }
+
+  /**
+   * Folder Operations
+   */
+
+  /**
+   * Add a new folder to a collection (at root level)
+   */
+  addFolderToCollection(collectionId, name) {
+    this.logger.info(`Adding folder to collection ${collectionId}: ${name}`)
+    const folder = this.collectionsStore.addFolderToCollection(collectionId, name)
+    if (folder) {
+      this.emit('folderAddedToCollection', { collectionId, folder })
+    }
+    return folder
+  }
+
+  /**
+   * Add a new request to a folder
+   */
+  addRequestToFolder(collectionId, folderId) {
+    this.logger.info(`Adding request to folder ${folderId} in collection ${collectionId}`)
+    const request = this.collectionsStore.addRequestToFolder(collectionId, folderId)
+    if (request) {
+      this.emit('requestAddedToFolder', { collectionId, folderId, request })
+    }
+    return request
+  }
+
+  /**
+   * Add a new folder to a folder
+   */
+  addFolderToFolder(collectionId, parentFolderId) {
+    this.logger.info(`Adding folder to folder ${parentFolderId} in collection ${collectionId}`)
+    const folderName = prompt('Enter folder name:') || 'New Folder'
+    const folder = this.collectionsStore.addFolderToFolder(collectionId, parentFolderId, folderName)
+    if (folder) {
+      this.emit('folderAddedToFolder', { collectionId, parentFolderId, folder })
+    }
+    return folder
+  }
+
+  /**
+   * Rename a folder
+   */
+  async renameFolder(collectionId, folderId) {
+    const folderName = prompt('Enter new folder name:')
+    if (folderName) {
+      this.logger.info(`Renaming folder ${folderId} to ${folderName}`)
+      const folder = this.collectionsStore.renameFolder(collectionId, folderId, folderName)
+      if (folder) {
+        this.emit('folderRenamed', { collectionId, folderId, folder })
+      }
+      return folder
+    }
+    return null
+  }
+
+  /**
+   * Duplicate a folder with all its contents
+   */
+  duplicateFolder(collectionId, folderId) {
+    this.logger.info(`Duplicating folder ${folderId} in collection ${collectionId}`)
+    const duplicatedFolder = this.collectionsStore.duplicateFolder(collectionId, folderId)
+    if (duplicatedFolder) {
+      this.emit('folderDuplicated', { collectionId, originalFolderId: folderId, duplicatedFolder })
+    }
+    return duplicatedFolder
+  }
+
+  /**
+   * Delete a folder and all its contents
+   */
+  async deleteFolder(collectionId, folderId) {
+    const confirm = window.confirm('Are you sure you want to delete this folder and all its contents?')
+    if (confirm) {
+      this.logger.info(`Deleting folder ${folderId} from collection ${collectionId}`)
+      const success = this.collectionsStore.deleteFolder(collectionId, folderId)
+      if (success) {
+        this.emit('folderDeleted', { collectionId, folderId })
+      }
+      return success
+    }
+    return false
+  }
 }

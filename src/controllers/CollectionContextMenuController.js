@@ -31,6 +31,11 @@ export class CollectionContextMenuController extends BaseContextMenuController {
         icon: '➕'
       },
       {
+        action: 'create-folder',
+        label: 'Create Folder',
+        icon: '📁'
+      },
+      {
         type: 'separator'
       },
       {
@@ -64,6 +69,8 @@ export class CollectionContextMenuController extends BaseContextMenuController {
     switch (action) {
       case 'create-request':
         return await this.createRequest(collection)
+      case 'create-folder':
+        return await this.createFolder(collection)
       case 'rename':
         return await this.renameCollection(collection)
       case 'duplicate':
@@ -86,6 +93,24 @@ export class CollectionContextMenuController extends BaseContextMenuController {
       return { action: 'create-request', requestId: newRequest.id }
     }
     throw new Error('Failed to create request')
+  }
+
+  /**
+   * Create a new folder in the collection
+   */
+  async createFolder(collection) {
+    const folderName = await this.alert.prompt('Enter folder name:', 'New Folder', 'Create Folder')
+    if (folderName && folderName.trim()) {
+      const newFolder = this.collectionsController.collectionsStore.addFolderToCollection(collection.info.id, folderName.trim())
+      if (newFolder) {
+        this.logger.info('Created new folder in collection:', collection.info.name, '→', newFolder.name)
+        await this.alert.alertSuccess(`Folder "${newFolder.name}" created successfully`)
+        return { action: 'create-folder', folderId: newFolder.id }
+      }
+      await this.alert.alertError('Failed to create folder')
+      throw new Error('Failed to create folder')
+    }
+    return { action: 'create-folder', cancelled: true }
   }
 
   /**
