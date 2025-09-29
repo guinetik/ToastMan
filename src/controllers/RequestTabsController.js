@@ -300,47 +300,184 @@ export class RequestTabsController extends BaseController {
     }
   }
 
-  async handleSaveRequest({ collectionId, requestName, isNewCollection }) {
+  async handleSaveRequest({ collectionId, folderId, requestName, isNewCollection, isNewFolder }) {
     const activeTab = this.getComputed('activeTab')
-    if (activeTab) {
-      // First update the tab name
-      this.tabsStore.updateTab(activeTab.id, { name: requestName })
+    if (!activeTab) return
 
-      // If this is a new request (no itemId), add it to the collection
-      if (!activeTab.itemId) {
-        const newRequest = this.collectionsStore.addRequest(collectionId, {
-          method: this.state.currentMethod,
-          url: { raw: this.state.currentUrl },
-          header: this.state.currentHeaders.filter(h => h.enabled && h.key),
-          body: this.state.currentBody
-        })
+    const requestData = {
+      method: this.state.currentMethod,
+      url: { raw: this.state.currentUrl },
+      header: this.state.currentHeaders.filter(h => h.enabled && h.key),
+      body: this.state.currentBody
+    }
+
+    // Determine save strategy based on existing request state and user choices
+    const isNewRequest = !activeTab.itemId
+    const isDifferentCollection = activeTab.collectionId && activeTab.collectionId !== collectionId
+    const isDifferentName = activeTab.name !== requestName
+    const isDifferentFolder = activeTab.folderId !== folderId
+
+    this.logger.debug('Save request analysis:', {
+      isNewRequest,
+      isDifferentCollection,
+      isDifferentName,
+      isDifferentFolder,
+      originalCollection: activeTab.collectionId,
+      originalFolder: activeTab.folderId,
+      targetCollection: collectionId,
+      targetFolder: folderId
+    })
+
+    try {
+      let finalRequestId = null
+      let finalCollectionId = collectionId
+      let finalFolderId = folderId
+
+      if (isNewRequest) {
+        // NEW REQUEST: Create in the selected location
+        let newRequest
+        if (folderId) {
+          newRequest = this.collectionsStore.addRequestToFolder(collectionId, folderId, requestData)
+        } else {
+          newRequest = this.collectionsStore.addRequest(collectionId, requestData)
+        }
+
+        finalRequestId = newRequest.id
 
         // Link the tab to the new request
         this.tabsStore.updateTab(activeTab.id, {
-          itemId: newRequest.id,
-          collectionId: collectionId,
+          itemId: finalRequestId,
+          collectionId: finalCollectionId,
+          folderId: finalFolderId,
           saved: true,
           modified: false
         })
 
-        // Update the request name
-        this.collectionsStore.updateRequest(collectionId, newRequest.id, { name: requestName })
-      } else {
-        // Update existing request
-        this.collectionsStore.updateRequest(activeTab.collectionId, activeTab.itemId, {
-          name: requestName,
-          request: {
-            method: this.state.currentMethod,
-            url: { raw: this.state.currentUrl },
-            header: this.state.currentHeaders.filter(h => h.enabled && h.key),
-            body: this.state.currentBody
-          }
+        // Set the request name
+        this.collectionsStore.updateRequest(finalCollectionId, finalRequestId, { name: requestName })
+
+        this.logger.info('Created new request:', requestName)
+
+      } else if (isDifferentCollection || isDifferentFolder) {
+        // DIFFERENT LOCATION: Create a copy in the new location
+        let newRequest
+        if (folderId) {
+          newRequest = this.collectionsStore.addRequestToFolder(collectionId, folderId, requestData)
+        } else {
+          newRequest = this.collectionsStore.addRequest(collectionId, requestData)
+        }
+
+        finalRequestId = newRequest.id
+
+        // Update the tab to point to the new request copy
+        this.tabsStore.updateTab(activeTab.id, {
+          itemId: finalRequestId,
+          collectionId: finalCollectionId,
+          folderId: finalFolderId,
+          saved: true,
+          modified: false
         })
 
+        // Set the request name
+        this.collectionsStore.updateRequest(finalCollectionId, finalRequestId, { name: requestName })
+
+        this.logger.info('Created request copy in different location:', requestName)
+
+      } else if (isDifferentName) {
+        // SAME LOCATION, DIFFERENT NAME: Check if name exists
+        const existingRequest = this.findRequestByNameInLocation(collectionId, folderId, requestName)
+
+        if (existingRequest) {
+          // Name exists: Overwrite the existing request
+          this.collectionsStore.updateRequest(collectionId, existingRequest.id, {
+            name: requestName,
+            request: requestData
+          })
+
+          // Update tab to point to the overwritten request
+          this.tabsStore.updateTab(activeTab.id, {
+            itemId: existingRequest.id,
+            collectionId: finalCollectionId,
+            folderId: finalFolderId,
+            saved: true,
+            modified: false
+          })
+
+          finalRequestId = existingRequest.id
+
+          this.logger.info('Overwrote existing request:', requestName)
+        } else {
+          // Name doesn't exist: Rename the current request
+          this.collectionsStore.updateRequest(activeTab.collectionId, activeTab.itemId, {
+            name: requestName,
+            request: requestData
+          })
+
+          finalRequestId = activeTab.itemId
+          this.tabsStore.markTabAsSaved(activeTab.id)
+
+          this.logger.info('Renamed current request:', requestName)
+        }
+
+      } else {
+        // SAME LOCATION, SAME NAME: Update existing request
+        this.collectionsStore.updateRequest(activeTab.collectionId, activeTab.itemId, {
+          name: requestName,
+          request: requestData
+        })
+
+        finalRequestId = activeTab.itemId
         this.tabsStore.markTabAsSaved(activeTab.id)
+
+        this.logger.info('Updated existing request:', requestName)
       }
+
+      // Update tab name to match request name
+      this.tabsStore.updateTab(activeTab.id, { name: requestName })
+
       this.state.showSaveDialog = false
+
+      this.logger.debug('Request save completed:', {
+        finalRequestId,
+        finalCollectionId,
+        finalFolderId,
+        requestName
+      })
+
+    } catch (error) {
+      this.logger.error('Failed to save request:', error)
+      // Keep dialog open on error
     }
+  }
+
+  /**
+   * Find a request by name within a specific location (collection + folder)
+   */
+  findRequestByNameInLocation(collectionId, folderId, requestName) {
+    const collection = this.collectionsStore.getCollection(collectionId)
+    if (!collection) return null
+
+    const searchItems = (items) => {
+      for (const item of items) {
+        if (item.request && item.name === requestName) {
+          return item
+        }
+      }
+      return null
+    }
+
+    if (folderId) {
+      // Search within the specific folder
+      const folder = this.collectionsStore.findItemInCollection(collectionId, folderId)
+      if (folder && folder.item && folder.item.item) {
+        return searchItems(folder.item.item)
+      }
+    } else {
+      // Search in collection root
+      return searchItems(collection.item || [])
+    }
+
+    return null
   }
 
   /**
