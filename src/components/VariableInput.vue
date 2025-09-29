@@ -269,6 +269,18 @@ onMounted(() => {
 
 // Component tag
 const inputComponent = computed(() => props.type === 'textarea' ? 'textarea' : 'input')
+
+// Get type label for display
+const getTypeLabel = (type) => {
+  const types = {
+    default: 'Text',
+    secret: 'Secret',
+    number: 'Number',
+    boolean: 'Boolean',
+    json: 'JSON'
+  }
+  return types[type] || 'Text'
+}
 </script>
 
 <template>
@@ -317,22 +329,67 @@ const inputComponent = computed(() => props.type === 'textarea' ? 'textarea' : '
         <span class="autocomplete-title">Environment Variables</span>
         <span class="autocomplete-hint">↑↓ navigate • Enter/Tab select • Esc close</span>
       </div>
-      <div class="autocomplete-list">
-        <div
-          v-for="(variable, index) in filteredVariables"
-          :key="variable.key"
-          :class="[
-            'autocomplete-item',
-            { selected: index === selectedAutocompleteIndex }
-          ]"
-          @click="selectVariable(variable)"
-          @mouseenter="selectedAutocompleteIndex = index"
-        >
-          <div class="variable-info">
-            <span class="variable-key">{{ variable.key }}</span>
-            <span class="variable-preview">{{variable.key}}</span>
+      <div class="autocomplete-table">
+        <div class="autocomplete-table-header">
+          <div class="col-status"></div>
+          <div class="col-key">Variable</div>
+          <div class="col-type">Type</div>
+          <div class="col-value">Value</div>
+        </div>
+        <div class="autocomplete-table-body">
+          <div
+            v-for="(variable, index) in filteredVariables"
+            :key="variable.key"
+            :class="[
+              'autocomplete-item',
+              {
+                selected: index === selectedAutocompleteIndex,
+                disabled: !variable.enabled
+              }
+            ]"
+            @click="selectVariable(variable)"
+            @mouseenter="selectedAutocompleteIndex = index"
+          >
+            <!-- Status indicator -->
+            <div class="col-status">
+              <div
+                :class="[
+                  'status-indicator',
+                  { enabled: variable.enabled, disabled: !variable.enabled }
+                ]"
+              ></div>
+            </div>
+
+            <!-- Variable key -->
+            <div class="col-key">
+              <span class="variable-key">{{ variable.key }}</span>
+              <span v-if="variable.description" class="variable-description">{{ variable.description }}</span>
+            </div>
+
+            <!-- Variable type -->
+            <div class="col-type">
+              <span class="type-badge" :class="`type-${variable.type || 'default'}`">
+                {{ getTypeLabel(variable.type || 'default') }}
+              </span>
+            </div>
+
+            <!-- Variable value -->
+            <div class="col-value">
+              <span
+                v-if="variable.type === 'secret'"
+                class="variable-value secret"
+              >
+                {{ '•'.repeat(Math.min(8, variable.value?.length || 0)) }}
+              </span>
+              <span
+                v-else
+                class="variable-value"
+                :class="{ empty: !variable.value }"
+              >
+                {{ variable.value || '(empty)' }}
+              </span>
+            </div>
           </div>
-          <div class="variable-value">{{ variable.value }}</div>
         </div>
       </div>
       <div v-if="!activeEnvironment" class="autocomplete-empty">
@@ -591,6 +648,245 @@ const inputComponent = computed(() => props.type === 'textarea' ? 'textarea' : '
   font-style: italic;
 }
 
+/* Autocomplete dropdown */
+.autocomplete-dropdown {
+  position: absolute;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 1000;
+  min-width: 400px;
+  max-width: 600px;
+  max-height: 300px;
+  animation: slideDown 0.2s ease-out;
+  overflow: hidden;
+}
+
+.autocomplete-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--color-bg-tertiary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.autocomplete-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.autocomplete-hint {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-family: monospace;
+}
+
+/* Table-like layout for autocomplete */
+.autocomplete-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.autocomplete-table-header {
+  display: grid;
+  grid-template-columns: 24px 1fr 80px 1.5fr;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--color-bg-tertiary);
+  border-bottom: 1px solid var(--color-border);
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.autocomplete-table-body {
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.autocomplete-item {
+  display: grid;
+  grid-template-columns: 24px 1fr 80px 1.5fr;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border-light);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 13px;
+}
+
+.autocomplete-item:hover {
+  background: var(--color-bg-hover);
+}
+
+.autocomplete-item.selected {
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+}
+
+.autocomplete-item.disabled {
+  opacity: 0.6;
+}
+
+.autocomplete-item:last-child {
+  border-bottom: none;
+}
+
+/* Column styling */
+.col-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.col-key {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.col-type {
+  display: flex;
+  align-items: center;
+}
+
+.col-value {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+/* Status indicator */
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+}
+
+.status-indicator.enabled {
+  background-color: var(--color-success);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.status-indicator.disabled {
+  background-color: var(--color-text-muted);
+  border-color: rgba(156, 163, 175, 0.3);
+}
+
+/* Variable key */
+.variable-key {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  font-family: monospace;
+  word-break: break-all;
+}
+
+.variable-description {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-style: italic;
+  line-height: 1.2;
+}
+
+/* Type badges */
+.type-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1;
+}
+
+.type-badge.type-default {
+  background-color: rgba(156, 163, 175, 0.2);
+  color: var(--color-text-secondary);
+}
+
+.type-badge.type-secret {
+  background-color: rgba(239, 68, 68, 0.2);
+  color: var(--color-error);
+}
+
+.type-badge.type-number {
+  background-color: rgba(59, 130, 246, 0.2);
+  color: var(--color-primary);
+}
+
+.type-badge.type-boolean {
+  background-color: rgba(168, 85, 247, 0.2);
+  color: #8b5cf6;
+}
+
+.type-badge.type-json {
+  background-color: rgba(34, 197, 94, 0.2);
+  color: var(--color-success);
+}
+
+/* Variable value */
+.variable-value {
+  color: var(--color-text-primary);
+  font-family: monospace;
+  font-size: 12px;
+  word-break: break-all;
+  line-height: 1.3;
+}
+
+.variable-value.empty {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.variable-value.secret {
+  color: var(--color-error);
+  font-family: monospace;
+  letter-spacing: 2px;
+}
+
+/* Selected state overrides */
+.autocomplete-item.selected .variable-key {
+  color: var(--color-primary-dark);
+}
+
+.autocomplete-item.selected .variable-value {
+  color: var(--color-primary-dark);
+}
+
+.autocomplete-item.selected .variable-description {
+  color: rgba(37, 99, 235, 0.7);
+}
+
+/* Empty state */
+.autocomplete-empty {
+  padding: 16px 12px;
+  text-align: center;
+  border-top: 1px solid var(--color-border);
+}
+
+.empty-message {
+  display: block;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.empty-hint {
+  display: block;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .variable-tooltip {
@@ -600,6 +896,26 @@ const inputComponent = computed(() => props.type === 'textarea' ? 'textarea' : '
     transform: translate(-50%, -50%);
     width: 90vw;
     max-width: none;
+  }
+
+  .autocomplete-dropdown {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90vw;
+    max-width: none;
+    min-width: auto;
+  }
+
+  .autocomplete-table-header,
+  .autocomplete-item {
+    grid-template-columns: 20px 1fr 60px 1fr;
+    font-size: 12px;
+  }
+
+  .autocomplete-hint {
+    display: none;
   }
 }
 </style>
