@@ -5,13 +5,19 @@ import { useCollections } from '../stores/useCollections.js'
 import { useEnvironments } from '../stores/useEnvironments.js'
 import { useTabs } from '../stores/useTabs.js'
 import { useVariableInterpolation } from '../composables/useVariableInterpolation.js'
+import { HttpClientFactory } from '../core/http/HttpClient.js'
+import '../core/http/FetchHttpClient.js' // Register FetchHttpClient
 import CollectionPickerDialog from './CollectionPickerDialog.vue'
 import VariableInput from './VariableInput.vue'
+import SyntaxHighlighter from './SyntaxHighlighter.vue'
 
 const collectionsStore = useCollections()
 const environmentsStore = useEnvironments()
 const tabsStore = useTabs()
 const { interpolateText } = useVariableInterpolation()
+
+// Create HTTP client instance
+const httpClient = HttpClientFactory.create('fetch')
 
 // Use real data from stores
 const tabs = computed(() => {
@@ -51,18 +57,10 @@ const currentParams = ref([])
 const currentBody = ref('')
 const currentBodyType = ref('raw')
 
-// Response data (mock for now)
-const responseData = ref({
-  status: 200,
-  statusText: 'OK',
-  time: '245ms',
-  size: '1.2kb',
-  headers: {
-    'content-type': 'application/json',
-    'content-length': '1234'
-  },
-  body: '{\n  "id": 1,\n  "name": "John Doe",\n  "email": "john@example.com",\n  "created_at": "2023-01-01T00:00:00Z"\n}'
-})
+// Response data
+const responseData = ref(null)
+const isLoading = ref(false)
+const requestError = ref(null)
 
 const activeRequestTab = ref('params')
 const activeResponseTab = ref('body')
@@ -213,7 +211,15 @@ const handleSaveRequest = ({ collectionId, requestName, isNewCollection }) => {
   }
 }
 
-const sendRequest = () => {
+const sendRequest = async () => {
+  // Clear previous response and errors
+  responseData.value = null
+  requestError.value = null
+  isLoading.value = true
+
+  // Add a small delay to ensure loading state is visible
+  await new Promise(resolve => setTimeout(resolve, 100))
+
   // Interpolate variables in URL, headers, params, and body
   const interpolatedUrl = interpolateText(currentUrl.value)
   const interpolatedHeaders = currentHeaders.value.map(header => ({
@@ -231,18 +237,58 @@ const sendRequest = () => {
   console.log('Sending request...', {
     method: currentMethod.value,
     url: interpolatedUrl,
-    originalUrl: currentUrl.value,
     params: interpolatedParams,
     headers: interpolatedHeaders,
     body: interpolatedBody
   })
 
-  // Set response received flag and show response view
-  hasResponse.value = true
-  viewMode.value = 'both' // Always switch to both view to show the response
+  try {
+    // Send the actual HTTP request
+    const response = await httpClient.send({
+      method: currentMethod.value,
+      url: interpolatedUrl,
+      params: interpolatedParams,
+      headers: interpolatedHeaders,
+      body: interpolatedBody,
+      bodyType: currentBodyType.value
+    })
 
-  // TODO: Implement actual request logic with interpolated values
-  // TODO: Add to history after sending
+    // Store response data
+    responseData.value = response
+
+    // Format response for display
+    if (response.success || response.status) {
+      // Set response received flag and show response view
+      hasResponse.value = true
+      viewMode.value = 'both' // Always switch to both view to show the response
+    }
+
+    // Log response for debugging
+    console.log('Response received:', response)
+
+    // TODO: Add to history after sending
+
+  } catch (error) {
+    console.error('Request failed:', error)
+    requestError.value = error.message || 'Request failed'
+
+    // Still show response view to display error
+    hasResponse.value = true
+    viewMode.value = 'both'
+
+    // Create error response object
+    responseData.value = {
+      success: false,
+      status: 0,
+      statusText: 'Error',
+      error: error.message || 'Request failed',
+      headers: {},
+      body: null,
+      time: 0
+    }
+  } finally {
+    isLoading.value = false
+  }
 }
 
 // View toggle functions
@@ -268,6 +314,132 @@ const getMethodColor = (method) => {
     'DELETE': 'var(--color-delete)'
   }
   return colors[method] || 'var(--color-text-secondary)'
+}
+
+// Format time for display
+const formatTime = (milliseconds) => {
+  if (!milliseconds && milliseconds !== 0) return 'N/A'
+  if (milliseconds < 1000) return `${Math.round(milliseconds)}ms`
+  return `${(milliseconds / 1000).toFixed(2)}s`
+}
+
+// Format size for display
+const formatSize = (bytes) => {
+  if (!bytes && bytes !== 0) return 'N/A'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
+}
+
+// Format response body for display
+const formatResponseBody = (body) => {
+  if (!body) return 'No response body'
+
+  // If it's an object, pretty print it as JSON
+  if (typeof body === 'object') {
+    try {
+      return JSON.stringify(body, null, 2)
+    } catch (e) {
+      return String(body)
+    }
+  }
+
+  // If it's a string that looks like JSON, try to format it
+  if (typeof body === 'string') {
+    try {
+      const parsed = JSON.parse(body)
+      return JSON.stringify(parsed, null, 2)
+    } catch (e) {
+      // Not JSON, return as-is
+      return body
+    }
+  }
+
+  return String(body)
+}
+
+// Get appropriate status text
+const getStatusText = (responseData) => {
+  if (!responseData) return 'Unknown'
+
+  // If we have a valid statusText, use it
+  if (responseData.statusText && responseData.statusText !== 'Network Error') {
+    return responseData.statusText
+  }
+
+  // Map common status codes to text
+  const statusTexts = {
+    200: 'OK',
+    201: 'Created',
+    204: 'No Content',
+    400: 'Bad Request',
+    401: 'Unauthorized',
+    403: 'Forbidden',
+    404: 'Not Found',
+    405: 'Method Not Allowed',
+    422: 'Unprocessable Entity',
+    500: 'Internal Server Error',
+    502: 'Bad Gateway',
+    503: 'Service Unavailable'
+  }
+
+  if (responseData.status && statusTexts[responseData.status]) {
+    return statusTexts[responseData.status]
+  }
+
+  // If status is 0, it's likely a network error
+  if (responseData.status === 0) {
+    return 'Network Error'
+  }
+
+  // If we have an error but no status, show the error
+  if (responseData.error && !responseData.status) {
+    return 'Error'
+  }
+
+  // Default fallback
+  return responseData.statusText || 'Unknown'
+}
+
+// Detect response language based on content-type and content
+const detectResponseLanguage = (responseData) => {
+  if (!responseData) return 'plaintext'
+
+  // Check content-type header first
+  const contentType = responseData.headers?.['content-type'] || ''
+
+  if (contentType.includes('application/json')) {
+    return 'json'
+  } else if (contentType.includes('text/html')) {
+    return 'html'
+  } else if (contentType.includes('text/xml') || contentType.includes('application/xml')) {
+    return 'xml'
+  } else if (contentType.includes('text/css')) {
+    return 'css'
+  } else if (contentType.includes('application/javascript') || contentType.includes('text/javascript')) {
+    return 'javascript'
+  }
+
+  // Fallback to auto-detection based on content
+  const body = formatResponseBody(responseData.body)
+
+  // Try to detect JSON
+  try {
+    JSON.parse(body)
+    return 'json'
+  } catch (e) {
+    // Not JSON
+  }
+
+  // Check for HTML/XML
+  if (body.trim().startsWith('<') && body.includes('>')) {
+    if (body.includes('<!DOCTYPE') || body.includes('<html')) {
+      return 'html'
+    }
+    return 'xml'
+  }
+
+  return 'auto' // Let SyntaxHighlighter auto-detect
 }
 
 // Watch for active tab changes and load request data
@@ -379,8 +551,17 @@ watch(activeTab, (newTab) => {
               <button class="save-button" @click="saveRequest" title="Save Request">
                 💾
               </button>
-              <button class="send-button primary large" @click="sendRequest">
-                ▶️ Send
+              <button
+                class="send-button primary large"
+                @click="sendRequest"
+                :disabled="isLoading || !currentUrl"
+                :class="{ loading: isLoading }"
+              >
+                <span v-if="isLoading" class="loading-content">
+                  <span class="loading-spinner">⏳</span>
+                  <span>Sending...</span>
+                </span>
+                <span v-else>▶️ Send</span>
               </button>
             </div>
 
@@ -525,12 +706,25 @@ watch(activeTab, (newTab) => {
               <!-- Response Header -->
               <div class="response-header">
                 <div class="response-status">
-                  <span class="status-code success">{{ responseData.status }}</span>
-                  <span class="status-text">{{ responseData.statusText }}</span>
+                  <span
+                    :class="[
+                      'status-code',
+                      {
+                        'success': responseData.status >= 200 && responseData.status < 300,
+                        'redirect': responseData.status >= 300 && responseData.status < 400,
+                        'client-error': responseData.status >= 400 && responseData.status < 500,
+                        'server-error': responseData.status >= 500,
+                        'network-error': responseData.status === 0
+                      }
+                    ]"
+                  >
+                    {{ responseData.status || 'Error' }}
+                  </span>
+                  <span class="status-text">{{ getStatusText(responseData) }}</span>
                 </div>
                 <div class="response-meta">
-                  <span class="response-time">Time: {{ responseData.time }}</span>
-                  <span class="response-size">Size: {{ responseData.size }}</span>
+                  <span class="response-time">Time: {{ formatTime(responseData.time) }}</span>
+                  <span class="response-size">Size: {{ formatSize(responseData.size) }}</span>
                 </div>
               </div>
 
@@ -546,17 +740,36 @@ watch(activeTab, (newTab) => {
                   :class="['nav-tab', { active: activeResponseTab === 'headers' }]"
                   @click="activeResponseTab = 'headers'"
                 >
-                  Headers ({{ Object.keys(responseData.headers).length }})
+                  Headers ({{ Object.keys(responseData.headers || {}).length }})
                 </button>
               </div>
 
               <!-- Response Content -->
               <div class="response-content">
-                <div v-if="activeResponseTab === 'body'" class="response-body">
-                  <pre>{{ responseData.body }}</pre>
+                <!-- Error Display -->
+                <div v-if="responseData.error && !responseData.body" class="response-error">
+                  <div class="error-icon">❌</div>
+                  <div class="error-message">{{ responseData.error }}</div>
                 </div>
+
+                <!-- Body Tab -->
+                <div v-else-if="activeResponseTab === 'body'" class="response-body">
+                  <SyntaxHighlighter
+                    :code="formatResponseBody(responseData.body)"
+                    :language="detectResponseLanguage(responseData)"
+                    :copyable="true"
+                    :show-line-numbers="false"
+                    max-height="400px"
+                  />
+                </div>
+
+                <!-- Headers Tab -->
                 <div v-if="activeResponseTab === 'headers'" class="response-headers">
+                  <div v-if="!responseData.headers || Object.keys(responseData.headers).length === 0" class="empty-headers">
+                    No headers received
+                  </div>
                   <div
+                    v-else
                     v-for="(value, key) in responseData.headers"
                     :key="key"
                     class="header-row"
@@ -1201,18 +1414,7 @@ watch(activeTab, (newTab) => {
   overflow-y: auto;
 }
 
-.response-body pre {
-  background: var(--color-bg-secondary);
-  padding: 20px;
-  border-radius: var(--radius-lg);
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  font-size: 13px;
-  overflow-x: auto;
-  margin: 0;
-  white-space: pre-wrap;
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--color-border);
-}
+/* Response body now uses SyntaxHighlighter component */
 
 .response-headers {
   background: var(--color-bg-secondary);
@@ -1498,5 +1700,93 @@ watch(activeTab, (newTab) => {
   position: absolute;
   left: 4px;
   font-weight: bold;
+}
+
+/* Response status styles */
+.status-code {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.status-code.success {
+  background-color: rgba(34, 197, 94, 0.1);
+  color: var(--color-success);
+}
+
+.status-code.redirect {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: var(--color-primary);
+}
+
+.status-code.client-error {
+  background-color: rgba(251, 146, 60, 0.1);
+  color: var(--color-warning);
+}
+
+.status-code.server-error {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: var(--color-error);
+}
+
+.status-code.network-error {
+  background-color: rgba(156, 163, 175, 0.1);
+  color: var(--color-text-muted);
+}
+
+/* Response error display */
+.response-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  text-align: center;
+}
+
+.error-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.error-message {
+  font-size: 16px;
+  color: var(--color-error);
+  font-weight: 500;
+  max-width: 500px;
+}
+
+.empty-headers {
+  color: var(--color-text-muted);
+  font-style: italic;
+  text-align: center;
+  padding: 20px;
+}
+
+.send-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.send-button.loading {
+  background: var(--color-primary);
+  transform: none !important;
+}
+
+.loading-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.loading-spinner {
+  animation: spin 1s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 </style>
