@@ -2,9 +2,9 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { EnvironmentsController } from '../../controllers/EnvironmentsController.js'
 import { Logger } from '../../core/Logger.js'
-import NewEnvironmentDialog from '../NewEnvironmentDialog.vue'
-import EnvironmentContextMenu from '../EnvironmentContextMenu.vue'
-import EnvironmentVariablesDialog from '../EnvironmentVariablesDialog.vue'
+import NewEnvironmentDialog from '../dialogs/NewEnvironmentDialog.vue'
+import EnvironmentContextMenu from '../menu/EnvironmentContextMenu.vue'
+import EnvironmentVariablesDialog from '../dialogs/EnvironmentVariablesDialog.vue'
 
 // Create logger instance
 const logger = new Logger({ prefix: 'EnvironmentsTab', level: 'debug' })

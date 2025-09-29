@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
-import BaseContextMenu from './BaseContextMenu.vue'
-import { CollectionContextMenuController } from '../controllers/CollectionContextMenuController.js'
+import BaseContextMenu from '../base/BaseContextMenu.vue'
+import { CollectionContextMenuController } from '../../controllers/CollectionContextMenuController.js'
 
 const props = defineProps({
   collectionsController: {

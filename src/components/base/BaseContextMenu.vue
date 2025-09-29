@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { Logger } from '../core/Logger.js'
+import { Logger } from '../../core/logger.js'
 
 // Create logger instance
 const logger = new Logger({ prefix: 'BaseContextMenu', level: 'debug' })

@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { getCurrentEditor, getCurrentEditorDefaults } from '../config/editors.js'
-import { createLogger } from '../core/logger.js'
+import { getCurrentEditor, getCurrentEditorDefaults } from '../../config/editors.js'
+import { createLogger } from '../../core/logger.js'
 
 // Get the configured text editor component
 const TextEditor = getCurrentEditor()

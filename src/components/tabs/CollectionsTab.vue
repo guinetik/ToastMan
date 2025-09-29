@@ -1,10 +1,10 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { CollectionsController } from '../../controllers/CollectionsController.js'
-import NewCollectionDialog from '../NewCollectionDialog.vue'
-import CollectionContextMenu from '../CollectionContextMenu.vue'
-import RequestContextMenu from '../RequestContextMenu.vue'
-import FolderContextMenu from '../FolderContextMenu.vue'
+import NewCollectionDialog from '../dialogs/NewCollectionDialog.vue'
+import CollectionContextMenu from '../menu/CollectionContextMenu.vue'
+import RequestContextMenu from '../menu/RequestContextMenu.vue'
+import FolderContextMenu from '../menu/FolderContextMenu.vue'
 import CollectionItem from '../CollectionItem.vue'
 
 // Create controller instance and initialize immediately

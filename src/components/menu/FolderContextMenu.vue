@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
-import BaseContextMenu from './BaseContextMenu.vue'
-import { RequestContextMenuController } from '../controllers/RequestContextMenuController.js'
+import BaseContextMenu from '../base/BaseContextMenu.vue'
+import { FolderContextMenuController } from '../../controllers/FolderContextMenuController.js'
 
 const props = defineProps({
   collectionsController: {
@@ -13,7 +13,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'action'])
 
 // Create controller instance
-const controller = new RequestContextMenuController(props.collectionsController)
+const controller = new FolderContextMenuController(props.collectionsController)
 
 // Initialize controller
 controller.init()
@@ -33,7 +33,7 @@ const handleClose = () => {
 
 // Expose controller methods for parent component
 defineExpose({
-  show: (event, collection, request) => controller.show(event, collection, request),
+  show: (event, collection, folder) => controller.show(event, collection, folder),
   hide: () => controller.hide(),
   controller
 })

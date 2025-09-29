@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
-import { useCollections } from '../stores/useCollections.js'
-import BaseDialog from './BaseDialog.vue'
+import { useCollections } from '../../stores/useCollections.js'
+import BaseDialog from '../base/BaseDialog.vue'
 
 const props = defineProps({
   requestName: {
