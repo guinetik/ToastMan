@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import BaseDialog from '../base/BaseDialog.vue'
 import { EnvironmentVariable } from '../../models/Environment.js'
-import { Logger } from '../../core/Logger.js'
+import { Logger } from '../../core/logger.js'
 
 // Create logger instance
 const logger = new Logger({ prefix: 'EnvironmentVariablesDialog', level: 'debug' })

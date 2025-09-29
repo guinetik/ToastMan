@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github-dark.css'
-import { Logger } from '../core/Logger.js'
+import { Logger } from '../core/logger.js'
 
 // Create logger instance
 const logger = new Logger({ prefix: 'SyntaxHighlighter', level: 'debug' })
