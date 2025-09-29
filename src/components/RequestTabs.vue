@@ -4,11 +4,14 @@ import { Splitpanes, Pane } from 'splitpanes'
 import { useCollections } from '../stores/useCollections.js'
 import { useEnvironments } from '../stores/useEnvironments.js'
 import { useTabs } from '../stores/useTabs.js'
+import { useVariableInterpolation } from '../composables/useVariableInterpolation.js'
 import CollectionPickerDialog from './CollectionPickerDialog.vue'
+import VariableInput from './VariableInput.vue'
 
 const collectionsStore = useCollections()
 const environmentsStore = useEnvironments()
 const tabsStore = useTabs()
+const { interpolateText } = useVariableInterpolation()
 
 // Use real data from stores
 const tabs = computed(() => {
@@ -211,19 +214,34 @@ const handleSaveRequest = ({ collectionId, requestName, isNewCollection }) => {
 }
 
 const sendRequest = () => {
+  // Interpolate variables in URL, headers, params, and body
+  const interpolatedUrl = interpolateText(currentUrl.value)
+  const interpolatedHeaders = currentHeaders.value.map(header => ({
+    ...header,
+    key: interpolateText(header.key || ''),
+    value: interpolateText(header.value || '')
+  }))
+  const interpolatedParams = currentParams.value.map(param => ({
+    ...param,
+    key: interpolateText(param.key || ''),
+    value: interpolateText(param.value || '')
+  }))
+  const interpolatedBody = interpolateText(currentBody.value)
+
   console.log('Sending request...', {
     method: currentMethod.value,
-    url: currentUrl.value,
-    params: currentParams.value,
-    headers: currentHeaders.value,
-    body: currentBody.value
+    url: interpolatedUrl,
+    originalUrl: currentUrl.value,
+    params: interpolatedParams,
+    headers: interpolatedHeaders,
+    body: interpolatedBody
   })
 
   // Set response received flag and show response view
   hasResponse.value = true
   viewMode.value = 'both' // Always switch to both view to show the response
 
-  // TODO: Implement actual request logic
+  // TODO: Implement actual request logic with interpolated values
   // TODO: Add to history after sending
 }
 
@@ -352,12 +370,11 @@ watch(activeTab, (newTab) => {
                   {{ method }}
                 </option>
               </select>
-              <input
+              <VariableInput
                 v-model="currentUrl"
-                type="text"
                 placeholder="Enter request URL"
                 class="url-input"
-              >
+              />
 
               <button class="save-button" @click="saveRequest" title="Save Request">
                 💾
@@ -573,12 +590,11 @@ watch(activeTab, (newTab) => {
                 {{ method }}
               </option>
             </select>
-            <input
+            <VariableInput
               v-model="currentUrl"
-              type="text"
               placeholder="Enter request URL"
               class="url-input"
-            >
+            />
 
             <button class="save-button" @click="saveRequest" title="Save Request">
               💾

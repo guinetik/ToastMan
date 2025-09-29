@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useCollections } from '../stores/useCollections.js'
 import { useTabs } from '../stores/useTabs.js'
 import BaseDialog from './BaseDialog.vue'
+import VariableInput from './VariableInput.vue'
 
 const emit = defineEmits(['close'])
 
@@ -146,10 +147,9 @@ onMounted(() => {
 
           <div class="form-group flex-1">
             <label for="request-url" class="form-label">URL</label>
-            <input
+            <VariableInput
               id="request-url"
               v-model="requestUrl"
-              type="text"
               placeholder="https://api.example.com/users"
               class="form-input"
             />
