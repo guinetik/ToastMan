@@ -4,6 +4,8 @@ import { CollectionsController } from '../../controllers/CollectionsController.j
 import NewCollectionDialog from '../NewCollectionDialog.vue'
 import CollectionContextMenu from '../CollectionContextMenu.vue'
 import RequestContextMenu from '../RequestContextMenu.vue'
+import FolderContextMenu from '../FolderContextMenu.vue'
+import CollectionItem from '../CollectionItem.vue'
 
 // Create controller instance and initialize immediately
 const controller = new CollectionsController()
@@ -26,6 +28,7 @@ const filteredCollections = computed(() => {
 // Context menu references
 const contextMenuRef = ref(null)
 const requestContextMenuRef = ref(null)
+const folderContextMenuRef = ref(null)
 
 // Component methods that delegate to controller
 const toggleCollection = (id) => controller.toggleCollection(id)
@@ -43,6 +46,13 @@ const showRequestContextMenu = (event, collection, request) => {
   event.stopPropagation() // Prevent triggering collection context menu
   if (requestContextMenuRef.value) {
     requestContextMenuRef.value.show(event, collection, request)
+  }
+}
+
+const showFolderContextMenu = (event, collection, folder) => {
+  event.stopPropagation() // Prevent triggering collection context menu
+  if (folderContextMenuRef.value) {
+    folderContextMenuRef.value.show(event, collection, folder)
   }
 }
 
@@ -126,21 +136,16 @@ onUnmounted(() => {
             v-if="collection && collection.info && controller.isCollectionExpanded(collection.info.id) && collection.item"
             class="requests-list"
           >
-            <div
-              v-for="request in collection.item"
-              :key="request.id"
-              class="request-item"
-              @click="openRequest(collection.info.id, request.id)"
-              @contextmenu="showRequestContextMenu($event, collection, request)"
-            >
-              <span
-                class="method-badge"
-                :style="{ color: getMethodColor(request?.request?.method || 'GET') }"
-              >
-                {{ request?.request?.method || 'GET' }}
-              </span>
-              <span class="request-name">{{ request.name || 'Unnamed Request' }}</span>
-            </div>
+            <CollectionItem
+              v-for="item in collection.item"
+              :key="item.id"
+              :item="item"
+              :collection-id="collection.info.id"
+              :controller="controller"
+              @open-request="(collectionId, requestId) => openRequest(collectionId, requestId)"
+              @show-context-menu="(event, request) => showRequestContextMenu(event, collection, request)"
+              @show-folder-context-menu="(event, folder) => showFolderContextMenu(event, collection, folder)"
+            />
           </div>
         </div>
       </template>
@@ -164,6 +169,13 @@ onUnmounted(() => {
       ref="requestContextMenuRef"
       :collections-controller="controller"
       @action="handleRequestContextAction"
+    />
+
+    <!-- Folder Context Menu -->
+    <FolderContextMenu
+      ref="folderContextMenuRef"
+      :collections-controller="controller"
+      @action="handleContextAction"
     />
   </div>
 </template>

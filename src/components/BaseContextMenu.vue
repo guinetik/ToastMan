@@ -26,20 +26,20 @@ const menuRef = ref(null)
 
 const handleAction = async (action) => {
   try {
-    emit('action', { action, item: props.controller.state.item })
-    await props.controller.executeAction(action, props.controller.state.item)
+    emit('action', { action, item: props.controller.state?.item })
+    await props.controller?.executeAction(action, props.controller.state?.item)
   } catch (error) {
     logger.error('Menu action failed:', error)
   }
 }
 
 const close = () => {
-  props.controller.hide()
+  props.controller?.hide()
 }
 
 onMounted(() => {
   // Set menu reference for click outside detection
-  if (menuRef.value) {
+  if (menuRef.value && props.controller) {
     props.controller.setMenuRef(menuRef.value)
     props.controller.positionMenu(menuRef.value)
   }
@@ -58,13 +58,13 @@ onUnmounted(() => {
     ref="menuRef"
     class="context-menu"
     :style="{
-      left: `${controller.state.x}px`,
-      top: `${controller.state.y}px`
+      left: `${controller.state?.x || 0}px`,
+      top: `${controller.state?.y || 0}px`
     }"
   >
     <div class="menu-header" v-if="title || $slots.header">
       <slot name="header">
-        <span class="menu-title">{{ title || controller.getMenuTitle(controller.state.item) }}</span>
+        <span class="menu-title">{{ title || controller?.getMenuTitle(controller.state?.item) }}</span>
       </slot>
     </div>
 
@@ -87,7 +87,7 @@ onUnmounted(() => {
       </template>
 
       <!-- Custom slot for additional items -->
-      <slot name="items" :item="controller.state.item" :handleAction="handleAction"></slot>
+      <slot name="items" :item="controller.state?.item" :handleAction="handleAction"></slot>
     </div>
   </div>
 </template>

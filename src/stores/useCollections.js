@@ -13,7 +13,7 @@ import {
   createRequest,
   generateId
 } from '../models/types.js'
-import { createLogger } from '../core/Logger.js'
+import { createLogger } from '../core/logger.js'
 
 // Global collections store
 let collectionsStore = null
@@ -120,7 +120,22 @@ function createCollectionsStore() {
   const getRequest = (collectionId, requestId) => {
     const collection = getCollection(collectionId)
     if (collection) {
-      return collection.item.find(item => item.id === requestId)
+      // Recursive search through folders
+      const findRequest = (items) => {
+        for (const item of items) {
+          // Handle items without type field (legacy) or explicit request type
+          if (item.id === requestId && (item.type === 'request' || (!item.type && item.request))) {
+            return item
+          }
+          // If it's a folder, search its children
+          if ((item.type === 'folder' || (!item.type && item.item)) && item.item) {
+            const found = findRequest(item.item)
+            if (found) return found
+          }
+        }
+        return null
+      }
+      return findRequest(collection.item || [])
     }
     return null
   }
@@ -221,6 +236,113 @@ function createCollectionsStore() {
     return results
   }
 
+  // Folder operations
+  const findItemInCollection = (collectionId, itemId) => {
+    const collection = getCollection(collectionId)
+    if (!collection) return null
+
+    const findInItems = (items) => {
+      for (const item of items) {
+        if (item.id === itemId) {
+          return { item, parent: items }
+        }
+        if (item.item && Array.isArray(item.item)) {
+          const found = findInItems(item.item)
+          if (found) return found
+        }
+      }
+      return null
+    }
+
+    return findInItems(collection.item || [])
+  }
+
+  const addRequestToFolder = (collectionId, folderId, request = null) => {
+    const folderResult = findItemInCollection(collectionId, folderId)
+    if (folderResult && folderResult.item.item) {
+      const item = createItem({
+        name: 'New Request',
+        request: request || createRequest()
+      })
+      folderResult.item.item.push(item)
+      return item
+    }
+    return null
+  }
+
+  const addFolderToCollection = (collectionId, name = 'New Folder') => {
+    const collection = getCollection(collectionId)
+    if (collection) {
+      const folder = {
+        id: generateId(),
+        name,
+        type: 'folder',
+        item: []
+      }
+      collection.item.push(folder)
+      return folder
+    }
+    return null
+  }
+
+  const addFolderToFolder = (collectionId, parentFolderId, name = 'New Folder') => {
+    const parentResult = findItemInCollection(collectionId, parentFolderId)
+    if (parentResult && parentResult.item.item) {
+      const folder = {
+        id: generateId(),
+        name,
+        type: 'folder',
+        item: []
+      }
+      parentResult.item.item.push(folder)
+      return folder
+    }
+    return null
+  }
+
+  const renameFolder = (collectionId, folderId, newName) => {
+    const folderResult = findItemInCollection(collectionId, folderId)
+    if (folderResult) {
+      folderResult.item.name = newName
+      return folderResult.item
+    }
+    return null
+  }
+
+  const duplicateFolder = (collectionId, folderId) => {
+    const folderResult = findItemInCollection(collectionId, folderId)
+    if (folderResult) {
+      const duplicate = JSON.parse(JSON.stringify(folderResult.item))
+
+      // Generate new IDs for the folder and all its contents
+      const regenerateIds = (item) => {
+        item.id = generateId()
+        if (item.item && Array.isArray(item.item)) {
+          item.item.forEach(regenerateIds)
+        }
+      }
+
+      regenerateIds(duplicate)
+      duplicate.name = `${duplicate.name} Copy`
+
+      folderResult.parent.push(duplicate)
+      return duplicate
+    }
+    return null
+  }
+
+  const deleteFolder = (collectionId, folderId) => {
+    const folderResult = findItemInCollection(collectionId, folderId)
+    if (folderResult) {
+      const index = folderResult.parent.indexOf(folderResult.item)
+      if (index > -1) {
+        folderResult.parent.splice(index, 1)
+        return true
+      }
+    }
+    return false
+  }
+
   // Import/Export operations
   const exportCollection = (id) => {
     const collection = getCollection(id)
@@ -254,22 +376,29 @@ function createCollectionsStore() {
       imported.info.id = generateId()
       imported.info.name = `${imported.info.name} (Imported)`
 
-      // Recursive function to process items (handles nested folders)
+      // Recursive function to process items (preserves folder structure)
       const processItems = (items) => {
         if (!items) return []
 
-        return items.flatMap(item => {
+        return items.map(item => {
           // Check if this is a folder with nested items
           if (item.item && Array.isArray(item.item)) {
-            // Process nested items recursively
-            return processItems(item.item)
+            // This is a folder - process its children recursively
+            return {
+              ...item,
+              id: generateId(),
+              name: item.name || 'Unnamed Folder',
+              type: 'folder',
+              item: processItems(item.item) // Process nested items recursively
+            }
           }
 
           // This is an actual request item
           let normalizedItem = {
             ...item,
             id: generateId(),
-            name: item.name || 'Unnamed Request'
+            name: item.name || 'Unnamed Request',
+            type: 'request'
           }
 
           // Ensure the request property exists with the expected structure
@@ -387,6 +516,14 @@ function createCollectionsStore() {
     deleteRequest,
     duplicateRequest,
     moveRequest,
+
+    // Folder operations
+    addFolderToCollection,
+    addRequestToFolder,
+    addFolderToFolder,
+    renameFolder,
+    duplicateFolder,
+    deleteFolder,
 
     // Search and filtering
     searchRequests,
