@@ -11,6 +11,7 @@ import { Logger } from '../core/Logger.js'
 import CollectionPickerDialog from './CollectionPickerDialog.vue'
 import VariableInput from './VariableInput.vue'
 import SyntaxHighlighter from './SyntaxHighlighter.vue'
+import RequestBodyEditor from './RequestBodyEditor.vue'
 
 const collectionsStore = useCollections()
 const environmentsStore = useEnvironments()
@@ -57,8 +58,13 @@ const currentUrl = ref('')
 const currentMethod = ref('GET')
 const currentHeaders = ref([])
 const currentParams = ref([])
-const currentBody = ref('')
-const currentBodyType = ref('raw')
+const currentBody = ref({
+  mode: 'none',
+  raw: '',
+  formData: [],
+  urlEncoded: [],
+  binary: null
+})
 
 // Response data
 const responseData = ref(null)
@@ -113,18 +119,21 @@ const loadRequestData = () => {
 
     // Extract body
     if (request.body) {
-      currentBodyType.value = request.body.mode || 'raw'
-      if (request.body.raw) {
-        currentBody.value = request.body.raw
-      } else if (typeof request.body === 'string') {
-        currentBody.value = request.body
-        currentBodyType.value = 'raw'
-      } else {
-        currentBody.value = ''
+      currentBody.value = {
+        mode: request.body.mode || 'none',
+        raw: request.body.raw || '',
+        formData: request.body.formData || request.body.formdata || [],
+        urlEncoded: request.body.urlEncoded || request.body.urlencoded || [],
+        binary: request.body.binary || null
       }
     } else {
-      currentBodyType.value = 'raw'
-      currentBody.value = ''
+      currentBody.value = {
+        mode: 'none',
+        raw: '',
+        formData: [],
+        urlEncoded: [],
+        binary: null
+      }
     }
   } else if (currentRequest.value) {
     // Handle legacy format where request data might be directly on currentRequest
@@ -133,16 +142,26 @@ const loadRequestData = () => {
     currentMethod.value = currentRequest.value.method || 'GET'
     currentHeaders.value = currentRequest.value.headers || currentRequest.value.header || []
     currentParams.value = []
-    currentBody.value = currentRequest.value.body || ''
-    currentBodyType.value = 'raw'
+    currentBody.value = {
+      mode: 'none',
+      raw: currentRequest.value.body || '',
+      formData: [],
+      urlEncoded: [],
+      binary: null
+    }
   } else {
     // New request defaults
     currentUrl.value = ''
     currentMethod.value = 'GET'
     currentHeaders.value = [{ key: 'Content-Type', value: 'application/json', enabled: true, id: Date.now() }]
     currentParams.value = []
-    currentBody.value = ''
-    currentBodyType.value = 'raw'
+    currentBody.value = {
+      mode: 'none',
+      raw: '',
+      formData: [],
+      urlEncoded: [],
+      binary: null
+    }
   }
 }
 
@@ -165,10 +184,7 @@ const saveRequestData = () => {
             query: currentParams.value.filter(p => p.key)
           },
           header: currentHeaders.value.filter(h => h.key),
-          body: {
-            mode: currentBodyType.value,
-            raw: currentBody.value
-          }
+          body: currentBody.value
         }
       })
     }
@@ -176,7 +192,7 @@ const saveRequestData = () => {
 }
 
 // Auto-save when form data changes
-watch([currentUrl, currentMethod, currentHeaders, currentParams, currentBody, currentBodyType], () => {
+watch([currentUrl, currentMethod, currentHeaders, currentParams, currentBody], () => {
   saveRequestData()
 }, { deep: true })
 
@@ -238,10 +254,7 @@ const handleSaveRequest = ({ collectionId, requestName, isNewCollection }) => {
           method: currentMethod.value,
           url: { raw: currentUrl.value },
           header: currentHeaders.value.filter(h => h.enabled && h.key),
-          body: {
-            mode: currentBodyType.value,
-            raw: currentBody.value
-          }
+          body: currentBody.value
         }
       })
 
@@ -277,7 +290,25 @@ const sendRequest = async () => {
     key: interpolateText(param.key || ''),
     value: interpolateText(param.value || '')
   }))
-  const interpolatedBody = interpolateText(currentBody.value);
+  // Interpolate body based on type
+  let interpolatedBody = null
+  if (currentBody.value.mode === 'raw') {
+    interpolatedBody = interpolateText(currentBody.value.raw)
+  } else if (currentBody.value.mode === 'form-data') {
+    interpolatedBody = currentBody.value.formData.map(item => ({
+      ...item,
+      key: interpolateText(item.key || ''),
+      value: interpolateText(item.value || '')
+    }))
+  } else if (currentBody.value.mode === 'x-www-form-urlencoded') {
+    interpolatedBody = currentBody.value.urlEncoded.map(item => ({
+      ...item,
+      key: interpolateText(item.key || ''),
+      value: interpolateText(item.value || '')
+    }))
+  } else if (currentBody.value.mode === 'binary') {
+    interpolatedBody = currentBody.value.binary
+  }
 
   try {
     // Log request details
@@ -286,7 +317,7 @@ const sendRequest = async () => {
       url: interpolatedUrl,
       params: interpolatedParams.filter(p => p.enabled && p.key),
       headers: interpolatedHeaders.filter(h => h.enabled && h.key),
-      bodyType: currentBodyType.value
+      bodyType: currentBody.value.mode
     })
 
     // Send the actual HTTP request
@@ -296,7 +327,7 @@ const sendRequest = async () => {
       params: interpolatedParams,
       headers: interpolatedHeaders,
       body: interpolatedBody,
-      bodyType: currentBodyType.value
+      bodyType: currentBody.value.mode
     })
 
     // Store response data
@@ -694,20 +725,7 @@ watch(activeTab, (newTab) => {
 
               <!-- Body Tab -->
               <div v-if="activeRequestTab === 'body'" class="body-section">
-                <div class="section-header">
-                  <span>Request Body</span>
-                  <select v-model="currentBodyType" class="body-type-select">
-                    <option value="raw">Raw</option>
-                    <option value="urlencoded">URL Encoded</option>
-                    <option value="formdata">Form Data</option>
-                    <option value="binary">Binary</option>
-                  </select>
-                </div>
-                <textarea
-                  v-model="currentBody"
-                  class="body-textarea"
-                  placeholder="Enter request body..."
-                ></textarea>
+                <RequestBodyEditor v-model="currentBody" />
               </div>
             </div>
           </div>
@@ -946,20 +964,7 @@ watch(activeTab, (newTab) => {
 
             <!-- Body Tab -->
             <div v-if="activeRequestTab === 'body'" class="body-section">
-              <div class="section-header">
-                <span>Request Body</span>
-                <select v-model="currentBodyType" class="body-type-select">
-                  <option value="raw">Raw</option>
-                  <option value="urlencoded">URL Encoded</option>
-                  <option value="formdata">Form Data</option>
-                  <option value="binary">Binary</option>
-                </select>
-              </div>
-              <textarea
-                v-model="currentBody"
-                class="body-textarea"
-                placeholder="Enter request body..."
-              ></textarea>
+              <RequestBodyEditor v-model="currentBody" />
             </div>
           </div>
         </div>
@@ -1359,6 +1364,15 @@ watch(activeTab, (newTab) => {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+}
+
+.body-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Important for flex shrinking */
 }
 
 .section-header {
