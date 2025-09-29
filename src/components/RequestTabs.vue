@@ -213,8 +213,13 @@ const handleSaveRequest = ({ collectionId, requestName, isNewCollection }) => {
 }
 
 const sendRequest = async () => {
-  // Clear previous response and errors
-  responseData.value = null
+  // Prevent multiple simultaneous requests
+  if (isLoading.value) {
+    logger.warn('Request already in progress, ignoring duplicate send request')
+    return
+  }
+
+  // Clear previous errors but keep responseData until new response arrives
   requestError.value = null
   isLoading.value = true
 
@@ -709,21 +714,21 @@ watch(activeTab, (newTab) => {
                     :class="[
                       'status-code',
                       {
-                        'success': responseData.status >= 200 && responseData.status < 300,
-                        'redirect': responseData.status >= 300 && responseData.status < 400,
-                        'client-error': responseData.status >= 400 && responseData.status < 500,
-                        'server-error': responseData.status >= 500,
-                        'network-error': responseData.status === 0
+                        'success': responseData?.status >= 200 && responseData?.status < 300,
+                        'redirect': responseData?.status >= 300 && responseData?.status < 400,
+                        'client-error': responseData?.status >= 400 && responseData?.status < 500,
+                        'server-error': responseData?.status >= 500,
+                        'network-error': responseData?.status === 0
                       }
                     ]"
                   >
-                    {{ responseData.status || 'Error' }}
+                    {{ responseData?.status || 'Error' }}
                   </span>
                   <span class="status-text">{{ getStatusText(responseData) }}</span>
                 </div>
                 <div class="response-meta">
-                  <span class="response-time">Time: {{ formatTime(responseData.time) }}</span>
-                  <span class="response-size">Size: {{ formatSize(responseData.size) }}</span>
+                  <span class="response-time">Time: {{ formatTime(responseData?.time) }}</span>
+                  <span class="response-size">Size: {{ formatSize(responseData?.size) }}</span>
                 </div>
               </div>
 
@@ -739,16 +744,16 @@ watch(activeTab, (newTab) => {
                   :class="['nav-tab', { active: activeResponseTab === 'headers' }]"
                   @click="activeResponseTab = 'headers'"
                 >
-                  Headers ({{ Object.keys(responseData.headers || {}).length }})
+                  Headers ({{ Object.keys(responseData?.headers || {}).length }})
                 </button>
               </div>
 
               <!-- Response Content -->
               <div class="response-content">
                 <!-- Error Display -->
-                <div v-if="responseData.error && !responseData.body" class="response-error">
+                <div v-if="responseData?.error && !responseData?.body" class="response-error">
                   <div class="error-icon">❌</div>
-                  <div class="error-message">{{ responseData.error }}</div>
+                  <div class="error-message">{{ responseData?.error }}</div>
                 </div>
 
                 <!-- Body Tab -->
@@ -758,18 +763,18 @@ watch(activeTab, (newTab) => {
                     :language="detectResponseLanguage(responseData)"
                     :copyable="true"
                     :show-line-numbers="false"
-                    max-height="400px"
+                    :max-height="viewMode === 'response' ? 'none' : '400px'"
                   />
                 </div>
 
                 <!-- Headers Tab -->
                 <div v-if="activeResponseTab === 'headers'" class="response-headers">
-                  <div v-if="!responseData.headers || Object.keys(responseData.headers).length === 0" class="empty-headers">
+                  <div v-if="!responseData?.headers || Object.keys(responseData?.headers).length === 0" class="empty-headers">
                     No headers received
                   </div>
                   <div
                     v-else
-                    v-for="(value, key) in responseData.headers"
+                    v-for="(value, key) in responseData?.headers"
                     :key="key"
                     class="header-row"
                   >
@@ -923,7 +928,8 @@ watch(activeTab, (newTab) => {
 
       <!-- Response Only View -->
       <div v-else-if="viewMode === 'response'" class="single-view">
-        <div class="response-section">
+        <!-- Reuse the same response section from split view -->
+        <div class="response-section response-section-full">
           <!-- Response Content - Show empty state or actual response -->
           <div v-if="!hasResponse" class="response-empty-state">
             <div class="empty-icon">📡</div>
@@ -953,17 +959,30 @@ watch(activeTab, (newTab) => {
             </div>
           </div>
 
-          <!-- Actual Response Content -->
+          <!-- Actual Response Content - Same as split view -->
           <template v-else>
             <!-- Response Header -->
             <div class="response-header">
               <div class="response-status">
-                <span class="status-code success">{{ responseData.status }}</span>
-                <span class="status-text">{{ responseData.statusText }}</span>
+                <span
+                  :class="[
+                    'status-code',
+                    {
+                      'success': responseData?.status >= 200 && responseData?.status < 300,
+                      'redirect': responseData?.status >= 300 && responseData?.status < 400,
+                      'client-error': responseData?.status >= 400 && responseData?.status < 500,
+                      'server-error': responseData?.status >= 500,
+                      'network-error': responseData?.status === 0
+                    }
+                  ]"
+                >
+                  {{ responseData?.status || 'Error' }}
+                </span>
+                <span class="status-text">{{ getStatusText(responseData) }}</span>
               </div>
               <div class="response-meta">
-                <span class="response-time">Time: {{ responseData.time }}</span>
-                <span class="response-size">Size: {{ responseData.size }}</span>
+                <span class="response-time">Time: {{ formatTime(responseData?.time) }}</span>
+                <span class="response-size">Size: {{ formatSize(responseData?.size) }}</span>
               </div>
             </div>
 
@@ -979,18 +998,37 @@ watch(activeTab, (newTab) => {
                 :class="['nav-tab', { active: activeResponseTab === 'headers' }]"
                 @click="activeResponseTab = 'headers'"
               >
-                Headers ({{ Object.keys(responseData.headers).length }})
+                Headers ({{ Object.keys(responseData?.headers || {}).length }})
               </button>
             </div>
 
             <!-- Response Content -->
             <div class="response-content">
-              <div v-if="activeResponseTab === 'body'" class="response-body">
-                <pre>{{ responseData.body }}</pre>
+              <!-- Error Display -->
+              <div v-if="responseData?.error && !responseData?.body" class="response-error">
+                <div class="error-icon">❌</div>
+                <div class="error-message">{{ responseData?.error }}</div>
               </div>
+
+              <!-- Body Tab -->
+              <div v-else-if="activeResponseTab === 'body'" class="response-body">
+                <SyntaxHighlighter
+                  :code="formatResponseBody(responseData?.body)"
+                  :language="detectResponseLanguage(responseData)"
+                  :copyable="true"
+                  :show-line-numbers="false"
+                  :max-height="viewMode === 'response' ? 'none' : '400px'"
+                />
+              </div>
+
+              <!-- Headers Tab -->
               <div v-if="activeResponseTab === 'headers'" class="response-headers">
+                <div v-if="!responseData?.headers || Object.keys(responseData?.headers).length === 0" class="empty-headers">
+                  No headers received
+                </div>
                 <div
-                  v-for="(value, key) in responseData.headers"
+                  v-else
+                  v-for="(value, key) in responseData?.headers"
                   :key="key"
                   class="header-row"
                 >
@@ -1787,5 +1825,21 @@ watch(activeTab, (newTab) => {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* Full response view overrides */
+.response-section-full {
+  overflow: visible !important;
+}
+
+.response-section-full .response-content {
+  overflow: visible !important;
+  max-height: none !important;
+  height: auto !important;
+}
+
+.response-section-full .response-body {
+  max-height: none !important;
+  height: auto !important;
 }
 </style>
