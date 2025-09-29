@@ -23,7 +23,6 @@ const menuItems = computed(() => controller.getMenuItems())
 
 // Handle actions
 const handleAction = (event) => {
-  console.log('[DEBUG] EnvironmentContextMenu.handleAction called with:', event)
   emit('action', event)
 }
 

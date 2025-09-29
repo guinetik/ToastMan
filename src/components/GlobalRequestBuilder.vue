@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useCollections } from '../stores/useCollections.js'
 import { useTabs } from '../stores/useTabs.js'
+import { Logger } from '../core/Logger.js'
 import BaseDialog from './BaseDialog.vue'
 import VariableInput from './VariableInput.vue'
 
@@ -9,6 +10,9 @@ const emit = defineEmits(['close'])
 
 const collectionsStore = useCollections()
 const tabsStore = useTabs()
+
+// Create logger instance
+const logger = new Logger({ prefix: 'GlobalRequestBuilder', level: 'debug' })
 
 // Form state
 const requestName = ref('')
@@ -61,7 +65,7 @@ const createRequest = async () => {
 
     emit('close')
   } catch (error) {
-    console.error('Failed to create request:', error)
+    logger.error('Failed to create request:', error)
   }
 }
 

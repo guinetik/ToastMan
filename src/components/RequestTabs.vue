@@ -7,6 +7,7 @@ import { useTabs } from '../stores/useTabs.js'
 import { useVariableInterpolation } from '../composables/useVariableInterpolation.js'
 import { HttpClientFactory } from '../core/http/HttpClient.js'
 import '../core/http/FetchHttpClient.js' // Register FetchHttpClient
+import { Logger } from '../core/Logger.js'
 import CollectionPickerDialog from './CollectionPickerDialog.vue'
 import VariableInput from './VariableInput.vue'
 import SyntaxHighlighter from './SyntaxHighlighter.vue'
@@ -16,13 +17,15 @@ const environmentsStore = useEnvironments()
 const tabsStore = useTabs()
 const { interpolateText } = useVariableInterpolation()
 
+// Create logger instance
+const logger = new Logger({ prefix: 'RequestTabs', level: 'debug' })
+
 // Create HTTP client instance
 const httpClient = HttpClientFactory.create('fetch')
 
 // Use real data from stores
 const tabs = computed(() => {
   const tabsData = tabsStore.tabs.value
-  console.log('[RequestTabs] Current tabs:', tabsData)
   return Array.isArray(tabsData) ? tabsData : []
 })
 const activeTab = computed(() => tabsStore.activeTab.value)
@@ -205,8 +208,6 @@ const handleSaveRequest = ({ collectionId, requestName, isNewCollection }) => {
 
       tabsStore.markTabAsSaved(activeTab.value.id)
     }
-
-    console.log(`Request "${requestName}" saved to collection`)
     showSaveDialog.value = false
   }
 }
@@ -232,17 +233,18 @@ const sendRequest = async () => {
     key: interpolateText(param.key || ''),
     value: interpolateText(param.value || '')
   }))
-  const interpolatedBody = interpolateText(currentBody.value)
-
-  console.log('Sending request...', {
-    method: currentMethod.value,
-    url: interpolatedUrl,
-    params: interpolatedParams,
-    headers: interpolatedHeaders,
-    body: interpolatedBody
-  })
+  const interpolatedBody = interpolateText(currentBody.value);
 
   try {
+    // Log request details
+    logger.debug('Sending HTTP request:', {
+      method: currentMethod.value,
+      url: interpolatedUrl,
+      params: interpolatedParams.filter(p => p.enabled && p.key),
+      headers: interpolatedHeaders.filter(h => h.enabled && h.key),
+      bodyType: currentBodyType.value
+    })
+
     // Send the actual HTTP request
     const response = await httpClient.send({
       method: currentMethod.value,
@@ -263,13 +265,10 @@ const sendRequest = async () => {
       viewMode.value = 'both' // Always switch to both view to show the response
     }
 
-    // Log response for debugging
-    console.log('Response received:', response)
-
     // TODO: Add to history after sending
 
   } catch (error) {
-    console.error('Request failed:', error)
+    logger.error('Request failed:', error)
     requestError.value = error.message || 'Request failed'
 
     // Still show response view to display error

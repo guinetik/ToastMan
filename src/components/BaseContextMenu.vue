@@ -1,5 +1,9 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+import { Logger } from '../core/Logger.js'
+
+// Create logger instance
+const logger = new Logger({ prefix: 'BaseContextMenu', level: 'debug' })
 
 const props = defineProps({
   controller: {
@@ -22,13 +26,10 @@ const menuRef = ref(null)
 
 const handleAction = async (action) => {
   try {
-    console.log('[DEBUG] BaseContextMenu.handleAction - emitting action event first:', { action, item: props.controller.state.item })
     emit('action', { action, item: props.controller.state.item })
-
-    console.log('[DEBUG] BaseContextMenu.handleAction - executing action:', action, 'with item:', props.controller.state.item)
     await props.controller.executeAction(action, props.controller.state.item)
   } catch (error) {
-    console.error('Menu action failed:', error)
+    logger.error('Menu action failed:', error)
   }
 }
 

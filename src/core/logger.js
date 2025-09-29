@@ -1,4 +1,4 @@
-import { LOG_LEVELS, DEFAULT_LOG_LEVEL, LOG_STORAGE_KEY } from './constants.js';
+import { LOG_LEVELS, DEFAULT_LOG_LEVEL } from './constants.js';
 
 /**
  * Global logging filter manager for enabling/disabling specific components
@@ -20,7 +20,7 @@ class LoggingManager {
   enable(...components) {
     components.forEach(comp => this.allowedComponents.add(comp.toLowerCase()));
     this.saveToStorage();
-    console.log('🔧 ToastMan Logging enabled for:', components.join(', '));
+    console.log('🔧 Logging enabled for:', components.join(', '));
   }
 
   /**
@@ -30,7 +30,7 @@ class LoggingManager {
   disable(...components) {
     components.forEach(comp => this.allowedComponents.delete(comp.toLowerCase()));
     this.saveToStorage();
-    console.log('🔧 ToastMan Logging disabled for:', components.join(', '));
+    console.log('🔧 Logging disabled for:', components.join(', '));
   }
 
   /**
@@ -39,7 +39,7 @@ class LoggingManager {
   enableAll() {
     this.allowAll = true;
     this.saveToStorage();
-    console.log('🔧 ToastMan Logging enabled for ALL components');
+    console.log('🔧 Logging enabled for ALL components');
   }
 
   /**
@@ -49,14 +49,14 @@ class LoggingManager {
     this.allowAll = false;
     this.allowedComponents.clear();
     this.saveToStorage();
-    console.log('🔧 ToastMan Logging disabled for ALL components (errors still show)');
+    console.log('🔧 Logging disabled for ALL components (errors still show)');
   }
 
   /**
    * Shows current logging status
    */
   status() {
-    console.log('🔧 ToastMan Logging Status:');
+    console.log('🔧 Logging Status:');
     console.log('  Global enabled:', this.globalEnabled);
     console.log('  Allow all:', this.allowAll);
     console.log('  Enabled components:', Array.from(this.allowedComponents).join(', ') || 'none');
@@ -66,7 +66,7 @@ class LoggingManager {
    * Lists available components that have loggers
    */
   listComponents() {
-    console.log('🔧 ToastMan Available components to filter:');
+    console.log('🔧 Available components to filter:');
     const components = Array.from(this.registeredComponents || []).sort();
     components.forEach(comp => {
       const enabled = this.isComponentEnabled(comp);
@@ -104,7 +104,7 @@ class LoggingManager {
         allowAll: this.allowAll,
         globalEnabled: this.globalEnabled
       };
-      localStorage.setItem(LOG_STORAGE_KEY, JSON.stringify(state));
+      localStorage.setItem('sandbox_logging_filters', JSON.stringify(state));
     } catch (e) {
       // Ignore localStorage errors
     }
@@ -115,18 +115,18 @@ class LoggingManager {
    */
   loadFromStorage() {
     try {
-      const state = JSON.parse(localStorage.getItem(LOG_STORAGE_KEY) || '{}');
+      const state = JSON.parse(localStorage.getItem('sandbox_logging_filters') || '{}');
       this.allowedComponents = new Set(state.allowedComponents || []);
       this.allowAll = state.allowAll || false;
       this.globalEnabled = state.globalEnabled !== false;
 
-      // If no saved state exists, set up sensible defaults for ToastMan
-      if (!localStorage.getItem(LOG_STORAGE_KEY)) {
-        this.allowedComponents = new Set(['collections', 'tabs', 'storage', 'sidebar']);
+      // If no saved state exists, set up sensible defaults for theme work
+      if (!localStorage.getItem('sandbox_logging_filters')) {
+        this.allowedComponents = new Set(['themeswitcher', 'codemirroreditor', 'editoradapter']);
       }
     } catch (e) {
       // Ignore localStorage errors, use defaults
-      this.allowedComponents = new Set(['collections', 'tabs', 'storage', 'sidebar']);
+      this.allowedComponents = new Set(['themeswitcher', 'codemirroreditor', 'editoradapter']);
     }
   }
 }
@@ -136,7 +136,7 @@ const loggingManager = new LoggingManager();
 
 // Expose to window for easy console access
 if (typeof window !== 'undefined') {
-  window.toastmanLog = {
+  window.logFilter = {
     enable: (...components) => loggingManager.enable(...components),
     disable: (...components) => loggingManager.disable(...components),
     enableAll: () => loggingManager.enableAll(),
@@ -148,14 +148,14 @@ if (typeof window !== 'undefined') {
 
 /**
  * Configurable logging interface with level-based filtering and prefixes
- * Adapted for ToastMan project needs
+ * @author Joao Guilherme (Guinetik) <guinetik@gmail.com>
  */
 export class Logger {
   /**
    * Creates a new Logger instance
    * @param {Object} options - Logger configuration options
    * @param {boolean} [options.enabled=true] - Whether logging is enabled
-   * @param {string} [options.level='debug'] - Log level (error, warn, info, debug, trace)
+   * @param {string} [options.level='info'] - Log level (error, warn, info, debug, trace)
    * @param {string} [options.prefix=''] - Prefix to add to all log messages
    * @param {boolean} [options.redactSecrets=false] - Whether to redact potential secrets
    */
@@ -199,7 +199,7 @@ export class Logger {
    */
   redactArgs(args) {
     if (!this.redactSecrets) return args;
-
+    
     return args.map(arg => {
       if (typeof arg === 'string') {
         // Redact anything that looks like a token/secret (alphanumeric strings > 20 chars)
@@ -385,16 +385,7 @@ export class Logger {
   }
 }
 
-/**
- * Creates a logger instance for a ToastMan component
- * @param {string} component - Component name
- * @param {Object} options - Additional logger options
- * @returns {Logger} Logger instance
- */
-export function createLogger(component, options = {}) {
-  return new Logger({
-    prefix: component,
-    level: 'debug',
-    ...options
-  });
+// Export createLogger function for compatibility
+export function createLogger(options = {}) {
+  return new Logger(options);
 }

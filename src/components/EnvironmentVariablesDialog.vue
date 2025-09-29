@@ -2,6 +2,10 @@
 import { ref, computed, onMounted } from 'vue'
 import BaseDialog from './BaseDialog.vue'
 import { EnvironmentVariable } from '../models/Environment.js'
+import { Logger } from '../core/Logger.js'
+
+// Create logger instance
+const logger = new Logger({ prefix: 'EnvironmentVariablesDialog', level: 'debug' })
 
 const props = defineProps({
   environment: {
@@ -24,15 +28,9 @@ const newVariable = ref({
 
 // Initialize variables from environment
 onMounted(() => {
-  console.log('[DEBUG] Environment passed to dialog:', props.environment)
-  console.log('[DEBUG] Environment values:', props.environment.values)
-
   // Ensure values array exists and copy variables
   const environmentValues = props.environment.values || []
   variables.value = environmentValues.map(v => ({ ...v }))
-
-  console.log('[DEBUG] Initialized variables:', variables.value)
-
   // Add an empty row for new variable
   if (variables.value.length === 0) {
     addEmptyVariable()
@@ -110,26 +108,20 @@ const validateVariable = (variable) => {
 
 const hasErrors = computed(() => {
   const errors = variables.value.filter(v => v.key && validateVariable(v))
-  console.log('[DEBUG] Variables with errors:', errors)
   if (errors.length > 0) {
     errors.forEach(v => {
-      console.log('[DEBUG] Variable error:', v.key, '-', validateVariable(v))
+      logger.error('[DEBUG] Variable error:', v.key, '-', validateVariable(v))
     })
   }
   return errors.length > 0
 })
 
 const saveChanges = () => {
-  console.log('[DEBUG] saveChanges called, hasErrors:', hasErrors.value)
   if (hasErrors.value) return
-
-  console.log('[DEBUG] Raw variables before filtering:', variables.value)
-
   // Filter out empty variables and create EnvironmentVariable instances
   const validVariables = variables.value
     .filter(v => v.key.trim() !== '')
     .map(v => {
-      console.log('[DEBUG] Processing variable:', v)
       try {
         const envVar = new EnvironmentVariable({
           key: v.key.trim(),
@@ -138,23 +130,17 @@ const saveChanges = () => {
           description: v.description || '',
           enabled: v.enabled
         }).toJSON()
-        console.log('[DEBUG] Created EnvironmentVariable:', envVar)
         return envVar
       } catch (error) {
-        console.error('Error creating environment variable:', error)
+        logger.error('Error creating environment variable:', error)
         return null
       }
     })
     .filter(v => v !== null)
-
-  console.log('[DEBUG] Final validVariables:', validVariables)
-
   const updatedEnvironment = {
     ...props.environment,
     values: validVariables
   }
-
-  console.log('[DEBUG] Emitting update with:', updatedEnvironment)
   emit('update', updatedEnvironment)
   emit('close')
 }

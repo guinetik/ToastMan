@@ -69,14 +69,12 @@ export class EnvironmentContextMenuController extends BaseContextMenuController 
    * Handle environment-specific actions
    */
   async handleAction(action, environment) {
-    console.log(`[DEBUG] EnvironmentContextMenuController.handleAction called with:`, { action, environment: environment?.name })
     this.logger.info(`Executing environment action: ${action} for environment: ${environment?.name}`)
 
     switch (action) {
       case 'activate':
         return await this.activateEnvironment(environment)
       case 'variables':
-        console.log(`[DEBUG] Variables action triggered for environment:`, environment?.name)
         return await this.manageVariables(environment)
       case 'rename':
         return await this.renameEnvironment(environment)
@@ -87,7 +85,6 @@ export class EnvironmentContextMenuController extends BaseContextMenuController 
       case 'delete':
         return await this.deleteEnvironment(environment)
       default:
-        console.error(`[DEBUG] Unknown action: ${action}`)
         throw new Error(`Unknown action: ${action}`)
     }
   }
@@ -105,7 +102,6 @@ export class EnvironmentContextMenuController extends BaseContextMenuController 
    * Manage environment variables
    */
   async manageVariables(environment) {
-    console.log(`[DEBUG] manageVariables called for environment:`, environment)
     this.logger.info('Opening variables dialog for environment:', environment.name)
     return { action: 'variables', environment: environment }
   }

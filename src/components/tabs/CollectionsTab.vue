@@ -15,13 +15,11 @@ const state = controller.state
 // Access reactive computed properties from controller
 const collections = computed(() => {
   const colls = controller.getComputed('collections')
-  console.log('[CollectionsTab] Collections from controller:', colls)
   return colls || []
 })
 
 const filteredCollections = computed(() => {
   const filtered = controller.getComputed('filteredCollections')
-  console.log('[CollectionsTab] Filtered collections from controller:', filtered)
   return filtered || []
 })
 
@@ -50,12 +48,10 @@ const showRequestContextMenu = (event, collection, request) => {
 
 const handleContextAction = (event) => {
   // Action is handled by the context menu controller
-  console.log('Context action completed:', event)
 }
 
 const handleRequestContextAction = (event) => {
   // Action is handled by the request context menu controller
-  console.log('Request context action completed:', event)
 }
 
 // Event handlers - no longer needed since dialog handles creation internally
