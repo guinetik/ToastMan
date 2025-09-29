@@ -82,20 +82,59 @@ const loadRequestData = () => {
   hasResponse.value = false
   viewMode.value = 'request'
 
-  if (currentRequest.value) {
+  if (currentRequest.value && currentRequest.value.request) {
     const request = currentRequest.value.request
-    currentUrl.value = request.url.raw || ''
-    currentMethod.value = request.method || 'GET'
-    currentHeaders.value = [...(request.header || [])]
-    currentParams.value = [...(request.url.query || [])]
 
+    // Safely extract URL - handle both object and string formats
+    if (request.url) {
+      if (typeof request.url === 'string') {
+        currentUrl.value = request.url
+      } else if (request.url.raw) {
+        currentUrl.value = request.url.raw
+      } else {
+        currentUrl.value = ''
+      }
+    } else {
+      currentUrl.value = ''
+    }
+
+    // Extract method
+    currentMethod.value = request.method || 'GET'
+
+    // Extract headers
+    currentHeaders.value = [...(request.header || request.headers || [])]
+
+    // Extract query parameters
+    if (request.url && request.url.query) {
+      currentParams.value = [...request.url.query]
+    } else {
+      currentParams.value = []
+    }
+
+    // Extract body
     if (request.body) {
       currentBodyType.value = request.body.mode || 'raw'
-      currentBody.value = request.body.raw || ''
+      if (request.body.raw) {
+        currentBody.value = request.body.raw
+      } else if (typeof request.body === 'string') {
+        currentBody.value = request.body
+        currentBodyType.value = 'raw'
+      } else {
+        currentBody.value = ''
+      }
     } else {
       currentBodyType.value = 'raw'
       currentBody.value = ''
     }
+  } else if (currentRequest.value) {
+    // Handle legacy format where request data might be directly on currentRequest
+    logger.warn('Request has unexpected structure, attempting fallback', currentRequest.value)
+    currentUrl.value = currentRequest.value.url || ''
+    currentMethod.value = currentRequest.value.method || 'GET'
+    currentHeaders.value = currentRequest.value.headers || currentRequest.value.header || []
+    currentParams.value = []
+    currentBody.value = currentRequest.value.body || ''
+    currentBodyType.value = 'raw'
   } else {
     // New request defaults
     currentUrl.value = ''

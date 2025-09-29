@@ -69,6 +69,15 @@ function createTabsStore() {
       return null
     }
 
+    // Debug logging for request structure
+    logger.debug('Opening request with structure:', {
+      requestId,
+      requestName: request.name,
+      hasNestedRequest: !!request.request,
+      requestMethod: request.request?.method || request.method,
+      requestStructure: Object.keys(request)
+    })
+
     // Check if tab already exists for this request
     const existingTab = allTabs.value.find(tab =>
       tab.itemId === requestId && tab.collectionId === collectionId
@@ -79,12 +88,12 @@ function createTabsStore() {
       return existingTab
     }
 
-    // Create new tab
+    // Create new tab with safe property access
     const tab = createNewTab({
       itemId: requestId,
       collectionId,
-      name: request.name,
-      method: request.request.method
+      name: request.name || 'Unnamed Request',
+      method: request.request?.method || request.method || 'GET'
     })
 
     return tab
@@ -185,7 +194,7 @@ function createTabsStore() {
       const request = collections.getRequest(tab.collectionId, tab.itemId)
       if (request) {
         tab.name = request.name
-        tab.method = request.request.method
+        tab.method = request.request?.method || request.method || 'GET'
         tab.saved = true
         tab.modified = false
       }
