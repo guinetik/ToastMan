@@ -1,13 +1,11 @@
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { RequestBodyEditorController } from '../../controllers/RequestBodyEditorController.js'
 import { getCurrentEditor, getCurrentEditorDefaults } from '../../config/editors.js'
-import { createLogger } from '../../core/logger.js'
 
 // Get the configured text editor component
 const TextEditor = getCurrentEditor()
 const editorDefaults = getCurrentEditorDefaults()
-
-const logger = createLogger('RequestBodyEditor')
 
 const props = defineProps({
   modelValue: {
@@ -24,159 +22,104 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue'])
 
-// Body types
-const bodyTypes = [
-  { value: 'none', label: 'None' },
-  { value: 'raw', label: 'Raw' },
-  { value: 'form-data', label: 'Form Data' },
-  { value: 'x-www-form-urlencoded', label: 'URL Encoded' },
-  { value: 'binary', label: 'Binary' }
-]
+// Controller instance
+let controller = null
 
-// Raw content types
-const rawTypes = [
-  { value: 'text', label: 'Text', mode: 'text' },
-  { value: 'json', label: 'JSON', mode: 'json' },
-  { value: 'xml', label: 'XML', mode: 'xml' },
-  { value: 'html', label: 'HTML', mode: 'html' }
-]
+// Reactive refs that will be bound to controller state
+const state = ref({})
 
-// Local state
-const currentBodyType = ref(props.modelValue.mode || 'none')
-const currentRawType = ref('json')
+// Component refs
 const textEditor = ref(null)
-
-// Form data state
-const formDataItems = ref(props.modelValue.formData || [])
-const urlEncodedItems = ref(props.modelValue.urlEncoded || [])
-
-// Binary file state
-const selectedFile = ref(null)
 const fileInput = ref(null)
 
-// Computed
-const bodyValue = computed({
-  get() {
-    return props.modelValue
-  },
-  set(value) {
-    emit('update:modelValue', value)
-  }
-})
+// Initialize controller
+onMounted(() => {
+  // Create controller instance
+  controller = new RequestBodyEditorController()
 
-const rawContent = computed({
-  get() {
-    return props.modelValue.raw || ''
-  },
-  set(value) {
-    updateBody({ raw: value })
-  }
-})
+  // Bind reactive state to controller state
+  state.value = controller.state
 
-// Methods
-const updateBody = (updates) => {
-  const newValue = { ...bodyValue.value, ...updates }
-  emit('update:modelValue', newValue)
-}
+  // Initialize from props
+  controller.initializeFromModel(props.modelValue)
 
-const changeBodyType = (type) => {
-  currentBodyType.value = type
-  updateBody({ mode: type })
+  // Setup event handlers
+  controller.on('update:modelValue', (newValue) => {
+    emit('update:modelValue', newValue)
+  })
 
-  if (type === 'raw' && textEditor.value) {
-    // Focus the editor when switching to raw mode
+  controller.on('focusEditor', () => {
+    // Focus the text editor when switching to raw mode
     setTimeout(() => {
       textEditor.value?.focus()
     }, 100)
+  })
+
+  controller.on('clearFileInput', () => {
+    // Clear the file input when file is removed
+    if (fileInput.value) {
+      fileInput.value.value = ''
+    }
+  })
+
+  // Setup reactive binding for computed properties
+  const updateComputedValues = () => {
+    // These are handled by the controller's reactive state
+    // No additional computed updates needed
   }
-}
 
-const changeRawType = (type) => {
-  currentRawType.value = type
-  // The editor will automatically update its language mode via props
-}
+  // Update computed values periodically (simple reactive binding)
+  const intervalId = setInterval(updateComputedValues, 100)
 
-// Form data methods
-const addFormDataItem = () => {
-  const newItem = { key: '', value: '', type: 'text', enabled: true }
-  formDataItems.value.push(newItem)
-  updateBody({ formData: formDataItems.value })
-}
+  // Store interval ID for cleanup
+  controller._intervalId = intervalId
+})
 
-const removeFormDataItem = (index) => {
-  formDataItems.value.splice(index, 1)
-  updateBody({ formData: formDataItems.value })
-}
-
-const updateFormDataItem = (index, field, value) => {
-  if (formDataItems.value[index]) {
-    formDataItems.value[index][field] = value
-    updateBody({ formData: formDataItems.value })
+onUnmounted(() => {
+  // Clean up controller
+  if (controller) {
+    if (controller._intervalId) {
+      clearInterval(controller._intervalId)
+    }
+    controller.dispose()
+    controller = null
   }
-}
+})
 
-// URL encoded methods
-const addUrlEncodedItem = () => {
-  const newItem = { key: '', value: '', enabled: true }
-  urlEncodedItems.value.push(newItem)
-  updateBody({ urlEncoded: urlEncodedItems.value })
-}
-
-const removeUrlEncodedItem = (index) => {
-  urlEncodedItems.value.splice(index, 1)
-  updateBody({ urlEncoded: urlEncodedItems.value })
-}
-
-const updateUrlEncodedItem = (index, field, value) => {
-  if (urlEncodedItems.value[index]) {
-    urlEncodedItems.value[index][field] = value
-    updateBody({ urlEncoded: urlEncodedItems.value })
+// Watch for prop changes
+watch(() => props.modelValue, (newValue) => {
+  if (controller && newValue) {
+    controller.initializeFromModel(newValue)
   }
-}
+}, { deep: true })
 
-// Binary file methods
+// Delegate all methods to controller
+const getBodyTypes = () => controller?.getBodyTypes() || []
+const getRawTypes = () => controller?.getRawTypes() || []
+const changeBodyType = (type) => controller?.changeBodyType(type)
+const changeRawType = (type) => controller?.changeRawType(type)
+const addFormDataItem = () => controller?.addFormDataItem()
+const removeFormDataItem = (index) => controller?.removeFormDataItem(index)
+const updateFormDataItem = (index, field, value) => controller?.updateFormDataItem(index, field, value)
+const addUrlEncodedItem = () => controller?.addUrlEncodedItem()
+const removeUrlEncodedItem = (index) => controller?.removeUrlEncodedItem(index)
+const updateUrlEncodedItem = (index, field, value) => controller?.updateUrlEncodedItem(index, field, value)
+const removeFile = () => controller?.removeFile()
+const formatFileSize = (bytes) => controller?.formatFileSize(bytes) || '0 KB'
+
+// File handling methods
 const selectFile = () => {
   fileInput.value?.click()
 }
 
 const handleFileSelect = (event) => {
   const file = event.target.files[0]
-  if (file) {
-    selectedFile.value = file
-    updateBody({
-      binary: {
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        path: file.path || `file://${file.name}` // For display purposes
-      }
-    })
-  }
+  controller?.handleFileSelect(file)
 }
 
-const removeFile = () => {
-  selectedFile.value = null
-  updateBody({ binary: null })
-  if (fileInput.value) {
-    fileInput.value.value = ''
-  }
-}
-
-// Get current raw type mode for editor
-const currentRawMode = computed(() => {
-  const rawType = rawTypes.find(t => t.value === currentRawType.value)
-  return rawType?.mode || 'text'
-})
-
-// Initialize from props
-if (props.modelValue.formData) {
-  formDataItems.value = [...props.modelValue.formData]
-}
-if (props.modelValue.urlEncoded) {
-  urlEncodedItems.value = [...props.modelValue.urlEncoded]
-}
-if (props.modelValue.binary) {
-  selectedFile.value = props.modelValue.binary
+// Raw content update method
+const updateRawContent = (value) => {
+  controller?.updateRawContent(value)
 }
 </script>
 
@@ -186,23 +129,23 @@ if (props.modelValue.binary) {
     <div class="body-type-selector">
       <label class="form-label">Body Type:</label>
       <select
-        v-model="currentBodyType"
-        @change="changeBodyType(currentBodyType)"
+        v-model="state.currentBodyType"
+        @change="changeBodyType(state.currentBodyType)"
         class="body-type-select"
       >
-        <option v-for="type in bodyTypes" :key="type.value" :value="type.value">
+        <option v-for="type in getBodyTypes()" :key="type.value" :value="type.value">
           {{ type.label }}
         </option>
       </select>
 
       <!-- Raw type selector -->
-      <div v-if="currentBodyType === 'raw'" class="raw-type-selector">
+      <div v-if="state.currentBodyType === 'raw'" class="raw-type-selector">
         <select
-          v-model="currentRawType"
-          @change="changeRawType(currentRawType)"
+          v-model="state.currentRawType"
+          @change="changeRawType(state.currentRawType)"
           class="raw-type-select"
         >
-          <option v-for="type in rawTypes" :key="type.value" :value="type.value">
+          <option v-for="type in getRawTypes()" :key="type.value" :value="type.value">
             {{ type.label }}
           </option>
         </select>
@@ -212,16 +155,17 @@ if (props.modelValue.binary) {
     <!-- Body Content -->
     <div class="body-content">
       <!-- None -->
-      <div v-if="currentBodyType === 'none'" class="body-none">
+      <div v-if="state.currentBodyType === 'none'" class="body-none">
         <p class="empty-message">No body content</p>
       </div>
 
       <!-- Raw Editor -->
-      <div v-if="currentBodyType === 'raw'" class="body-raw">
+      <div v-if="state.currentBodyType === 'raw'" class="body-raw">
         <TextEditor
           ref="textEditor"
-          v-model="rawContent"
-          :language="currentRawMode"
+          :model-value="state.bodyValue.raw || ''"
+          @update:model-value="updateRawContent"
+          :language="controller?.getComputed('currentRawMode') || 'text'"
           :theme="editorDefaults.theme"
           :options="editorDefaults.options"
           height="100%"
@@ -230,7 +174,7 @@ if (props.modelValue.binary) {
       </div>
 
       <!-- Form Data -->
-      <div v-if="currentBodyType === 'form-data'" class="body-form-data">
+      <div v-if="state.currentBodyType === 'form-data'" class="body-form-data">
         <div class="form-data-header">
           <h4>Form Data</h4>
           <button @click="addFormDataItem" class="btn-add">+ Add Item</button>
@@ -246,8 +190,8 @@ if (props.modelValue.binary) {
           </div>
 
           <div
-            v-for="(item, index) in formDataItems"
-            :key="index"
+            v-for="(item, index) in state.formDataItems"
+            :key="item.id || index"
             class="table-row"
           >
             <div class="col-enabled">
@@ -300,7 +244,7 @@ if (props.modelValue.binary) {
       </div>
 
       <!-- URL Encoded -->
-      <div v-if="currentBodyType === 'x-www-form-urlencoded'" class="body-url-encoded">
+      <div v-if="state.currentBodyType === 'x-www-form-urlencoded'" class="body-url-encoded">
         <div class="url-encoded-header">
           <h4>URL Encoded Parameters</h4>
           <button @click="addUrlEncodedItem" class="btn-add">+ Add Item</button>
@@ -315,8 +259,8 @@ if (props.modelValue.binary) {
           </div>
 
           <div
-            v-for="(item, index) in urlEncodedItems"
-            :key="index"
+            v-for="(item, index) in state.urlEncodedItems"
+            :key="item.id || index"
             class="table-row"
           >
             <div class="col-enabled">
@@ -352,7 +296,7 @@ if (props.modelValue.binary) {
       </div>
 
       <!-- Binary -->
-      <div v-if="currentBodyType === 'binary'" class="body-binary">
+      <div v-if="state.currentBodyType === 'binary'" class="body-binary">
         <div class="binary-header">
           <h4>Binary File</h4>
         </div>
@@ -365,7 +309,7 @@ if (props.modelValue.binary) {
             style="display: none"
           />
 
-          <div v-if="!selectedFile" class="file-drop-zone" @click="selectFile">
+          <div v-if="!state.selectedFile" class="file-drop-zone" @click="selectFile">
             <div class="drop-content">
               <div class="drop-icon">📁</div>
               <p>Click to select a file</p>
@@ -377,10 +321,10 @@ if (props.modelValue.binary) {
             <div class="file-info">
               <div class="file-icon">📄</div>
               <div class="file-details">
-                <div class="file-name">{{ selectedFile.name }}</div>
+                <div class="file-name">{{ state.selectedFile.name }}</div>
                 <div class="file-meta">
-                  {{ (selectedFile.size / 1024).toFixed(1) }} KB
-                  <span v-if="selectedFile.type"> • {{ selectedFile.type }}</span>
+                  {{ formatFileSize(state.selectedFile.size) }}
+                  <span v-if="state.selectedFile.type"> • {{ state.selectedFile.type }}</span>
                 </div>
               </div>
             </div>
