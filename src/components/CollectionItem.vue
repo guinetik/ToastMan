@@ -81,11 +81,11 @@ const handleContextMenu = (event) => {
   }
 }
 
-// Get method color for requests
+// Get method color for requests - matches CSS variables
 const getMethodColor = (method) => {
   const colors = {
     'GET': '#22c55e',
-    'POST': '#3b82f6',
+    'POST': '#ef4444',
     'PUT': '#f59e0b',
     'PATCH': '#a855f7',
     'DELETE': '#ef4444',

@@ -76,7 +76,7 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-primary);
+  background: var(--color-success);
   color: white;
   border-radius: 50%;
   font-size: 10px;
