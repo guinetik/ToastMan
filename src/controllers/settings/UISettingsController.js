@@ -41,7 +41,13 @@ export class UISettingsController extends BaseController {
       const root = document.documentElement
 
       if (updates.theme) {
-        root.setAttribute('data-theme', updates.theme)
+        if (updates.theme === 'auto') {
+          // Use system preference
+          const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+          root.setAttribute('data-theme', prefersDark ? 'dark' : 'light')
+        } else {
+          root.setAttribute('data-theme', updates.theme)
+        }
       }
 
       if (updates.fontSize) {
