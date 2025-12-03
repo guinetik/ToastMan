@@ -246,15 +246,15 @@ watch(() => props.modelValue, () => {
 }
 
 .highlight-variable--resolved {
-  background-color: rgba(34, 197, 94, 0.2);
-  color: rgba(34, 197, 94, 0.8);
-  border: 1px solid rgba(34, 197, 94, 0.4);
+  background-color: var(--color-variable-resolved-bg);
+  color: var(--color-variable-resolved-text);
+  border: 1px solid var(--color-variable-resolved-border);
 }
 
 .highlight-variable--unresolved {
-  background-color: rgba(239, 68, 68, 0.2);
-  color: rgba(239, 68, 68, 0.8);
-  border: 1px solid rgba(239, 68, 68, 0.4);
+  background-color: var(--color-variable-unresolved-bg);
+  color: var(--color-variable-unresolved-text);
+  border: 1px solid var(--color-variable-unresolved-border);
 }
 
 /* Preview tooltip */
@@ -293,7 +293,7 @@ watch(() => props.modelValue, () => {
 .preview-warning {
   font-size: 11px;
   color: var(--color-error);
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--color-error-bg);
   padding: 2px 6px;
   border-radius: 10px;
 }
