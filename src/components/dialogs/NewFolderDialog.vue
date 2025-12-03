@@ -171,13 +171,13 @@ label {
 }
 
 .btn-primary {
-  background: var(--color-primary);
-  color: white;
-  border: none;
+  background: var(--color-button-bg);
+  color: var(--color-button-text);
+  border: 1px solid var(--color-border-dark);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--color-primary-dark);
+  background: var(--color-button-bg-hover);
 }
 
 .btn-primary:disabled {

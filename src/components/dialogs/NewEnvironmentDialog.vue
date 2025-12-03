@@ -148,12 +148,13 @@ onMounted(() => {
 }
 
 .btn-primary {
-  background: var(--color-primary);
-  color: white;
+  background: var(--color-button-bg);
+  color: var(--color-button-text);
+  border: 1px solid var(--color-border-dark);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--color-primary-dark);
+  background: var(--color-button-bg-hover);
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }

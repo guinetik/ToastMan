@@ -356,8 +356,8 @@ const canSave = () => controller?.getComputed('canSave') || false
 }
 
 .mode-btn.active {
-  background: var(--color-primary);
-  color: white;
+  background: var(--color-button-bg);
+  color: var(--color-button-text);
   font-weight: 500;
 }
 
@@ -479,13 +479,13 @@ const canSave = () => controller?.getComputed('canSave') || false
 }
 
 .btn-save {
-  background: var(--color-primary);
-  color: white;
-  border: none;
+  background: var(--color-button-bg);
+  color: var(--color-button-text);
+  border: 1px solid var(--color-border-dark);
 }
 
 .btn-save:hover:not(:disabled) {
-  background: var(--color-primary-dark);
+  background: var(--color-button-bg-hover);
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }

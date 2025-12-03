@@ -209,16 +209,16 @@ onMounted(() => {
 }
 
 .btn-confirm {
-  border: none;
-  color: white;
+  border: 1px solid var(--color-border-dark);
+  color: var(--color-button-text);
 }
 
 .btn-info {
-  background: var(--color-primary);
+  background: var(--color-button-bg);
 }
 
 .btn-info:hover {
-  background: var(--color-primary-dark);
+  background: var(--color-button-bg-hover);
 }
 
 .btn-warning {
