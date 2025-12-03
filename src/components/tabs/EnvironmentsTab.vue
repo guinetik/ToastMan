@@ -199,9 +199,9 @@ onUnmounted(() => {
 }
 
 .btn-icon:hover {
-  background: var(--color-primary);
-  color: var(--color-text-inverse);
-  border-color: var(--color-primary);
+  background: var(--color-button-bg-hover);
+  color: var(--color-button-text);
+  border-color: var(--color-border-dark);
 }
 
 .environments-list {
@@ -240,7 +240,7 @@ onUnmounted(() => {
 }
 
 .environment-item.active .environment-indicator {
-  background: var(--color-primary);
+  background: var(--color-success);
 }
 
 .environment-content {
@@ -347,9 +347,9 @@ onUnmounted(() => {
 }
 
 .btn-primary {
-  background: var(--color-primary);
-  color: white;
-  border: none;
+  background: var(--color-button-bg);
+  color: var(--color-button-text);
+  border: 1px solid var(--color-border-dark);
   padding: 12px 20px;
   border-radius: var(--radius-md);
   font-size: 14px;
@@ -361,7 +361,7 @@ onUnmounted(() => {
 }
 
 .btn-primary:hover {
-  background: var(--color-primary-dark);
+  background: var(--color-button-bg-hover);
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }
