@@ -190,9 +190,9 @@ const selectCertificateFile = async (certificate) => {
 .btn-add {
   padding: 6px 12px;
   border-radius: var(--radius-sm);
-  background: var(--color-primary);
-  border: 1px solid var(--color-primary);
-  color: white;
+  background: var(--color-button-bg);
+  border: 1px solid var(--color-border-dark);
+  color: var(--color-button-text);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -200,7 +200,7 @@ const selectCertificateFile = async (certificate) => {
 }
 
 .btn-add:hover {
-  background: var(--color-primary-dark);
+  background: var(--color-button-bg-hover);
   transform: translateY(-1px);
 }
 

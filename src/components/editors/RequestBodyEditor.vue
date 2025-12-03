@@ -441,9 +441,9 @@ const updateRawContent = (value) => {
 
 .btn-add {
   padding: 8px 16px;
-  background: var(--color-primary);
-  color: white;
-  border: none;
+  background: var(--color-button-bg);
+  color: var(--color-button-text);
+  border: 1px solid var(--color-border-dark);
   border-radius: var(--radius-sm);
   font-size: 14px;
   cursor: pointer;
@@ -451,7 +451,7 @@ const updateRawContent = (value) => {
 }
 
 .btn-add:hover {
-  background: var(--color-primary-dark);
+  background: var(--color-button-bg-hover);
 }
 
 .form-data-table,
