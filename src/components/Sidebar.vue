@@ -98,7 +98,7 @@ onUnmounted(() => {
 
 .tab.active {
   background: var(--color-bg-secondary);
-  color: var(--color-primary);
+  color: var(--color-text-primary);
   border-color: var(--color-border);
   border-bottom-color: var(--color-bg-secondary);
   font-weight: 600;

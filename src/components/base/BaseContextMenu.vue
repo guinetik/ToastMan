@@ -170,7 +170,7 @@ onUnmounted(() => {
 }
 
 .menu-item.danger:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--color-error-bg);
 }
 
 .menu-icon {
