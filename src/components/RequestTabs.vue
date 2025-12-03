@@ -729,7 +729,7 @@ const detectResponseLanguage = (responseData) => controller?.detectResponseLangu
 
 .view-toggle.active {
   background: var(--color-bg-secondary);
-  color: var(--color-primary);
+  color: var(--color-text-primary);
   border-color: var(--color-border);
   border-bottom-color: var(--color-bg-secondary);
   font-weight: 600;
@@ -770,7 +770,7 @@ const detectResponseLanguage = (responseData) => controller?.detectResponseLangu
 .request-tab.active {
   background: var(--color-bg-secondary);
   color: var(--color-text-primary);
-  border-bottom: 2px solid var(--color-primary);
+  border-bottom: 2px solid var(--color-text-primary);
 }
 
 .method-indicator {
@@ -819,8 +819,8 @@ const detectResponseLanguage = (responseData) => controller?.detectResponseLangu
 }
 
 .add-tab:hover {
-  background: var(--color-primary);
-  color: white;
+  background: var(--color-button-bg-hover);
+  color: var(--color-button-text);
 }
 
 .tab-content {
@@ -876,7 +876,7 @@ const detectResponseLanguage = (responseData) => controller?.detectResponseLangu
 
 .save-button:hover {
   background: var(--color-bg-hover);
-  border-color: var(--color-primary-light);
+  border-color: var(--color-border-dark);
 }
 
 .send-button {
@@ -910,8 +910,9 @@ const detectResponseLanguage = (responseData) => controller?.detectResponseLangu
 }
 
 .nav-tab.active {
-  color: var(--color-primary);
-  border-bottom-color: var(--color-primary);
+  color: var(--color-text-primary);
+  border-bottom-color: var(--color-text-primary);
+  font-weight: 600;
 }
 
 .request-details {
@@ -1081,7 +1082,7 @@ const detectResponseLanguage = (responseData) => controller?.detectResponseLangu
 
 .header-key {
   font-weight: 600;
-  color: var(--color-primary);
+  color: var(--color-text-primary);
   min-width: 120px;
 }
 
@@ -1162,17 +1163,17 @@ const detectResponseLanguage = (responseData) => controller?.detectResponseLangu
 
 .empty-action-button:hover {
   background: var(--color-bg-hover);
-  border-color: var(--color-primary-light);
+  border-color: var(--color-border-dark);
 }
 
 .empty-action-button.primary {
-  background: var(--color-primary);
-  color: white;
-  border-color: var(--color-primary);
+  background: var(--color-button-bg);
+  color: var(--color-button-text);
+  border-color: var(--color-border-dark);
 }
 
 .empty-action-button.primary:hover {
-  background: var(--color-primary-dark);
+  background: var(--color-button-bg-hover);
 }
 
 .empty-action-button:disabled {
@@ -1292,9 +1293,9 @@ const detectResponseLanguage = (responseData) => controller?.detectResponseLangu
 }
 
 .empty-state .btn-primary {
-  background: var(--color-primary);
-  color: white;
-  border: none;
+  background: var(--color-button-bg);
+  color: var(--color-button-text);
+  border: 1px solid var(--color-border-dark);
   padding: 12px 24px;
   border-radius: var(--radius-md);
   font-size: 14px;
@@ -1305,7 +1306,7 @@ const detectResponseLanguage = (responseData) => controller?.detectResponseLangu
 }
 
 .empty-state .btn-primary:hover {
-  background: var(--color-primary-dark);
+  background: var(--color-button-bg-hover);
   transform: translateY(-2px);
   box-shadow: var(--shadow-lg);
 }
@@ -1343,7 +1344,7 @@ const detectResponseLanguage = (responseData) => controller?.detectResponseLangu
 
 .empty-state .quick-tips li:before {
   content: "•";
-  color: var(--color-primary);
+  color: var(--color-text-primary);
   position: absolute;
   left: 4px;
   font-weight: bold;
@@ -1358,22 +1359,22 @@ const detectResponseLanguage = (responseData) => controller?.detectResponseLangu
 }
 
 .status-code.success {
-  background-color: rgba(34, 197, 94, 0.1);
+  background-color: var(--color-status-success-bg);
   color: var(--color-success);
 }
 
 .status-code.redirect {
-  background-color: rgba(59, 130, 246, 0.1);
-  color: var(--color-primary);
+  background-color: var(--color-status-redirect-bg);
+  color: #3b82f6;
 }
 
 .status-code.client-error {
-  background-color: rgba(251, 146, 60, 0.1);
+  background-color: var(--color-status-client-error-bg);
   color: var(--color-warning);
 }
 
 .status-code.server-error {
-  background-color: rgba(239, 68, 68, 0.1);
+  background-color: var(--color-status-server-error-bg);
   color: var(--color-error);
 }
 
@@ -1417,7 +1418,7 @@ const detectResponseLanguage = (responseData) => controller?.detectResponseLangu
 }
 
 .send-button.loading {
-  background: var(--color-primary);
+  background: var(--color-button-bg);
   transform: none !important;
 }
 

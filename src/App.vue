@@ -181,7 +181,7 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   min-height: 60px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-sm);
 }
 
 .logo-section {
@@ -194,7 +194,7 @@ onMounted(() => {
   font-size: 24px;
   font-weight: 700;
   margin: 0;
-  color: var(--color-primary);
+  color: var(--color-text-primary);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -213,9 +213,11 @@ onMounted(() => {
   overflow: hidden;
 }
 
+/* Vertical splitter (between sidebar and main) */
 .default-theme .splitpanes__splitter {
   background: var(--color-border);
   width: 1px;
+  min-width: 1px;
   border: none;
   position: relative;
 }
@@ -232,7 +234,22 @@ onMounted(() => {
 }
 
 .default-theme .splitpanes__splitter:hover:before {
-  background: var(--color-primary-light);
+  background: var(--color-border-dark);
+}
+
+/* Horizontal splitter (between request and response) */
+.default-theme .splitpanes--horizontal > .splitpanes__splitter {
+  height: 1px;
+  min-height: 1px;
+  width: 100%;
+}
+
+.default-theme .splitpanes--horizontal > .splitpanes__splitter:before {
+  left: 0;
+  top: -2px;
+  width: 100%;
+  height: 5px;
+  cursor: row-resize;
 }
 
 .header-actions {
@@ -244,9 +261,9 @@ onMounted(() => {
 .create-request-button {
   padding: 8px 16px;
   border-radius: var(--radius-md);
-  background: var(--color-primary);
-  border: 1px solid var(--color-primary);
-  color: white;
+  background: var(--color-button-bg);
+  border: 1px solid var(--color-border-dark);
+  color: var(--color-button-text);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -257,7 +274,7 @@ onMounted(() => {
 }
 
 .create-request-button:hover {
-  background: var(--color-primary-dark);
+  background: var(--color-button-bg-hover);
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }
@@ -277,8 +294,8 @@ onMounted(() => {
 
 .settings-button:hover {
   background: var(--color-bg-hover);
-  color: var(--color-primary);
-  border-color: var(--color-primary-light);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-dark);
 }
 
 /* Environment Indicator */
@@ -301,9 +318,9 @@ onMounted(() => {
 }
 
 .env-name {
-  color: var(--color-primary);
+  color: var(--color-text-primary);
   font-weight: 600;
-  background: rgba(37, 99, 235, 0.1);
+  background: var(--color-bg-hover);
   padding: 2px 6px;
   border-radius: 4px;
 }
