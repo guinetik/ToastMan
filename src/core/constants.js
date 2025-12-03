@@ -1,41 +1,32 @@
 /**
- * ToastMan Logging Constants
- * Defines log levels and default configuration for the logging system
+ * Constants for ToastMan application
  */
 
+// Log levels with numeric values for comparison
 export const LOG_LEVELS = {
-  ERROR: 0,
-  WARN: 1,
-  INFO: 2,
-  DEBUG: 3,
-  TRACE: 4
+  ERROR: 1,
+  WARN: 2,
+  INFO: 3,
+  DEBUG: 4,
+  TRACE: 5
 };
 
-export const DEFAULT_LOG_LEVEL = 'debug'; // More verbose for development
+// Default log level
+export const DEFAULT_LOG_LEVEL = 'info';
 
-export const TOASTMAN_COMPONENTS = {
-  // Core systems
-  STORAGE: 'storage',
-  LOGGER: 'logger',
+// Application constants
+export const APP_NAME = 'ToastMan';
+export const APP_VERSION = '1.0.0';
 
-  // Stores
-  COLLECTIONS: 'collections',
-  ENVIRONMENTS: 'environments',
-  TABS: 'tabs',
-  SETTINGS: 'settings',
+// HTTP related constants
+export const DEFAULT_TIMEOUT = 30000; // 30 seconds
+export const MAX_REDIRECTS = 5;
 
-  // UI Components
-  SIDEBAR: 'sidebar',
-  REQUEST_TABS: 'request-tabs',
-  SETTINGS_DIALOG: 'settings-dialog',
-  NEW_COLLECTION_DIALOG: 'new-collection-dialog',
-
-  // Data Models
-  TYPES: 'types',
-
-  // HTTP/Network
-  HTTP_CLIENT: 'http-client',
-  HISTORY: 'history'
+// Storage keys
+export const STORAGE_KEYS = {
+  COLLECTIONS: 'toastman_collections',
+  ENVIRONMENTS: 'toastman_environments',
+  SETTINGS: 'toastman_settings',
+  HISTORY: 'toastman_history',
+  LOGGING_FILTERS: 'toastman_logging_filters'
 };
-
-export const LOG_STORAGE_KEY = 'toastman_logging_filters';

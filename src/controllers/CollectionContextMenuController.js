@@ -31,6 +31,11 @@ export class CollectionContextMenuController extends BaseContextMenuController {
         icon: '➕'
       },
       {
+        action: 'create-folder',
+        label: 'Create Folder',
+        icon: '📁'
+      },
+      {
         type: 'separator'
       },
       {
@@ -64,6 +69,8 @@ export class CollectionContextMenuController extends BaseContextMenuController {
     switch (action) {
       case 'create-request':
         return await this.createRequest(collection)
+      case 'create-folder':
+        return await this.createFolder(collection)
       case 'rename':
         return await this.renameCollection(collection)
       case 'duplicate':
@@ -86,6 +93,22 @@ export class CollectionContextMenuController extends BaseContextMenuController {
       return { action: 'create-request', requestId: newRequest.id }
     }
     throw new Error('Failed to create request')
+  }
+
+  /**
+   * Create a new folder in the collection
+   */
+  async createFolder(collection) {
+    // Emit event to trigger NewFolderDialog instead of using browser prompt
+    this.emit('showFolderDialog', {
+      type: 'create-folder',
+      collectionId: collection.info.id,
+      parentFolderId: null,
+      collection: collection
+    })
+
+    this.logger.info('Requested folder creation dialog for collection:', collection.info.name)
+    return { action: 'create-folder', dialogRequested: true }
   }
 
   /**

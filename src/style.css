@@ -1,43 +1,68 @@
-/* ToastMan Dark Blue Theme */
+/* ToastMan Vercel-Style Monochrome Theme */
 :root {
-  /* Primary Colors - Blue Theme */
-  --color-primary: #3b82f6;
-  --color-primary-light: #60a5fa;
-  --color-primary-dark: #2563eb;
-  --color-primary-hover: #1d4ed8;
+  /* Primary Colors - Dark buttons in dark mode */
+  --color-primary: #fafafa;
+  --color-primary-light: #ffffff;
+  --color-primary-dark: #e5e5e5;
+  --color-primary-hover: #ffffff;
 
-  /* Background Colors - Dark Mode */
-  --color-bg-primary: #0f172a;
-  --color-bg-secondary: #1e293b;
-  --color-bg-tertiary: #334155;
-  --color-bg-hover: #475569;
-  --color-bg-active: #64748b;
+  /* Button Colors - Dark buttons with light text */
+  --color-button-bg: #262626;
+  --color-button-bg-hover: #333333;
+  --color-button-text: #fafafa;
 
-  /* Text Colors - Dark Mode */
-  --color-text-primary: #f1f5f9;
-  --color-text-secondary: #cbd5e1;
-  --color-text-muted: #94a3b8;
-  --color-text-inverse: #0f172a;
+  /* Background Colors - Pure Black */
+  --color-bg-primary: #000000;
+  --color-bg-secondary: #0a0a0a;
+  --color-bg-tertiary: #171717;
+  --color-bg-hover: #262626;
+  --color-bg-active: #404040;
 
-  /* Border Colors - Dark Mode */
-  --color-border: #334155;
-  --color-border-light: #475569;
-  --color-border-dark: #64748b;
+  /* Text Colors - High Contrast */
+  --color-text-primary: #fafafa;
+  --color-text-secondary: #a3a3a3;
+  --color-text-muted: #737373;
+  --color-text-inverse: #000000;
+
+  /* Border Colors - Very Subtle */
+  --color-border: #1a1a1a;
+  --color-border-light: #262626;
+  --color-border-dark: #333333;
 
   /* Status Colors */
-  --color-success: #10b981;
-  --color-success-light: #34d399;
+  --color-success: #22c55e;
+  --color-success-light: #4ade80;
+  --color-success-bg: rgba(34, 197, 94, 0.1);
   --color-error: #ef4444;
   --color-error-light: #f87171;
+  --color-error-bg: rgba(239, 68, 68, 0.1);
   --color-warning: #f59e0b;
   --color-warning-light: #fbbf24;
+  --color-warning-bg: rgba(245, 158, 11, 0.1);
 
-  /* HTTP Method Colors */
-  --color-get: #10b981;
-  --color-post: #3b82f6;
+  /* HTTP Method Colors - Keep colorful */
+  --color-get: #22c55e;
+  --color-post: #ef4444;
   --color-put: #f59e0b;
-  --color-patch: #8b5cf6;
+  --color-patch: #a855f7;
   --color-delete: #ef4444;
+
+  /* Status Background Colors */
+  --color-status-success-bg: rgba(34, 197, 94, 0.1);
+  --color-status-redirect-bg: rgba(59, 130, 246, 0.1);
+  --color-status-client-error-bg: rgba(251, 146, 60, 0.1);
+  --color-status-server-error-bg: rgba(239, 68, 68, 0.1);
+
+  /* Variable Highlighting */
+  --color-variable-resolved-bg: rgba(34, 197, 94, 0.2);
+  --color-variable-resolved-text: #22c55e;
+  --color-variable-resolved-border: rgba(34, 197, 94, 0.4);
+  --color-variable-unresolved-bg: rgba(239, 68, 68, 0.2);
+  --color-variable-unresolved-text: #ef4444;
+  --color-variable-unresolved-border: rgba(239, 68, 68, 0.4);
+
+  /* Focus Ring */
+  --color-focus-ring: var(--color-text-primary);
 
   /* Typography */
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -57,17 +82,87 @@
   --spacing-lg: 24px;
   --spacing-xl: 32px;
 
-  /* Border Radius - More modern */
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  /* Border Radius - Vercel-style subtle */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
 
-  /* Shadows - Enhanced for dark theme */
-  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.2);
-  --shadow-md: 0 4px 12px -1px rgba(0, 0, 0, 0.25), 0 2px 6px -1px rgba(0, 0, 0, 0.15);
-  --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.3), 0 4px 12px -2px rgba(0, 0, 0, 0.2);
-  --shadow-xl: 0 20px 40px -4px rgba(0, 0, 0, 0.4), 0 8px 16px -4px rgba(0, 0, 0, 0.25);
+  /* Shadows - Minimal */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 2px 4px 0 rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 4px 8px 0 rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 8px 16px 0 rgba(0, 0, 0, 0.6);
+}
+
+/* Light Mode Theme */
+[data-theme="light"] {
+  /* Primary Colors - Monochrome (inverted) */
+  --color-primary: #000000;
+  --color-primary-light: #262626;
+  --color-primary-dark: #171717;
+  --color-primary-hover: #404040;
+
+  /* Button Colors - Dark buttons with light text */
+  --color-button-bg: #171717;
+  --color-button-bg-hover: #262626;
+  --color-button-text: #fafafa;
+
+  /* Background Colors - Pure White Base */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #fafafa;
+  --color-bg-tertiary: #f5f5f5;
+  --color-bg-hover: #e5e5e5;
+  --color-bg-active: #d4d4d4;
+
+  /* Text Colors - High Contrast (black on white) */
+  --color-text-primary: #171717;
+  --color-text-secondary: #525252;
+  --color-text-muted: #737373;
+  --color-text-inverse: #ffffff;
+
+  /* Border Colors - Subtle Gray */
+  --color-border: #e5e5e5;
+  --color-border-light: #d4d4d4;
+  --color-border-dark: #a3a3a3;
+
+  /* Status Colors - Slightly darker for light bg */
+  --color-success: #16a34a;
+  --color-success-light: #22c55e;
+  --color-success-bg: rgba(34, 197, 94, 0.1);
+  --color-error: #dc2626;
+  --color-error-light: #ef4444;
+  --color-error-bg: rgba(239, 68, 68, 0.1);
+  --color-warning: #d97706;
+  --color-warning-light: #f59e0b;
+  --color-warning-bg: rgba(245, 158, 11, 0.1);
+
+  /* HTTP Method Colors - Slightly darker for readability */
+  --color-get: #16a34a;
+  --color-post: #dc2626;
+  --color-put: #d97706;
+  --color-patch: #9333ea;
+  --color-delete: #dc2626;
+
+  /* Status Background Colors */
+  --color-status-success-bg: rgba(34, 197, 94, 0.1);
+  --color-status-redirect-bg: rgba(59, 130, 246, 0.1);
+  --color-status-client-error-bg: rgba(251, 146, 60, 0.1);
+  --color-status-server-error-bg: rgba(239, 68, 68, 0.1);
+
+  /* Variable Highlighting */
+  --color-variable-resolved-bg: rgba(34, 197, 94, 0.15);
+  --color-variable-resolved-text: #16a34a;
+  --color-variable-resolved-border: rgba(34, 197, 94, 0.3);
+  --color-variable-unresolved-bg: rgba(239, 68, 68, 0.15);
+  --color-variable-unresolved-text: #dc2626;
+  --color-variable-unresolved-border: rgba(239, 68, 68, 0.3);
+
+  /* Shadows - Very subtle for white background */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 2px 4px 0 rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 4px 8px 0 rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 8px 16px 0 rgba(0, 0, 0, 0.15);
 }
 
 /* Reset and Base Styles */
@@ -100,13 +195,14 @@ p {
 
 /* Links */
 a {
-  color: var(--color-primary);
-  text-decoration: none;
+  color: var(--color-text-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
   transition: color 0.2s ease;
 }
 
 a:hover {
-  color: var(--color-primary-hover);
+  color: var(--color-text-secondary);
 }
 
 /* Buttons */
@@ -131,23 +227,23 @@ button {
 
 button:hover {
   background-color: var(--color-bg-hover);
-  border-color: var(--color-primary-light);
+  border-color: var(--color-border-dark);
 }
 
 button:focus {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
+  outline: 1px solid var(--color-focus-ring);
+  outline-offset: 1px;
 }
 
 button.primary {
-  background-color: var(--color-primary);
-  color: var(--color-text-inverse);
-  border-color: var(--color-primary);
+  background-color: var(--color-button-bg);
+  color: var(--color-button-text);
+  border-color: var(--color-border-dark);
 }
 
 button.primary:hover {
-  background-color: var(--color-primary-hover);
-  border-color: var(--color-primary-hover);
+  background-color: var(--color-button-bg-hover);
+  border-color: var(--color-border-dark);
 }
 
 button.large {
@@ -173,8 +269,8 @@ input, textarea, select {
 
 input:focus, textarea:focus, select:focus {
   outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+  border-color: var(--color-text-primary);
+  box-shadow: 0 0 0 1px var(--color-text-primary);
 }
 
 /* Utility Classes */
@@ -187,7 +283,7 @@ input:focus, textarea:focus, select:focus {
 .font-bold { font-weight: 700; }
 
 .text-muted { color: var(--color-text-secondary); }
-.text-primary { color: var(--color-primary); }
+.text-primary { color: var(--color-text-primary); }
 
 .flex { display: flex; }
 .flex-col { flex-direction: column; }
@@ -221,6 +317,21 @@ input:focus, textarea:focus, select:focus {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-muted);
+}
+
+/* Splitpanes overrides - thin subtle separators */
+.splitpanes__splitter {
+  background-color: var(--color-border) !important;
+}
+
+.splitpanes--vertical > .splitpanes__splitter {
+  width: 1px !important;
+  min-width: 1px !important;
+}
+
+.splitpanes--horizontal > .splitpanes__splitter {
+  height: 1px !important;
+  min-height: 1px !important;
 }
 
 /* Remove light mode - dark mode is default */

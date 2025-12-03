@@ -6,102 +6,89 @@ import { Tab } from '../models/Tab.js'
 import { useCollections } from '../stores/useCollections.js'
 import { useEnvironments } from '../stores/useEnvironments.js'
 import { useTabs } from '../stores/useTabs.js'
+import { useVariableInterpolation } from '../composables/useVariableInterpolation.js'
+import { HttpClientFactory } from '../core/http/HttpClient.js'
+import '../core/http/FetchHttpClient.js' // Register FetchHttpClient
 
 /**
  * Controller for RequestTabs component
+ * Handles all business logic for request tabs management, HTTP requests, and data manipulation
  */
 export class RequestTabsController extends BaseController {
   constructor() {
-    super('request-tabs')
+    super('RequestTabsController')
 
-    this.createState({
-      activeRequestTab: 'params',
-      activeResponseTab: 'body',
-      isLoading: false,
-      currentRequest: null,
-      currentResponse: null,
-      formData: {
-        url: '',
-        method: 'GET',
-        headers: [],
-        params: [],
-        body: '',
-        bodyType: 'raw',
-        auth: null
-      },
-      responseViewMode: 'pretty',
-      requestTimeout: 30000
-    })
-
-    // Initialize stores after state is created
+    // Store instances
     this.collectionsStore = useCollections()
     this.environmentsStore = useEnvironments()
     this.tabsStore = useTabs()
+
+    // Composables
+    this.variableInterpolation = useVariableInterpolation()
+
+    // HTTP client
+    this.httpClient = HttpClientFactory.create('fetch')
+
+    // Initialize state
+    this.init()
   }
 
+  /**
+   * Initialize controller state
+   */
   init() {
     super.init()
 
-    this.tabs = this.createComputed('tabs', () => {
-      if (!this.tabsStore) return []
+    // Create reactive state
+    this.createState({
+      // Current request form data
+      currentUrl: '',
+      currentMethod: 'GET',
+      currentHeaders: [],
+      currentParams: [],
+      currentBody: {
+        mode: 'none',
+        raw: '',
+        formData: [],
+        urlEncoded: [],
+        binary: null
+      },
 
-      const tabsData = this.tabsStore.tabs
-      const actualTabs = tabsData?.value || tabsData
-      const tabs = Array.isArray(actualTabs) ? actualTabs : []
+      // Response data
+      responseData: null,
+      isLoading: false,
+      requestError: null,
 
-      return tabs.map(t => {
-        try {
-          return new Tab(t)
-        } catch (error) {
-          this.logger.error('Failed to parse tab:', error)
-          return t
-        }
-      })
+      // UI state
+      activeRequestTab: 'params',
+      activeResponseTab: 'body',
+      viewMode: 'request',
+      hasResponse: false,
+
+      // Save dialog state
+      showSaveDialog: false,
+      pendingSaveName: ''
     })
 
-    this.activeTab = this.createComputed('activeTab', () => {
-      if (!this.tabsStore) return null
-
-      const active = this.tabsStore.activeTab
-      const actualActive = active?.value || active
-      if (!actualActive) return null
-
-      try {
-        return new Tab(actualActive)
-      } catch (error) {
-        this.logger.error('Failed to parse active tab:', error)
-        return actualActive
-      }
+    // Create computed properties
+    this.createComputed('tabs', () => {
+      const tabsData = this.tabsStore.tabs.value
+      return Array.isArray(tabsData) ? tabsData : []
     })
 
-    this.currentRequestData = this.createComputed('currentRequestData', () => {
-      const tab = this.getComputed('activeTab')
-      if (!tab || !this.collectionsStore) return null
+    this.createComputed('activeTab', () => {
+      return this.tabsStore.activeTab.value
+    })
 
-      if (tab.requestId && tab.collectionId) {
-        const requestData = this.collectionsStore.getRequest(tab.collectionId, tab.requestId)
-        if (requestData?.request) {
-          try {
-            return new Request(requestData.request)
-          } catch (error) {
-            this.logger.error('Failed to parse request:', error)
-            return requestData.request
-          }
-        }
+    this.createComputed('currentRequest', () => {
+      const activeTab = this.getComputed('activeTab')
+      if (activeTab?.itemId && activeTab?.collectionId) {
+        return this.collectionsStore.getRequest(activeTab.collectionId, activeTab.itemId)
       }
-
-      if (tab.temporaryData) {
-        try {
-          return new Request(tab.temporaryData)
-        } catch (error) {
-          this.logger.error('Failed to parse temporary request data:', error)
-          return null
-        }
-      }
-
       return null
     })
 
+    // Watch for active tab changes
     this.createWatcher(
       () => this.getComputed('activeTab'),
       (newTab) => {
@@ -112,505 +99,642 @@ export class RequestTabsController extends BaseController {
       { immediate: true }
     )
 
+    // Auto-save when form data changes
     this.createWatcher(
-      () => this.getComputed('currentRequestData'),
+      () => [
+        this.state.currentUrl,
+        this.state.currentMethod,
+        this.state.currentHeaders,
+        this.state.currentParams,
+        this.state.currentBody
+      ],
       () => {
-        this.loadRequestData()
-      }
+        this.saveRequestData()
+      },
+      { deep: true }
     )
   }
 
   /**
-   * Get available HTTP methods
+   * Get HTTP methods list
    */
   getHttpMethods() {
-    return HTTP_METHODS
+    return ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
   }
 
   /**
-   * Get available body modes
+   * Get method color for UI styling
    */
-  getBodyModes() {
-    return BODY_MODES
+  getMethodColor(method) {
+    const colors = {
+      'GET': 'var(--color-get)',
+      'POST': 'var(--color-post)',
+      'PUT': 'var(--color-put)',
+      'PATCH': 'var(--color-patch)',
+      'DELETE': 'var(--color-delete)'
+    }
+    return colors[method] || 'var(--color-text-secondary)'
   }
 
   /**
-   * Load request data into form
-   */
-  loadRequestData() {
-    const request = this.getComputed('currentRequestData')
-
-    if (request) {
-      this.state.formData.url = request.getUrlString()
-      this.state.formData.method = request.method
-      this.state.formData.headers = [...(request.header || [])]
-      this.state.formData.params = request.url?.query ? [...request.url.query] : []
-      this.state.formData.auth = request.auth ? { ...request.auth } : null
-
-      if (request.body) {
-        this.state.formData.bodyType = request.body.mode || 'raw'
-        this.state.formData.body = request.body.raw || ''
-      } else {
-        this.state.formData.bodyType = 'raw'
-        this.state.formData.body = ''
-      }
-    } else {
-      this.resetFormData()
-    }
-
-    this.logger.debug('Loaded request data into form')
-  }
-
-  /**
-   * Reset form data to defaults
-   */
-  resetFormData() {
-    this.state.formData = {
-      url: '',
-      method: 'GET',
-      headers: [new KeyValue({ key: 'Content-Type', value: 'application/json', enabled: true }).toJSON()],
-      params: [],
-      body: '',
-      bodyType: 'raw',
-      auth: null
-    }
-  }
-
-  /**
-   * Save form data to request
-   */
-  async saveRequestData() {
-    const tab = this.getComputed('activeTab')
-    if (!tab) return { success: false, error: 'No active tab' }
-
-    const result = await this.executeAsync(async () => {
-      const requestData = this.buildRequestFromForm()
-      const validation = this.validate(Request, requestData)
-
-      if (!validation.valid) {
-        throw new Error(validation.error)
-      }
-
-      if (tab.requestId && tab.collectionId) {
-        this.collectionsStore.updateRequest(tab.collectionId, tab.requestId, requestData)
-      } else {
-        this.tabsStore.updateTab(tab.id, {
-          temporaryData: requestData,
-          modified: true,
-          name: this.generateTabName(requestData.method, requestData.url),
-          method: requestData.method,
-          url: requestData.url
-        })
-      }
-
-      this.logger.info('Saved request data')
-      return requestData
-    }, 'Failed to save request data')
-
-    if (result.success) {
-      this.emit('requestSaved', result.data)
-    }
-
-    return result
-  }
-
-  /**
-   * Build request object from form data
-   */
-  buildRequestFromForm() {
-    const url = RequestUrl.fromString(this.state.formData.url)
-
-    if (this.state.formData.params.length > 0) {
-      url.query = this.state.formData.params.filter(p => p.enabled)
-    }
-
-    const request = {
-      method: this.state.formData.method,
-      url: url.toJSON(),
-      header: this.state.formData.headers.filter(h => h.enabled),
-      body: null,
-      auth: this.state.formData.auth
-    }
-
-    if (this.state.formData.bodyType !== 'none' && this.state.formData.body) {
-      request.body = RequestBody.createRaw(this.state.formData.body, 'json').toJSON()
-    }
-
-    return request
-  }
-
-  /**
-   * Send request
-   */
-  async sendRequest() {
-    const result = await this.executeAsync(async () => {
-      this.state.isLoading = true
-      this.emit('requestStarted')
-
-      await this.saveRequestData()
-
-      const requestData = this.buildRequestFromForm()
-      const request = new Request(requestData)
-
-      const environment = this.environmentsStore.activeEnvironment
-      let processedUrl = request.getUrlString()
-
-      if (environment) {
-        const env = new Environment(environment)
-        processedUrl = env.replaceVariables(processedUrl)
-
-        request.header = request.header.map(h => ({
-          ...h,
-          value: env.replaceVariables(h.value)
-        }))
-
-        if (request.body?.raw) {
-          request.body.raw = env.replaceVariables(request.body.raw)
-        }
-      }
-
-      this.logger.info(`Sending ${request.method} request to ${processedUrl}`)
-
-      const mockResponse = await this.mockHttpRequest(request, processedUrl)
-
-      const response = new Response(mockResponse)
-      this.state.currentResponse = response
-
-      const tab = this.getComputed('activeTab')
-      if (tab) {
-        this.tabsStore.updateTab(tab.id, {
-          response: response.toJSON(),
-          state: response.isError() ? 'error' : 'success'
-        })
-      }
-
-      if (this.sidebarController) {
-        this.sidebarController.addToHistory(request, response)
-      }
-
-      this.logger.info(`Request completed with status ${response.status}`)
-      return response
-    }, 'Request failed')
-
-    this.state.isLoading = false
-
-    if (result.success) {
-      this.emit('requestCompleted', result.data)
-    } else {
-      this.emit('requestFailed', result.error)
-    }
-
-    return result
-  }
-
-  /**
-   * Mock HTTP request (replace with actual HTTP client later)
-   */
-  async mockHttpRequest(request, url) {
-    await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 500))
-
-    const isError = Math.random() < 0.1
-
-    if (isError) {
-      throw new Error('Network error: Connection refused')
-    }
-
-    const statuses = [200, 201, 204, 400, 401, 404, 500]
-    const status = statuses[Math.floor(Math.random() * statuses.length)]
-
-    const mockResponse = {
-      status,
-      statusText: status < 300 ? 'OK' : status < 400 ? 'Redirect' : status < 500 ? 'Bad Request' : 'Server Error',
-      headers: {
-        'content-type': 'application/json; charset=utf-8',
-        'content-length': '1234',
-        'cache-control': 'no-cache',
-        'date': new Date().toUTCString()
-      },
-      body: JSON.stringify({
-        id: Math.floor(Math.random() * 1000),
-        method: request.method,
-        url: url,
-        timestamp: new Date().toISOString(),
-        message: `Mock response for ${request.method} ${url}`
-      }, null, 2),
-      bodyType: 'json',
-      timing: new ResponseTiming({
-        start: 0,
-        dnsLookup: 10,
-        tcpConnection: 25,
-        tlsHandshake: 40,
-        firstByte: 100,
-        download: 245,
-        total: 245
-      }).toJSON(),
-      size: new ResponseSize({
-        headers: 256,
-        body: 1234,
-        total: 1490
-      }).toJSON()
-    }
-
-    return mockResponse
-  }
-
-  /**
-   * Cancel current request
-   */
-  cancelRequest() {
-    if (this.state.isLoading) {
-      this.state.isLoading = false
-      this.logger.info('Request cancelled')
-      this.emit('requestCancelled')
-    }
-  }
-
-  /**
-   * Add new tab
+   * Tab management methods
    */
   addNewTab() {
-    const tab = this.tabsStore.createTab()
-    this.logger.info('Created new tab:', tab.id)
-    this.emit('tabCreated', tab)
+    this.tabsStore.createTab()
   }
 
-  /**
-   * Close tab
-   */
-  async closeTab(tabId) {
-    const tab = this.tabs.value?.find(t => t.id === tabId)
-
-    if (tab && tab.modified && !tab.saved) {
-      const confirmed = await this.confirmUnsavedChanges()
-      if (!confirmed) return
-    }
-
+  closeTab(tabId) {
     this.tabsStore.closeTab(tabId)
-    this.logger.info('Closed tab:', tabId)
-    this.emit('tabClosed', tabId)
   }
 
-  /**
-   * Set active tab
-   */
   setActiveTab(tabId) {
     this.tabsStore.setActiveTab(tabId)
-    this.logger.info('Activated tab:', tabId)
-    this.emit('tabActivated', tabId)
   }
 
   /**
-   * Add header
+   * Load request data from current request into form
    */
-  addHeader(key = '', value = '', enabled = true) {
-    const header = new KeyValue({ key, value, enabled }).toJSON()
-    this.state.formData.headers.push(header)
-    this.markModified()
+  loadRequestData() {
+    // Reset view mode and response status for new/different tabs
+    this.state.hasResponse = false
+    this.state.viewMode = 'request'
+
+    const currentRequest = this.getComputed('currentRequest')
+
+    if (currentRequest && currentRequest.request) {
+      const request = currentRequest.request
+
+      // Extract URL - handle both object and string formats
+      if (request.url) {
+        if (typeof request.url === 'string') {
+          this.state.currentUrl = request.url
+        } else if (request.url.raw) {
+          this.state.currentUrl = request.url.raw
+        } else {
+          this.state.currentUrl = ''
+        }
+      } else {
+        this.state.currentUrl = ''
+      }
+
+      // Extract method
+      this.state.currentMethod = request.method || 'GET'
+
+      // Extract headers
+      this.state.currentHeaders = [...(request.header || request.headers || [])]
+
+      // Extract query parameters
+      if (request.url && request.url.query) {
+        this.state.currentParams = [...request.url.query]
+      } else {
+        this.state.currentParams = []
+      }
+
+      // Extract body
+      if (request.body) {
+        this.state.currentBody = {
+          mode: request.body.mode || 'none',
+          raw: request.body.raw || '',
+          formData: request.body.formData || request.body.formdata || [],
+          urlEncoded: request.body.urlEncoded || request.body.urlencoded || [],
+          binary: request.body.binary || null
+        }
+      } else {
+        this.state.currentBody = {
+          mode: 'none',
+          raw: '',
+          formData: [],
+          urlEncoded: [],
+          binary: null
+        }
+      }
+    } else if (currentRequest) {
+      // Handle legacy format where request data might be directly on currentRequest
+      this.logger.warn('Request has unexpected structure, attempting fallback', currentRequest)
+      this.state.currentUrl = currentRequest.url || ''
+      this.state.currentMethod = currentRequest.method || 'GET'
+      this.state.currentHeaders = currentRequest.headers || currentRequest.header || []
+      this.state.currentParams = []
+      this.state.currentBody = {
+        mode: 'none',
+        raw: currentRequest.body || '',
+        formData: [],
+        urlEncoded: [],
+        binary: null
+      }
+    } else {
+      // New request defaults
+      this.state.currentUrl = ''
+      this.state.currentMethod = 'GET'
+      this.state.currentHeaders = [{ key: 'Content-Type', value: 'application/json', enabled: true, id: Date.now() }]
+      this.state.currentParams = []
+      this.state.currentBody = {
+        mode: 'none',
+        raw: '',
+        formData: [],
+        urlEncoded: [],
+        binary: null
+      }
+    }
   }
 
   /**
-   * Remove header
+   * Save current form data back to the request
    */
-  removeHeader(index) {
-    this.state.formData.headers.splice(index, 1)
-    this.markModified()
+  saveRequestData() {
+    const activeTab = this.getComputed('activeTab')
+    if (activeTab) {
+      // Update tab info
+      this.tabsStore.updateTab(activeTab.id, {
+        name: this.state.currentUrl ? `${this.state.currentMethod} ${this.state.currentUrl}` : 'New Request',
+        method: this.state.currentMethod
+      })
+
+      // If linked to a request, update the actual request data
+      if (activeTab.itemId && activeTab.collectionId) {
+        this.collectionsStore.updateRequest(activeTab.collectionId, activeTab.itemId, {
+          request: {
+            method: this.state.currentMethod,
+            url: {
+              raw: this.state.currentUrl,
+              query: this.state.currentParams.filter(p => p.key)
+            },
+            header: this.state.currentHeaders.filter(h => h.key),
+            body: this.state.currentBody
+          }
+        })
+      }
+    }
   }
 
   /**
-   * Update header
+   * Parameter management
    */
-  updateHeader(index, updates) {
-    Object.assign(this.state.formData.headers[index], updates)
-    this.markModified()
+  addParam() {
+    this.state.currentParams.push({ key: '', value: '', enabled: true, id: Date.now() })
   }
 
-  /**
-   * Add query parameter
-   */
-  addParam(key = '', value = '', enabled = true) {
-    const param = new KeyValue({ key, value, enabled }).toJSON()
-    this.state.formData.params.push(param)
-    this.markModified()
-  }
-
-  /**
-   * Remove query parameter
-   */
   removeParam(index) {
-    this.state.formData.params.splice(index, 1)
-    this.markModified()
+    this.state.currentParams.splice(index, 1)
   }
 
   /**
-   * Update query parameter
+   * Header management
    */
-  updateParam(index, updates) {
-    Object.assign(this.state.formData.params[index], updates)
-    this.markModified()
+  addHeader() {
+    this.state.currentHeaders.push({ key: '', value: '', enabled: true, id: Date.now() })
+  }
+
+  removeHeader(index) {
+    this.state.currentHeaders.splice(index, 1)
   }
 
   /**
-   * Update URL
+   * Request saving
    */
-  updateUrl(url) {
-    this.state.formData.url = url
-    this.markModified()
-  }
-
-  /**
-   * Update method
-   */
-  updateMethod(method) {
-    this.state.formData.method = method
-    this.markModified()
-  }
-
-  /**
-   * Update body
-   */
-  updateBody(body) {
-    this.state.formData.body = body
-    this.markModified()
-  }
-
-  /**
-   * Update body type
-   */
-  updateBodyType(bodyType) {
-    this.state.formData.bodyType = bodyType
-    this.markModified()
-  }
-
-  /**
-   * Set authentication
-   */
-  setAuth(authType, credentials) {
-    switch (authType) {
-      case 'basic':
-        this.state.formData.auth = RequestAuth.createBasic(credentials.username, credentials.password).toJSON()
-        break
-      case 'bearer':
-        this.state.formData.auth = RequestAuth.createBearer(credentials.token).toJSON()
-        break
-      case 'apikey':
-        this.state.formData.auth = RequestAuth.createApiKey(credentials.key, credentials.value, credentials.addTo).toJSON()
-        break
-      default:
-        this.state.formData.auth = null
-    }
-    this.markModified()
-  }
-
-  /**
-   * Clear authentication
-   */
-  clearAuth() {
-    this.state.formData.auth = null
-    this.markModified()
-  }
-
-  /**
-   * Mark current tab as modified
-   */
-  markModified() {
-    const tab = this.getComputed('activeTab')
-    if (tab) {
-      this.tabsStore.updateTab(tab.id, { modified: true })
+  saveRequest() {
+    const activeTab = this.getComputed('activeTab')
+    if (activeTab) {
+      this.state.pendingSaveName = activeTab.name || 'New Request'
+      this.state.showSaveDialog = true
     }
   }
 
-  /**
-   * Generate tab name from request details
-   */
-  generateTabName(method, url) {
-    if (!url) return `${method} New Request`
+  async handleSaveRequest({ collectionId, folderId, requestName, isNewCollection, isNewFolder }) {
+    const activeTab = this.getComputed('activeTab')
+    if (!activeTab) return
 
-    try {
-      const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`)
-      return `${method} ${urlObj.hostname}${urlObj.pathname}`
-    } catch {
-      return `${method} ${url.substring(0, 30)}...`
+    const requestData = {
+      method: this.state.currentMethod,
+      url: { raw: this.state.currentUrl },
+      header: this.state.currentHeaders.filter(h => h.enabled && h.key),
+      body: this.state.currentBody
     }
-  }
 
-  /**
-   * Confirm unsaved changes
-   */
-  async confirmUnsavedChanges() {
-    return new Promise(resolve => {
-      this.emit('confirmUnsavedChanges', { resolve })
+    // Determine save strategy based on existing request state and user choices
+    const isNewRequest = !activeTab.itemId
+    const isDifferentCollection = activeTab.collectionId && activeTab.collectionId !== collectionId
+    const isDifferentName = activeTab.name !== requestName
+    const isDifferentFolder = activeTab.folderId !== folderId
+
+    this.logger.debug('Save request analysis:', {
+      isNewRequest,
+      isDifferentCollection,
+      isDifferentName,
+      isDifferentFolder,
+      originalCollection: activeTab.collectionId,
+      originalFolder: activeTab.folderId,
+      targetCollection: collectionId,
+      targetFolder: folderId
     })
-  }
-
-  /**
-   * Export response
-   */
-  exportResponse(format = 'json') {
-    if (!this.state.currentResponse) {
-      this.logger.warn('No response to export')
-      return
-    }
-
-    const response = this.state.currentResponse
-
-    let content
-    let mimeType
-    let filename
-
-    switch (format) {
-      case 'json':
-        content = JSON.stringify(response.toJSON(), null, 2)
-        mimeType = 'application/json'
-        filename = 'response.json'
-        break
-      case 'raw':
-        content = response.body
-        mimeType = 'text/plain'
-        filename = 'response.txt'
-        break
-      case 'headers':
-        content = JSON.stringify(response.headers, null, 2)
-        mimeType = 'application/json'
-        filename = 'headers.json'
-        break
-      default:
-        return
-    }
-
-    const blob = new Blob([content], { type: mimeType })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    a.click()
-    URL.revokeObjectURL(url)
-
-    this.logger.info(`Exported response as ${format}`)
-    this.emit('responseExported', format)
-  }
-
-  /**
-   * Copy response to clipboard
-   */
-  async copyResponse() {
-    if (!this.state.currentResponse) {
-      this.logger.warn('No response to copy')
-      return
-    }
 
     try {
-      await navigator.clipboard.writeText(this.state.currentResponse.getFormattedBody())
-      this.logger.info('Response copied to clipboard')
-      this.emit('responseCopied')
+      let finalRequestId = null
+      let finalCollectionId = collectionId
+      let finalFolderId = folderId
+
+      if (isNewRequest) {
+        // NEW REQUEST: Create in the selected location
+        let newRequest
+        if (folderId) {
+          newRequest = this.collectionsStore.addRequestToFolder(collectionId, folderId, requestData)
+        } else {
+          newRequest = this.collectionsStore.addRequest(collectionId, requestData)
+        }
+
+        finalRequestId = newRequest.id
+
+        // Link the tab to the new request
+        this.tabsStore.updateTab(activeTab.id, {
+          itemId: finalRequestId,
+          collectionId: finalCollectionId,
+          folderId: finalFolderId,
+          saved: true,
+          modified: false
+        })
+
+        // Set the request name
+        this.collectionsStore.updateRequest(finalCollectionId, finalRequestId, { name: requestName })
+
+        this.logger.info('Created new request:', requestName)
+
+      } else if (isDifferentCollection || isDifferentFolder) {
+        // DIFFERENT LOCATION: Create a copy in the new location
+        let newRequest
+        if (folderId) {
+          newRequest = this.collectionsStore.addRequestToFolder(collectionId, folderId, requestData)
+        } else {
+          newRequest = this.collectionsStore.addRequest(collectionId, requestData)
+        }
+
+        finalRequestId = newRequest.id
+
+        // Update the tab to point to the new request copy
+        this.tabsStore.updateTab(activeTab.id, {
+          itemId: finalRequestId,
+          collectionId: finalCollectionId,
+          folderId: finalFolderId,
+          saved: true,
+          modified: false
+        })
+
+        // Set the request name
+        this.collectionsStore.updateRequest(finalCollectionId, finalRequestId, { name: requestName })
+
+        this.logger.info('Created request copy in different location:', requestName)
+
+      } else if (isDifferentName) {
+        // SAME LOCATION, DIFFERENT NAME: Check if name exists
+        const existingRequest = this.findRequestByNameInLocation(collectionId, folderId, requestName)
+
+        if (existingRequest) {
+          // Name exists: Overwrite the existing request
+          this.collectionsStore.updateRequest(collectionId, existingRequest.id, {
+            name: requestName,
+            request: requestData
+          })
+
+          // Update tab to point to the overwritten request
+          this.tabsStore.updateTab(activeTab.id, {
+            itemId: existingRequest.id,
+            collectionId: finalCollectionId,
+            folderId: finalFolderId,
+            saved: true,
+            modified: false
+          })
+
+          finalRequestId = existingRequest.id
+
+          this.logger.info('Overwrote existing request:', requestName)
+        } else {
+          // Name doesn't exist: Rename the current request
+          this.collectionsStore.updateRequest(activeTab.collectionId, activeTab.itemId, {
+            name: requestName,
+            request: requestData
+          })
+
+          finalRequestId = activeTab.itemId
+          this.tabsStore.markTabAsSaved(activeTab.id)
+
+          this.logger.info('Renamed current request:', requestName)
+        }
+
+      } else {
+        // SAME LOCATION, SAME NAME: Update existing request
+        this.collectionsStore.updateRequest(activeTab.collectionId, activeTab.itemId, {
+          name: requestName,
+          request: requestData
+        })
+
+        finalRequestId = activeTab.itemId
+        this.tabsStore.markTabAsSaved(activeTab.id)
+
+        this.logger.info('Updated existing request:', requestName)
+      }
+
+      // Update tab name to match request name
+      this.tabsStore.updateTab(activeTab.id, { name: requestName })
+
+      this.state.showSaveDialog = false
+
+      this.logger.debug('Request save completed:', {
+        finalRequestId,
+        finalCollectionId,
+        finalFolderId,
+        requestName
+      })
+
     } catch (error) {
-      this.logger.error('Failed to copy response:', error)
+      this.logger.error('Failed to save request:', error)
+      // Keep dialog open on error
     }
   }
 
   /**
-   * Set sidebar controller reference
+   * Find a request by name within a specific location (collection + folder)
    */
-  setSidebarController(controller) {
-    this.sidebarController = controller
+  findRequestByNameInLocation(collectionId, folderId, requestName) {
+    const collection = this.collectionsStore.getCollection(collectionId)
+    if (!collection) return null
+
+    const searchItems = (items) => {
+      for (const item of items) {
+        if (item.request && item.name === requestName) {
+          return item
+        }
+      }
+      return null
+    }
+
+    if (folderId) {
+      // Search within the specific folder
+      const folder = this.collectionsStore.findItemInCollection(collectionId, folderId)
+      if (folder && folder.item && folder.item.item) {
+        return searchItems(folder.item.item)
+      }
+    } else {
+      // Search in collection root
+      return searchItems(collection.item || [])
+    }
+
+    return null
+  }
+
+  /**
+   * Send HTTP request
+   */
+  async sendRequest() {
+    // Prevent multiple simultaneous requests
+    if (this.state.isLoading) {
+      this.logger.warn('Request already in progress, ignoring duplicate send request')
+      return
+    }
+
+    // Clear previous errors but keep responseData until new response arrives
+    this.state.requestError = null
+    this.state.isLoading = true
+
+    // Add a small delay to ensure loading state is visible
+    await new Promise(resolve => setTimeout(resolve, 100))
+
+    // Interpolate variables in URL, headers, params, and body
+    const interpolatedUrl = this.variableInterpolation.interpolateText(this.state.currentUrl)
+    const interpolatedHeaders = this.state.currentHeaders.map(header => ({
+      ...header,
+      key: this.variableInterpolation.interpolateText(header.key || ''),
+      value: this.variableInterpolation.interpolateText(header.value || '')
+    }))
+    const interpolatedParams = this.state.currentParams.map(param => ({
+      ...param,
+      key: this.variableInterpolation.interpolateText(param.key || ''),
+      value: this.variableInterpolation.interpolateText(param.value || '')
+    }))
+
+    // Interpolate body based on type
+    let interpolatedBody = null
+    if (this.state.currentBody.mode === 'raw') {
+      interpolatedBody = this.variableInterpolation.interpolateText(this.state.currentBody.raw)
+    } else if (this.state.currentBody.mode === 'form-data') {
+      interpolatedBody = this.state.currentBody.formData.map(item => ({
+        ...item,
+        key: this.variableInterpolation.interpolateText(item.key || ''),
+        value: this.variableInterpolation.interpolateText(item.value || '')
+      }))
+    } else if (this.state.currentBody.mode === 'x-www-form-urlencoded') {
+      interpolatedBody = this.state.currentBody.urlEncoded.map(item => ({
+        ...item,
+        key: this.variableInterpolation.interpolateText(item.key || ''),
+        value: this.variableInterpolation.interpolateText(item.value || '')
+      }))
+    } else if (this.state.currentBody.mode === 'binary') {
+      interpolatedBody = this.state.currentBody.binary
+    }
+
+    const result = await this.executeAsync(async () => {
+      // Log request details
+      this.logger.debug('Sending HTTP request:', {
+        method: this.state.currentMethod,
+        url: interpolatedUrl,
+        params: interpolatedParams.filter(p => p.enabled && p.key),
+        headers: interpolatedHeaders.filter(h => h.enabled && h.key),
+        bodyType: this.state.currentBody.mode
+      })
+
+      // Send the actual HTTP request
+      return await this.httpClient.send({
+        method: this.state.currentMethod,
+        url: interpolatedUrl,
+        params: interpolatedParams,
+        headers: interpolatedHeaders,
+        body: interpolatedBody,
+        bodyType: this.state.currentBody.mode
+      })
+    }, 'HTTP request failed')
+
+    if (result.success) {
+      // Store response data
+      this.state.responseData = result.data
+
+      // Format response for display
+      if (result.data.success || result.data.status) {
+        // Set response received flag and show response view
+        this.state.hasResponse = true
+        this.state.viewMode = 'both' // Always switch to both view to show the response
+      }
+    } else {
+      this.state.requestError = result.error.message || 'Request failed'
+
+      // Still show response view to display error
+      this.state.hasResponse = true
+      this.state.viewMode = 'both'
+
+      // Create error response object
+      this.state.responseData = {
+        success: false,
+        status: 0,
+        statusText: 'Error',
+        error: result.error.message || 'Request failed',
+        headers: {},
+        body: null,
+        time: 0
+      }
+    }
+
+    this.state.isLoading = false
+  }
+
+  /**
+   * View management
+   */
+  toggleView(mode) {
+    this.state.viewMode = mode
+  }
+
+  getViewLabel(mode) {
+    switch (mode) {
+      case 'request': return '📝 Request Only'
+      case 'response': return '📄 Response Only'
+      case 'both': return '📑 Split View'
+      default: return mode
+    }
+  }
+
+  /**
+   * UI state management
+   */
+  setActiveRequestTab(tab) {
+    this.state.activeRequestTab = tab
+  }
+
+  setActiveResponseTab(tab) {
+    this.state.activeResponseTab = tab
+  }
+
+  closeSaveDialog() {
+    this.state.showSaveDialog = false
+  }
+
+  /**
+   * Response formatting utilities
+   */
+  formatTime(milliseconds) {
+    if (!milliseconds && milliseconds !== 0) return 'N/A'
+    if (milliseconds < 1000) return `${Math.round(milliseconds)}ms`
+    return `${(milliseconds / 1000).toFixed(2)}s`
+  }
+
+  formatSize(bytes) {
+    if (!bytes && bytes !== 0) return 'N/A'
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
+  }
+
+  formatResponseBody(body) {
+    if (!body) return 'No response body'
+
+    // If it's an object, pretty print it as JSON
+    if (typeof body === 'object') {
+      try {
+        return JSON.stringify(body, null, 2)
+      } catch (e) {
+        return String(body)
+      }
+    }
+
+    // If it's a string that looks like JSON, try to format it
+    if (typeof body === 'string') {
+      try {
+        const parsed = JSON.parse(body)
+        return JSON.stringify(parsed, null, 2)
+      } catch (e) {
+        // Not JSON, return as-is
+        return body
+      }
+    }
+
+    return String(body)
+  }
+
+  getStatusText(responseData) {
+    if (!responseData) return 'Unknown'
+
+    // If we have a valid statusText, use it
+    if (responseData.statusText && responseData.statusText !== 'Network Error') {
+      return responseData.statusText
+    }
+
+    // Map common status codes to text
+    const statusTexts = {
+      200: 'OK',
+      201: 'Created',
+      204: 'No Content',
+      400: 'Bad Request',
+      401: 'Unauthorized',
+      403: 'Forbidden',
+      404: 'Not Found',
+      405: 'Method Not Allowed',
+      422: 'Unprocessable Entity',
+      500: 'Internal Server Error',
+      502: 'Bad Gateway',
+      503: 'Service Unavailable'
+    }
+
+    if (responseData.status && statusTexts[responseData.status]) {
+      return statusTexts[responseData.status]
+    }
+
+    // If status is 0, it's likely a network error
+    if (responseData.status === 0) {
+      return 'Network Error'
+    }
+
+    // If we have an error but no status, show the error
+    if (responseData.error && !responseData.status) {
+      return 'Error'
+    }
+
+    // Default fallback
+    return responseData.statusText || 'Unknown'
+  }
+
+  detectResponseLanguage(responseData) {
+    if (!responseData) return 'plaintext'
+
+    // Check content-type header first
+    const contentType = responseData.headers?.['content-type'] || ''
+
+    if (contentType.includes('application/json')) {
+      return 'json'
+    } else if (contentType.includes('text/html')) {
+      return 'html'
+    } else if (contentType.includes('text/xml') || contentType.includes('application/xml')) {
+      return 'xml'
+    } else if (contentType.includes('text/css')) {
+      return 'css'
+    } else if (contentType.includes('application/javascript') || contentType.includes('text/javascript')) {
+      return 'javascript'
+    }
+
+    // Fallback to auto-detection based on content
+    const body = this.formatResponseBody(responseData.body)
+
+    // Try to detect JSON
+    try {
+      JSON.parse(body)
+      return 'json'
+    } catch (e) {
+      // Not JSON
+    }
+
+    // Check for HTML/XML
+    if (body.trim().startsWith('<') && body.includes('>')) {
+      if (body.includes('<!DOCTYPE') || body.includes('<html')) {
+        return 'html'
+      }
+      return 'xml'
+    }
+
+    return 'auto' // Let SyntaxHighlighter auto-detect
   }
 }

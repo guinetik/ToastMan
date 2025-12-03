@@ -1,14 +1,14 @@
 <script setup>
 import { computed, onMounted, onUnmounted } from 'vue'
-import { SettingsDialogController } from '../controllers/SettingsDialogController.js'
-import BaseDialog from './BaseDialog.vue'
+import { SettingsDialogController } from '../../controllers/SettingsDialogController.js'
+import BaseDialog from '../base/BaseDialog.vue'
 
 // Import all settings tab components
-import GeneralSettings from './settings/GeneralSettings.vue'
-import RequestSettings from './settings/RequestSettings.vue'
-import UISettings from './settings/UISettings.vue'
-import ProxySettings from './settings/ProxySettings.vue'
-import CertificatesSettings from './settings/CertificatesSettings.vue'
+import GeneralSettings from '../settings/GeneralSettings.vue'
+import RequestSettings from '../settings/RequestSettings.vue'
+import UISettings from '../settings/UISettings.vue'
+import ProxySettings from '../settings/ProxySettings.vue'
+import CertificatesSettings from '../settings/CertificatesSettings.vue'
 
 const emit = defineEmits(['close'])
 
@@ -259,9 +259,9 @@ onUnmounted(() => {
 .btn-primary {
   padding: 10px 20px;
   border-radius: var(--radius-md);
-  background: var(--color-primary);
-  border: 1px solid var(--color-primary);
-  color: white;
+  background: var(--color-button-bg);
+  border: 1px solid var(--color-border-dark);
+  color: var(--color-button-text);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -269,7 +269,7 @@ onUnmounted(() => {
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--color-primary-dark);
+  background: var(--color-button-bg-hover);
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }

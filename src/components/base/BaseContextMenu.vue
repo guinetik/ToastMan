@@ -1,5 +1,9 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+import { Logger } from '../../core/logger.js'
+
+// Create logger instance
+const logger = new Logger({ prefix: 'BaseContextMenu', level: 'debug' })
 
 const props = defineProps({
   controller: {
@@ -22,23 +26,20 @@ const menuRef = ref(null)
 
 const handleAction = async (action) => {
   try {
-    console.log('[DEBUG] BaseContextMenu.handleAction - emitting action event first:', { action, item: props.controller.state.item })
-    emit('action', { action, item: props.controller.state.item })
-
-    console.log('[DEBUG] BaseContextMenu.handleAction - executing action:', action, 'with item:', props.controller.state.item)
-    await props.controller.executeAction(action, props.controller.state.item)
+    emit('action', { action, item: props.controller.state?.item })
+    await props.controller?.executeAction(action, props.controller.state?.item)
   } catch (error) {
-    console.error('Menu action failed:', error)
+    logger.error('Menu action failed:', error)
   }
 }
 
 const close = () => {
-  props.controller.hide()
+  props.controller?.hide()
 }
 
 onMounted(() => {
   // Set menu reference for click outside detection
-  if (menuRef.value) {
+  if (menuRef.value && props.controller) {
     props.controller.setMenuRef(menuRef.value)
     props.controller.positionMenu(menuRef.value)
   }
@@ -57,13 +58,13 @@ onUnmounted(() => {
     ref="menuRef"
     class="context-menu"
     :style="{
-      left: `${controller.state.x}px`,
-      top: `${controller.state.y}px`
+      left: `${controller.state?.x || 0}px`,
+      top: `${controller.state?.y || 0}px`
     }"
   >
     <div class="menu-header" v-if="title || $slots.header">
       <slot name="header">
-        <span class="menu-title">{{ title || controller.getMenuTitle(controller.state.item) }}</span>
+        <span class="menu-title">{{ title || controller?.getMenuTitle(controller.state?.item) }}</span>
       </slot>
     </div>
 
@@ -86,7 +87,7 @@ onUnmounted(() => {
       </template>
 
       <!-- Custom slot for additional items -->
-      <slot name="items" :item="controller.state.item" :handleAction="handleAction"></slot>
+      <slot name="items" :item="controller.state?.item" :handleAction="handleAction"></slot>
     </div>
   </div>
 </template>
@@ -169,7 +170,7 @@ onUnmounted(() => {
 }
 
 .menu-item.danger:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--color-error-bg);
 }
 
 .menu-icon {

@@ -1,9 +1,13 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { EnvironmentsController } from '../../controllers/EnvironmentsController.js'
-import NewEnvironmentDialog from '../NewEnvironmentDialog.vue'
-import EnvironmentContextMenu from '../EnvironmentContextMenu.vue'
-import EnvironmentVariablesDialog from '../EnvironmentVariablesDialog.vue'
+import { Logger } from '../../core/logger.js'
+import NewEnvironmentDialog from '../dialogs/NewEnvironmentDialog.vue'
+import EnvironmentContextMenu from '../menu/EnvironmentContextMenu.vue'
+import EnvironmentVariablesDialog from '../dialogs/EnvironmentVariablesDialog.vue'
+
+// Create logger instance
+const logger = new Logger({ prefix: 'EnvironmentsTab', level: 'debug' })
 
 // Create controller instance and initialize immediately
 const controller = new EnvironmentsController()
@@ -45,56 +49,35 @@ const setActiveEnvironment = (envId) => controller.setActiveEnvironment(envId)
 
 // Context menu methods
 const showContextMenu = (event, environment) => {
-  console.log('[DEBUG] showContextMenu called with:', { event, environment })
   if (contextMenuRef.value) {
-    console.log('[DEBUG] contextMenuRef.value exists, calling show')
     contextMenuRef.value.show(event, environment)
   } else {
-    console.log('[DEBUG] contextMenuRef.value is null/undefined')
   }
 }
 
 const handleContextAction = (event) => {
-  console.log('[DEBUG] handleContextAction called with:', event)
-  console.log('[DEBUG] event.action:', event.action)
-  console.log('[DEBUG] event.item:', event.item)
-
   // Handle variables action specifically
   if (event.action === 'variables' && event.item) {
-    console.log('[DEBUG] Condition met - Opening variables dialog for environment:', event.item)
-    openVariablesDialog(event.item)
-  } else {
-    console.log('[DEBUG] Condition NOT met - action:', event.action, 'item:', event.item)
+    openVariablesDialog(event.item);  
   }
 }
 
 // Variables dialog methods
 const openVariablesDialog = (environment) => {
-  console.log('openVariablesDialog called with:', environment)
-  console.log('Current showVariablesDialog:', showVariablesDialog.value)
   selectedEnvironment.value = environment
   showVariablesDialog.value = true
-  console.log('After setting - showVariablesDialog:', showVariablesDialog.value)
-  console.log('After setting - selectedEnvironment:', selectedEnvironment.value)
 }
 
 const handleVariablesUpdate = async (updatedEnvironment) => {
-  console.log('[DEBUG] handleVariablesUpdate called with:', updatedEnvironment)
-  console.log('[DEBUG] Environment ID:', updatedEnvironment.id)
-  console.log('[DEBUG] Variables to save:', updatedEnvironment.values)
-
   const result = await controller.updateEnvironment(updatedEnvironment.id, {
     values: updatedEnvironment.values
   })
 
-  console.log('[DEBUG] Update result:', result)
-
   if (result.success) {
-    console.log('[DEBUG] Update successful, closing dialog')
     showVariablesDialog.value = false
     selectedEnvironment.value = null
   } else {
-    console.error('[DEBUG] Update failed:', result.error)
+    logger.error('[DEBUG] Update failed:', result.error)
   }
 }
 
@@ -216,9 +199,9 @@ onUnmounted(() => {
 }
 
 .btn-icon:hover {
-  background: var(--color-primary);
-  color: var(--color-text-inverse);
-  border-color: var(--color-primary);
+  background: var(--color-button-bg-hover);
+  color: var(--color-button-text);
+  border-color: var(--color-border-dark);
 }
 
 .environments-list {
@@ -257,7 +240,7 @@ onUnmounted(() => {
 }
 
 .environment-item.active .environment-indicator {
-  background: var(--color-primary);
+  background: var(--color-success);
 }
 
 .environment-content {
@@ -364,9 +347,9 @@ onUnmounted(() => {
 }
 
 .btn-primary {
-  background: var(--color-primary);
-  color: white;
-  border: none;
+  background: var(--color-button-bg);
+  color: var(--color-button-text);
+  border: 1px solid var(--color-border-dark);
   padding: 12px 20px;
   border-radius: var(--radius-md);
   font-size: 14px;
@@ -378,7 +361,7 @@ onUnmounted(() => {
 }
 
 .btn-primary:hover {
-  background: var(--color-primary-dark);
+  background: var(--color-button-bg-hover);
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }
