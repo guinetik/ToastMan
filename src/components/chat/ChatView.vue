@@ -58,6 +58,10 @@ const props = defineProps({
     type: String,
     default: null
   },
+  conversationId: {
+    type: String,
+    default: null
+  },
   requestName: {
     type: String,
     default: 'New Request'
@@ -93,9 +97,13 @@ watch(
   { immediate: true }
 )
 
-// Handle when no specific request is provided (new request)
+// Handle initialization based on what props are provided
 onMounted(() => {
-  if (!props.requestId && !props.collectionId) {
+  if (props.conversationId) {
+    // Opening from history - load existing session
+    controller.loadSession(props.conversationId)
+  } else if (!props.requestId && !props.collectionId) {
+    // New request with no context
     controller.newRequest()
   }
 })

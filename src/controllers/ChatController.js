@@ -17,6 +17,7 @@ import { FetchHttpClient } from '../core/http/FetchHttpClient.js'
 import { curlToRequest, validateCurlInput } from '../utils/curlParser.js'
 import { requestToCurl, requestToDisplay } from '../utils/curlGenerator.js'
 import { createRequest, createKeyValue, createRequestBody, createUrl } from '../models/types.js'
+import { validateCurl } from '../ace/curl-validator.js'
 
 export class ChatController extends BaseController {
   constructor() {
@@ -329,6 +330,31 @@ export class ChatController extends BaseController {
       return
     }
 
+    // Validate cURL input before sending (only in curl mode)
+    if (this.state.composerMode === 'curl' && this.state.curlInput.trim()) {
+      const validationErrors = validateCurl(this.state.curlInput)
+      // Filter to only blocking errors (not warnings)
+      const blockingErrors = validationErrors.filter(e => e.type === 'error')
+
+      if (blockingErrors.length > 0) {
+        this.logger.warn('cURL validation failed:', blockingErrors)
+
+        // Still add the request bubble to show the student's attempt
+        // Build a minimal request object for display
+        const attemptedRequest = {
+          method: 'GET',
+          url: { raw: this.state.curlInput },
+          header: [],
+          body: null
+        }
+        this.conversationsStore.addRequest(attemptedRequest, this.state.curlInput)
+
+        // Then add validation error message to conversation
+        this.conversationsStore.addValidationError(validationErrors, this.state.curlInput)
+        return // Don't actually send the request
+      }
+    }
+
     this.state.isLoading = true
     this.state.requestError = null
 
@@ -471,6 +497,85 @@ export class ChatController extends BaseController {
     this.conversationsStore.createNewConversation({
       name: 'New Request'
     })
+  }
+
+  /**
+   * Load a session from history
+   * Restores the conversation and loads the last request state into composer
+   */
+  loadSession(sessionId) {
+    const conversation = this.conversationsStore.conversations.value
+      .find(c => c.id === sessionId)
+
+    if (!conversation) {
+      this.logger.warn('Session not found:', sessionId)
+      return
+    }
+
+    // Set this conversation as active (may already be set by caller)
+    this.conversationsStore.setActiveConversation(sessionId)
+
+    // Restore context from conversation
+    this.state.currentRequestId = conversation.requestId
+    this.state.currentCollectionId = conversation.collectionId
+    this.state.currentFolderId = conversation.folderId
+
+    // Find the last request message to restore composer state
+    const requestMessages = conversation.messages.filter(m => m.type === 'request')
+    const lastRequest = requestMessages[requestMessages.length - 1]
+
+    if (lastRequest?.data?.request) {
+      const request = lastRequest.data.request
+
+      // Restore visual form state
+      this.state.method = request.method || 'GET'
+      this.state.url = request.url?.raw || ''
+
+      // Headers
+      this.state.headers = (request.header || []).map(h => ({
+        key: h.key || '',
+        value: h.value || '',
+        enabled: h.enabled !== false,
+        id: h.id || Date.now() + Math.random()
+      }))
+
+      // Query params
+      if (request.url?.query) {
+        this.state.params = request.url.query.map(p => ({
+          key: p.key || '',
+          value: p.value || '',
+          enabled: p.enabled !== false,
+          id: p.id || Date.now() + Math.random()
+        }))
+      } else {
+        this.state.params = []
+      }
+
+      // Body
+      if (request.body) {
+        this.state.body = {
+          mode: request.body.mode || 'none',
+          raw: request.body.raw || '',
+          formData: request.body.formdata || request.body.formData || [],
+          urlEncoded: request.body.urlencoded || request.body.urlEncoded || []
+        }
+      } else {
+        this.state.body = { mode: 'none', raw: '', formData: [], urlEncoded: [] }
+      }
+
+      // Restore cURL from last request
+      if (lastRequest.data.curl) {
+        this.state.curlInput = lastRequest.data.curl
+      } else {
+        this.syncVisualToCurl()
+      }
+
+      this.logger.info('Loaded session:', conversation.name, 'with', requestMessages.length, 'requests')
+    } else {
+      // Session exists but no requests yet - just activate it
+      this.clearComposer()
+      this.logger.info('Loaded empty session:', conversation.name)
+    }
   }
 
   /**

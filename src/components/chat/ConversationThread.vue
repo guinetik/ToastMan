@@ -32,6 +32,10 @@
             :message="message"
             @maximize="handleMaximize(message)"
           />
+          <ValidationBubble
+            v-else-if="message.type === 'validation'"
+            :message="message"
+          />
         </template>
       </TransitionGroup>
 
@@ -52,6 +56,7 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import RequestBubble from './RequestBubble.vue'
 import ResponseBubble from './ResponseBubble.vue'
+import ValidationBubble from './ValidationBubble.vue'
 
 const props = defineProps({
   conversation: {

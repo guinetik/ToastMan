@@ -13,7 +13,8 @@ const STORAGE_KEYS = {
   ENVIRONMENTS: 'toastman_environments',
   SETTINGS: 'toastman_settings',
   ACTIVE_ENVIRONMENT: 'toastman_active_environment',
-  TABS: 'toastman_tabs'
+  TABS: 'toastman_tabs',
+  CONVERSATIONS: 'toastman_conversations'
 }
 
 // Global event emitter for storage changes
@@ -186,6 +187,20 @@ export function useActiveEnvironmentStorage() {
  */
 export function useTabsStorage() {
   const storage = useStorage(STORAGE_KEYS.TABS, [])
+
+  // Ensure data is always an array
+  if (!Array.isArray(storage.data.value)) {
+    storage.data.value = []
+  }
+
+  return storage
+}
+
+/**
+ * Conversations storage
+ */
+export function useConversationsStorage() {
+  const storage = useStorage(STORAGE_KEYS.CONVERSATIONS, [])
 
   // Ensure data is always an array
   if (!Array.isArray(storage.data.value)) {

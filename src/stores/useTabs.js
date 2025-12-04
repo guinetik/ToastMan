@@ -45,6 +45,7 @@ function createTabsStore() {
   const createNewTab = ({
     itemId = null,
     collectionId = null,
+    conversationId = null,
     name = 'New Request',
     method = 'GET'
   } = {}) => {
@@ -53,7 +54,7 @@ function createTabsStore() {
       tab.active = false
     })
 
-    const tab = createTab({ itemId, collectionId, name, method })
+    const tab = createTab({ itemId, collectionId, conversationId, name, method })
     tab.active = true
     tabs.value.push(tab)
 

@@ -13,7 +13,8 @@ import { generateId } from './types.js'
  */
 export const MESSAGE_TYPES = {
   REQUEST: 'request',
-  RESPONSE: 'response'
+  RESPONSE: 'response',
+  VALIDATION: 'validation'
 }
 
 /**
@@ -68,6 +69,24 @@ export function createResponseMessage(response) {
       size: response.size,
       error: response.error || null,
       success: response.success !== false
+    }
+  })
+}
+
+/**
+ * Create a validation error message
+ * @param {Array} errors - Array of validation errors from cURL validator
+ * @param {string} curlInput - The original cURL input that was validated
+ * @returns {object}
+ */
+export function createValidationMessage(errors, curlInput = '') {
+  return createConversationMessage({
+    type: MESSAGE_TYPES.VALIDATION,
+    data: {
+      errors,
+      curlInput,
+      errorCount: errors.filter(e => e.type === 'error').length,
+      warningCount: errors.filter(e => e.type === 'warning').length
     }
   })
 }
@@ -160,6 +179,7 @@ export default {
   createConversationMessage,
   createRequestMessage,
   createResponseMessage,
+  createValidationMessage,
   addMessageToConversation,
   getLastRequestMessage,
   getLastResponseMessage,

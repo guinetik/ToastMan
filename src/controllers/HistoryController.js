@@ -1,237 +1,185 @@
+import { computed } from 'vue'
 import { BaseController } from './BaseController.js'
 import { useTabs } from '../stores/useTabs.js'
+import { useConversations } from '../stores/useConversations.js'
 
 /**
- * Controller for History functionality
+ * Controller for Session History functionality
+ *
+ * Displays conversation sessions from the conversations store.
+ * Sessions are persisted automatically via useStorage.
  */
 export class HistoryController extends BaseController {
   constructor() {
     super('history')
 
-    this.createState({
-      requestHistory: []
-    })
-
-    // Initialize stores after state is created
+    // Initialize stores
     this.tabsStore = useTabs()
+    this.conversationsStore = useConversations()
+
+    this.createState({
+      // Sessions are derived from conversations store
+      // We keep a local reference for filtering/searching
+      filterMethod: null,
+      searchQuery: ''
+    })
   }
 
   init() {
     super.init()
-    this.loadHistory()
+    this.logger.debug('History controller initialized')
   }
 
   /**
-   * Add request to history
+   * Get all sessions sorted by most recent
+   * Filters out empty sessions (no messages)
    */
-  addToHistory(request, response) {
-    const historyEntry = {
-      id: BaseController.generateId(),
-      timestamp: new Date().toISOString(),
-      method: request.method,
-      url: request.getUrlString(),
-      status: response?.status,
-      responseTime: response?.timing?.total,
-      request: request.toJSON(),
-      response: response?.exportSummary()
-    }
-
-    this.state.requestHistory.unshift(historyEntry)
-
-    if (this.state.requestHistory.length > 100) {
-      this.state.requestHistory = this.state.requestHistory.slice(0, 100)
-    }
-
-    this.saveHistory()
-    this.logger.debug('Added to history:', historyEntry)
-    this.emit('historyEntryAdded', historyEntry)
+  getSessions() {
+    return this.conversationsStore.getSortedConversations()
+      .filter(conv => conv.messages && conv.messages.length > 0)
   }
 
   /**
-   * Open history request
+   * Get session summary for display
+   * Extracts method, url, message count from conversation
    */
-  openHistoryRequest(entry) {
+  getSessionSummary(conversation) {
+    const messages = conversation.messages || []
+    const requestMessages = messages.filter(m => m.type === 'request')
+    const lastRequest = requestMessages[requestMessages.length - 1]
+
+    let method = 'GET'
+    let url = conversation.name || 'Request'
+
+    if (lastRequest?.data?.request) {
+      method = lastRequest.data.request.method || 'GET'
+      url = lastRequest.data.request.url?.raw || conversation.name || 'Request'
+    }
+
+    return {
+      id: conversation.id,
+      name: conversation.name,
+      method,
+      url,
+      messageCount: messages.length,
+      requestCount: requestMessages.length,
+      updatedAt: conversation.updatedAt,
+      createdAt: conversation.createdAt
+    }
+  }
+
+  /**
+   * Open a session in a new tab (or focus existing tab)
+   */
+  openSession(sessionId) {
+    const conversation = this.conversationsStore.conversations.value
+      .find(c => c.id === sessionId)
+
+    if (!conversation) {
+      this.logger.warn('Session not found:', sessionId)
+      return
+    }
+
+    // Check if a tab with this conversationId already exists
+    const existingTab = this.tabsStore.tabs.value.find(
+      tab => tab.conversationId === sessionId
+    )
+
+    if (existingTab) {
+      // Just activate the existing tab
+      this.tabsStore.setActiveTab(existingTab.id)
+      this.conversationsStore.setActiveConversation(sessionId)
+      this.logger.info('Focused existing tab for session:', sessionId)
+      this.emit('sessionOpened', { sessionId, tabId: existingTab.id })
+      return
+    }
+
+    const summary = this.getSessionSummary(conversation)
+
+    // Create a new tab for this session
     const newTab = this.tabsStore.createTab({
-      name: `${entry.method} ${entry.url}`,
-      method: entry.method,
-      url: entry.url,
-      temporaryData: entry.request
+      name: summary.name || `${summary.method} Request`,
+      method: summary.method,
+      conversationId: sessionId
     })
 
-    this.logger.info('Opened history request in new tab:', newTab.id)
-    this.emit('historyRequestOpened', entry)
+    // Set this conversation as active
+    this.conversationsStore.setActiveConversation(sessionId)
+
+    this.logger.info('Opened session in new tab:', sessionId)
+    this.emit('sessionOpened', { sessionId, tabId: newTab.id })
   }
 
   /**
-   * Clear history
+   * Clear all session history
    */
   clearHistory() {
-    this.state.requestHistory = []
-    this.saveHistory()
-    this.logger.info('Cleared request history')
+    const conversations = this.conversationsStore.conversations.value
+    // Remove all conversations
+    conversations.splice(0, conversations.length)
+
+    this.logger.info('Cleared all sessions')
     this.emit('historyCleared')
   }
 
   /**
-   * Remove specific history entry
+   * Remove a specific session
    */
-  removeHistoryEntry(entryId) {
-    const index = this.state.requestHistory.findIndex(entry => entry.id === entryId)
-    if (index > -1) {
-      const removed = this.state.requestHistory.splice(index, 1)[0]
-      this.saveHistory()
-      this.logger.debug('Removed history entry:', entryId)
-      this.emit('historyEntryRemoved', removed)
-    }
+  removeSession(sessionId) {
+    this.conversationsStore.deleteConversation(sessionId)
+    this.logger.debug('Removed session:', sessionId)
+    this.emit('sessionRemoved', sessionId)
   }
 
   /**
-   * Filter history by method
+   * Filter sessions by method
    */
   filterByMethod(method) {
-    if (!method) return this.state.requestHistory
-    return this.state.requestHistory.filter(entry => entry.method === method)
-  }
+    const sessions = this.getSessions()
+    if (!method) return sessions
 
-  /**
-   * Filter history by status code range
-   */
-  filterByStatus(statusRange) {
-    if (!statusRange) return this.state.requestHistory
-
-    return this.state.requestHistory.filter(entry => {
-      if (!entry.status) return false
-
-      switch (statusRange) {
-        case 'success':
-          return entry.status >= 200 && entry.status < 300
-        case 'redirect':
-          return entry.status >= 300 && entry.status < 400
-        case 'error':
-          return entry.status >= 400
-        default:
-          return true
-      }
+    return sessions.filter(conv => {
+      const summary = this.getSessionSummary(conv)
+      return summary.method === method
     })
   }
 
   /**
-   * Search history by URL or name
+   * Search sessions by name or URL
    */
-  searchHistory(query) {
-    if (!query) return this.state.requestHistory
+  searchSessions(query) {
+    const sessions = this.getSessions()
+    if (!query) return sessions
 
     const lowerQuery = query.toLowerCase()
-    return this.state.requestHistory.filter(entry =>
-      entry.url.toLowerCase().includes(lowerQuery) ||
-      entry.method.toLowerCase().includes(lowerQuery)
-    )
+    return sessions.filter(conv => {
+      const summary = this.getSessionSummary(conv)
+      return (
+        summary.name?.toLowerCase().includes(lowerQuery) ||
+        summary.url?.toLowerCase().includes(lowerQuery) ||
+        summary.method?.toLowerCase().includes(lowerQuery)
+      )
+    })
   }
 
   /**
    * Get history statistics
    */
   getHistoryStats() {
-    const total = this.state.requestHistory.length
+    const sessions = this.getSessions()
     const methods = {}
-    const statuses = { success: 0, redirect: 0, error: 0 }
-    let totalResponseTime = 0
-    let responseTimeCount = 0
+    let totalMessages = 0
 
-    this.state.requestHistory.forEach(entry => {
-      // Count methods
-      methods[entry.method] = (methods[entry.method] || 0) + 1
-
-      // Count status types
-      if (entry.status) {
-        if (entry.status >= 200 && entry.status < 300) statuses.success++
-        else if (entry.status >= 300 && entry.status < 400) statuses.redirect++
-        else if (entry.status >= 400) statuses.error++
-      }
-
-      // Calculate average response time
-      if (entry.responseTime) {
-        totalResponseTime += entry.responseTime
-        responseTimeCount++
-      }
+    sessions.forEach(conv => {
+      const summary = this.getSessionSummary(conv)
+      methods[summary.method] = (methods[summary.method] || 0) + 1
+      totalMessages += summary.messageCount
     })
 
     return {
-      total,
-      methods,
-      statuses,
-      averageResponseTime: responseTimeCount > 0 ? Math.round(totalResponseTime / responseTimeCount) : 0
-    }
-  }
-
-  /**
-   * Export history to file
-   */
-  exportHistory() {
-    const exportData = {
-      exportedAt: new Date().toISOString(),
-      exportedBy: 'ToastMan',
-      version: '1.0.0',
-      history: this.state.requestHistory
-    }
-
-    this.logger.info('Exported history:', this.state.requestHistory.length, 'entries')
-    this.emit('historyExported', exportData)
-    return exportData
-  }
-
-  /**
-   * Import history from file
-   */
-  importHistory(importData) {
-    try {
-      if (!importData.history || !Array.isArray(importData.history)) {
-        throw new Error('Invalid history format')
-      }
-
-      // Merge with existing history, avoiding duplicates
-      const existingIds = new Set(this.state.requestHistory.map(entry => entry.id))
-      const newEntries = importData.history.filter(entry => !existingIds.has(entry.id))
-
-      this.state.requestHistory = [...newEntries, ...this.state.requestHistory]
-        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-        .slice(0, 100) // Keep only the most recent 100 entries
-
-      this.saveHistory()
-      this.logger.info('Imported history:', newEntries.length, 'new entries')
-      this.emit('historyImported', { imported: newEntries.length, total: this.state.requestHistory.length })
-
-      return { success: true, imported: newEntries.length }
-    } catch (error) {
-      this.logger.error('Failed to import history:', error)
-      return { success: false, error: error.message }
-    }
-  }
-
-  /**
-   * Save history to localStorage
-   */
-  saveHistory() {
-    try {
-      localStorage.setItem('toastman_history', JSON.stringify(this.state.requestHistory))
-    } catch (error) {
-      this.logger.error('Failed to save history:', error)
-    }
-  }
-
-  /**
-   * Load history from localStorage
-   */
-  loadHistory() {
-    try {
-      const saved = localStorage.getItem('toastman_history')
-      if (saved) {
-        this.state.requestHistory = JSON.parse(saved)
-        this.logger.debug('Loaded history:', this.state.requestHistory.length, 'entries')
-      }
-    } catch (error) {
-      this.logger.error('Failed to load history:', error)
-      this.state.requestHistory = []
+      totalSessions: sessions.length,
+      totalMessages,
+      methods
     }
   }
 
@@ -249,20 +197,13 @@ export class HistoryController extends BaseController {
       return `${Math.floor(diff / 60000)}m ago`
     } else if (diff < 86400000) {
       return `${Math.floor(diff / 3600000)}h ago`
+    } else if (diff < 172800000) {
+      return 'Yesterday'
+    } else if (diff < 604800000) {
+      return `${Math.floor(diff / 86400000)}d ago`
     } else {
       return date.toLocaleDateString()
     }
-  }
-
-  /**
-   * Get status class for styling
-   */
-  getStatusClass(status) {
-    if (!status) return ''
-    if (status >= 200 && status < 300) return 'success'
-    if (status >= 300 && status < 400) return 'warning'
-    if (status >= 400) return 'error'
-    return ''
   }
 
   /**
@@ -285,7 +226,6 @@ export class HistoryController extends BaseController {
    * Clean up on unmount
    */
   onUnmounted() {
-    this.saveHistory()
     this.dispose()
   }
 }

@@ -33,6 +33,7 @@
         :request-id="activeTab.itemId"
         :collection-id="activeTab.collectionId"
         :folder-id="activeTab.folderId"
+        :conversation-id="activeTab.conversationId"
         :request-name="activeTab.name"
       />
       <div v-else class="empty-state">

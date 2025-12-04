@@ -1,21 +1,22 @@
 <script setup>
-import { onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { HistoryController } from '../../controllers/HistoryController.js'
 
 // Create controller instance
 const controller = new HistoryController()
 
-// Access reactive state from controller
-const state = controller.state
+// Get sessions as a computed property
+const sessions = computed(() => {
+  return controller.getSessions().map(conv => controller.getSessionSummary(conv))
+})
 
 // Component methods that delegate to controller
 const clearHistory = () => controller.clearHistory()
-const openHistoryRequest = (entry) => controller.openHistoryRequest(entry)
-const removeHistoryEntry = (entryId) => controller.removeHistoryEntry(entryId)
+const openSession = (sessionId) => controller.openSession(sessionId)
+const removeSession = (sessionId) => controller.removeSession(sessionId)
 
 // Utility methods
 const formatTime = (timestamp) => controller.formatTime(timestamp)
-const getStatusClass = (status) => controller.getStatusClass(status)
 const getMethodColor = (method) => controller.getMethodColor(method)
 
 // Lifecycle hooks
@@ -31,65 +32,64 @@ onUnmounted(() => {
 <template>
   <div class="history-tab">
     <div class="section-header">
-      <span class="section-title">Request History</span>
+      <span class="section-title">Session History</span>
       <div class="header-actions">
         <button
-          v-if="state.requestHistory && state.requestHistory.length > 0"
+          v-if="sessions.length > 0"
           class="btn-icon"
-          title="Clear History"
+          title="Clear All Sessions"
           @click="clearHistory"
         >
-          🗑️
+          <span class="icon-trash">&#128465;</span>
         </button>
       </div>
     </div>
 
     <div class="history-list">
-      <div v-if="!state.requestHistory || state.requestHistory.length === 0" class="empty-state welcome-state">
-        <div class="welcome-icon">📜</div>
-        <h3>No Request History</h3>
-        <p>Once you start sending requests, they'll appear here so you can easily access them again.</p>
+      <div v-if="sessions.length === 0" class="empty-state welcome-state">
+        <div class="welcome-icon">&#128172;</div>
+        <h3>No Session History</h3>
+        <p>Your conversation sessions will appear here. Send some requests to get started!</p>
         <div class="quick-tips">
-          <h4>History Features:</h4>
+          <h4>Session Features:</h4>
           <ul>
-            <li>Automatic request tracking</li>
-            <li>Response time monitoring</li>
-            <li>Quick re-execution</li>
+            <li>Full conversation threads</li>
+            <li>Continue where you left off</li>
+            <li>Persists across browser sessions</li>
           </ul>
         </div>
       </div>
       <template v-else>
         <div
-          v-for="entry in state.requestHistory"
-          :key="entry.id"
+          v-for="session in sessions"
+          :key="session.id"
           class="history-item"
-          @click="openHistoryRequest(entry)"
+          @click="openSession(session.id)"
         >
           <div class="history-header">
             <span
               class="method-badge"
-              :style="{ color: getMethodColor(entry.method) }"
+              :style="{ color: getMethodColor(session.method) }"
             >
-              {{ entry.method }}
+              {{ session.method }}
             </span>
-            <span class="history-url">{{ entry.url }}</span>
-            <span class="history-time">{{ formatTime(entry.timestamp) }}</span>
+            <span class="history-name">{{ session.name }}</span>
+            <span class="history-time">{{ formatTime(session.updatedAt) }}</span>
             <button
               class="btn-remove"
-              title="Remove from history"
-              @click.stop="removeHistoryEntry(entry.id)"
+              title="Remove session"
+              @click.stop="removeSession(session.id)"
             >
-              ×
+              &times;
             </button>
           </div>
-          <div class="history-status">
-            <span
-              :class="['status-code', getStatusClass(entry.status)]"
-              v-if="entry.status"
-            >
-              {{ entry.status }}
+          <div class="history-meta">
+            <span class="message-count">
+              {{ session.messageCount }} message{{ session.messageCount !== 1 ? 's' : '' }}
             </span>
-            <span class="response-time" v-if="entry.responseTime">{{ entry.responseTime }}ms</span>
+            <span class="url-preview" v-if="session.url !== session.name">
+              {{ session.url }}
+            </span>
           </div>
         </div>
       </template>
@@ -132,15 +132,22 @@ onUnmounted(() => {
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   color: var(--color-text-secondary);
-  font-size: 14px;
+  font-size: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-icon:hover {
   background: var(--color-error);
   color: white;
   border-color: var(--color-error);
+}
+
+.icon-trash {
+  font-size: 14px;
 }
 
 .history-list {
@@ -179,15 +186,15 @@ onUnmounted(() => {
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  min-width: 35px;
+  min-width: 45px;
   text-align: left;
 }
 
-.history-url {
+.history-name {
   flex: 1;
   font-size: 13px;
   color: var(--color-text-primary);
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -196,6 +203,7 @@ onUnmounted(() => {
 .history-time {
   font-size: 11px;
   color: var(--color-text-muted);
+  flex-shrink: 0;
 }
 
 .btn-remove {
@@ -205,7 +213,7 @@ onUnmounted(() => {
   border: none;
   background: var(--color-bg-tertiary);
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: bold;
   cursor: pointer;
   opacity: 0;
@@ -214,6 +222,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 .btn-remove:hover {
@@ -221,37 +230,29 @@ onUnmounted(() => {
   color: white;
 }
 
-.history-status {
+.history-meta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  padding-left: 53px;
 }
 
-.status-code {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-
-.status-code.success {
-  background: var(--color-success);
-  color: white;
-}
-
-.status-code.warning {
-  background: var(--color-warning);
-  color: white;
-}
-
-.status-code.error {
-  background: var(--color-error);
-  color: white;
-}
-
-.response-time {
+.message-count {
   font-size: 11px;
   color: var(--color-text-muted);
+  background: var(--color-bg-tertiary);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.url-preview {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
 }
 
 .empty-state {

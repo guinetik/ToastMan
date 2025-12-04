@@ -223,6 +223,7 @@ export function createEnvironment(name = 'New Environment') {
 export function createTab({
   itemId = null,
   collectionId = null,
+  conversationId = null,
   name = 'New Request',
   method = 'GET',
   saved = false
@@ -231,6 +232,7 @@ export function createTab({
     id: generateId(),
     itemId, // Reference to the actual request item
     collectionId, // Reference to the collection
+    conversationId, // Reference to a conversation session (for history)
     name,
     method,
     saved,

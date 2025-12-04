@@ -2,7 +2,7 @@
  * Conversations Store
  *
  * Manages chat-style conversation sessions for API requests.
- * Conversations are session-based (not persisted to localStorage).
+ * Conversations are persisted to localStorage for history.
  */
 
 import { ref, computed } from 'vue'
@@ -10,10 +10,12 @@ import {
   createConversation,
   createRequestMessage,
   createResponseMessage,
+  createValidationMessage,
   addMessageToConversation,
   MESSAGE_TYPES
 } from '../models/Conversation.js'
 import { createLogger } from '../core/logger.js'
+import { useConversationsStorage } from '../composables/useStorage.js'
 
 // Singleton store instance
 let conversationsStore = null
@@ -28,8 +30,8 @@ export function useConversations() {
 function createConversationsStore() {
   const logger = createLogger('conversations')
 
-  // State
-  const conversations = ref([])
+  // State - persisted to localStorage via useStorage
+  const { data: conversations } = useConversationsStorage()
   const activeConversationId = ref(null)
 
   // Computed
@@ -159,6 +161,26 @@ function createConversationsStore() {
   }
 
   /**
+   * Add a validation error message to the active conversation
+   * @param {Array} errors - Array of validation errors from cURL validator
+   * @param {string} curlInput - The original cURL input
+   * @returns {object|null} The created message
+   */
+  const addValidationError = (errors, curlInput = '') => {
+    const conversation = activeConversation.value
+    if (!conversation) {
+      logger.warn('No active conversation to add validation error to')
+      return null
+    }
+
+    const message = createValidationMessage(errors, curlInput)
+    addMessageToConversation(conversation, message)
+
+    logger.debug('Validation error message added:', message.id)
+    return message
+  }
+
+  /**
    * Clear messages from the active conversation
    */
   const clearActiveConversation = () => {
@@ -248,6 +270,7 @@ function createConversationsStore() {
     setActiveConversation,
     addRequest,
     addResponse,
+    addValidationError,
     clearActiveConversation,
     deleteConversation,
     getConversationByRequest,

@@ -19,6 +19,9 @@ const { alertState, handleConfirm, handleCancel, closeAlert } = useAlert()
 // Chat tabs ref
 const chatTabsRef = ref(null)
 
+// CORS modal state
+const showCorsModal = ref(false)
+
 // Global environment indicator
 const activeEnvironment = computed(() => {
   const active = environmentsStore.activeEnvironment
@@ -123,6 +126,13 @@ onMounted(() => {
           ➕ New Request
         </button>
         <button
+          class="cors-button"
+          @click="showCorsModal = true"
+          title="CORS Information"
+        >
+          ⚠️ CORS
+        </button>
+        <button
           class="settings-button"
           @click="openSettings"
           title="Settings"
@@ -168,6 +178,85 @@ onMounted(() => {
       @cancel="handleCancel"
       @close="closeAlert"
     />
+
+    <!-- CORS Information Modal -->
+    <Teleport to="body">
+      <div v-if="showCorsModal" class="cors-modal-overlay" @click.self="showCorsModal = false">
+        <div class="cors-modal">
+          <div class="cors-modal-header">
+            <h2>⚠️ CORS Limitations</h2>
+            <button class="cors-close-btn" @click="showCorsModal = false">&times;</button>
+          </div>
+
+          <div class="cors-modal-content">
+            <div class="cors-section">
+              <h3>🌐 Web Version Limitations</h3>
+              <p>
+                ToastMan runs in your browser, which means it's subject to
+                <strong>Cross-Origin Resource Sharing (CORS)</strong> restrictions.
+                Most APIs won't respond to requests from a browser unless they explicitly allow it.
+              </p>
+            </div>
+
+            <div class="cors-section coming-soon">
+              <h3>🚀 VS Code Extension (Coming Soon)</h3>
+              <p>
+                We're building a <strong>VS Code extension</strong> that runs without CORS limitations.
+                Stay tuned for the best ToastMan experience!
+              </p>
+            </div>
+
+            <div class="cors-section workaround">
+              <h3>🔧 Workaround: Disable Web Security</h3>
+              <p class="warning-text">
+                ⚠️ <strong>Security Warning:</strong> This disables browser security features.
+                Only use this for development/testing and <strong>never browse untrusted sites</strong>
+                with this flag enabled. Close the browser completely when done.
+              </p>
+
+              <div class="os-instructions">
+                <div class="os-block">
+                  <h4>🪟 Windows</h4>
+                  <a href="/Toastman-Chrome.lnk" download class="download-shortcut-btn">
+                    ⬇️ Download Chrome Shortcut
+                  </a>
+                  <p class="hint">Just double-click the downloaded shortcut to launch Chrome with CORS disabled</p>
+                  <details class="manual-option">
+                    <summary>Or run manually:</summary>
+                    <code>chrome.exe --disable-web-security --user-data-dir="C:\tmp\chrome_dev"</code>
+                  </details>
+                </div>
+
+                <div class="os-block">
+                  <h4>🐧 Linux</h4>
+                  <p>Close all Chrome windows, then run:</p>
+                  <code>google-chrome --disable-web-security --user-data-dir="/tmp/chrome_dev"</code>
+                  <p class="hint">For Chromium: replace google-chrome with chromium-browser</p>
+                </div>
+
+                <div class="os-block">
+                  <h4>🍎 macOS</h4>
+                  <p>Close all Chrome windows, then run:</p>
+                  <code>open -na "Google Chrome" --args --disable-web-security --user-data-dir="/tmp/chrome_dev"</code>
+                </div>
+              </div>
+            </div>
+
+            <div class="cors-section">
+              <h3>✅ After launching with the flag</h3>
+              <p>
+                Navigate to ToastMan and you'll be able to make requests to any API.
+                You'll see a warning banner in Chrome indicating security is disabled.
+              </p>
+            </div>
+          </div>
+
+          <div class="cors-modal-footer">
+            <button class="cors-got-it-btn" @click="showCorsModal = false">Got it!</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -330,5 +419,244 @@ onMounted(() => {
   background: var(--color-bg-hover);
   padding: 2px 6px;
   border-radius: 4px;
+}
+
+/* CORS Button */
+.cors-button {
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: #3d3200;
+  border: 1px solid #665500;
+  color: #ffc107;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cors-button:hover {
+  background: #4d4000;
+  border-color: #ffc107;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(255, 193, 7, 0.2);
+}
+
+/* CORS Modal */
+.cors-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(4px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+
+.cors-modal {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  max-width: 700px;
+  width: 100%;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.cors-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
+}
+
+.cors-modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  color: var(--color-text-primary);
+}
+
+.cors-close-btn {
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: color 0.2s;
+}
+
+.cors-close-btn:hover {
+  color: var(--color-text-primary);
+}
+
+.cors-modal-content {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.cors-section {
+  margin-bottom: 24px;
+}
+
+.cors-section:last-child {
+  margin-bottom: 0;
+}
+
+.cors-section h3 {
+  font-size: 16px;
+  color: var(--color-text-primary);
+  margin: 0 0 12px 0;
+}
+
+.cors-section p {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  margin: 0 0 12px 0;
+}
+
+.cors-section.coming-soon {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+
+.cors-section.workaround {
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+
+.warning-text {
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  color: #ffc107 !important;
+}
+
+.os-instructions {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.os-block {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+
+.os-block h4 {
+  font-size: 14px;
+  color: var(--color-text-primary);
+  margin: 0 0 8px 0;
+}
+
+.os-block p {
+  font-size: 13px;
+  margin: 0 0 8px 0;
+}
+
+.os-block code {
+  display: block;
+  background: #1a1a2e;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 12px;
+  color: #4ade80;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.os-block .hint {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-style: italic;
+  margin: 8px 0 0 0;
+}
+
+.download-shortcut-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #4ade80, #22c55e);
+  color: #000;
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+  margin-bottom: 12px;
+}
+
+.download-shortcut-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(74, 222, 128, 0.4);
+}
+
+.manual-option {
+  margin-top: 8px;
+}
+
+.manual-option summary {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.manual-option summary:hover {
+  color: var(--color-text-secondary);
+}
+
+.manual-option code {
+  margin-top: 8px;
+}
+
+.cors-modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.cors-got-it-btn {
+  padding: 10px 24px;
+  border-radius: var(--radius-md);
+  background: var(--color-button-bg);
+  border: 1px solid var(--color-border-dark);
+  color: var(--color-button-text);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cors-got-it-btn:hover {
+  background: var(--color-button-bg-hover);
 }
 </style>
