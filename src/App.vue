@@ -43,6 +43,45 @@ const closeSettings = () => {
   showSettings.value = false
 }
 
+/**
+ * Downloads the Chrome shortcut zip file
+ * Uses blob download to ensure correct filename preservation
+ * Note: Public assets in Vite are always served from root, regardless of base path
+ */
+const downloadChromeShortcut = async () => {
+  try {
+    // Public assets are always at root, even with base path
+    const filePath = '/Toastman-Chrome.zip'
+    
+    logger.debug('Downloading Chrome shortcut from:', filePath)
+    const response = await fetch(filePath)
+    
+    if (!response.ok) {
+      throw new Error(`Failed to download shortcut: ${response.status} ${response.statusText}`)
+    }
+    
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'Toastman-Chrome.zip'
+    link.style.display = 'none'
+    document.body.appendChild(link)
+    link.click()
+    
+    // Cleanup after a short delay
+    setTimeout(() => {
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    }, 100)
+    
+    logger.info('Chrome shortcut downloaded successfully')
+  } catch (error) {
+    logger.error('Error downloading Chrome shortcut:', error)
+    alert(`Failed to download Chrome shortcut: ${error.message}`)
+  }
+}
+
 const createNewRequest = () => {
   logger.debug('Creating new request')
   if (chatTabsRef.value) {
@@ -217,9 +256,9 @@ onMounted(() => {
               <div class="os-instructions">
                 <div class="os-block">
                   <h4>🪟 Windows</h4>
-                  <a href="/Toastman-Chrome.lnk" download class="download-shortcut-btn">
+                  <button @click="downloadChromeShortcut" class="download-shortcut-btn">
                     ⬇️ Download Chrome Shortcut
-                  </a>
+                  </button>
                   <p class="hint">Just double-click the downloaded shortcut to launch Chrome with CORS disabled</p>
                   <details class="manual-option">
                     <summary>Or run manually:</summary>
@@ -608,9 +647,12 @@ onMounted(() => {
   font-weight: 600;
   font-size: 14px;
   text-decoration: none;
+  border: none;
   border-radius: var(--radius-md);
   transition: all 0.2s ease;
   margin-bottom: 12px;
+  cursor: pointer;
+  font-family: inherit;
 }
 
 .download-shortcut-btn:hover {
