@@ -39,9 +39,8 @@
         <select v-model="method" class="method-select" :style="{ color: methodColor }">
           <option v-for="m in httpMethods" :key="m" :value="m">{{ m }}</option>
         </select>
-        <input
+        <VariableHighlightInput
           v-model="url"
-          type="text"
           class="url-input"
           placeholder="https://api.example.com/endpoint"
           @keydown.enter="send"
@@ -82,7 +81,7 @@
           <div v-for="(param, index) in params" :key="param.id" class="kv-row">
             <input type="checkbox" v-model="param.enabled" />
             <input v-model="param.key" placeholder="Key" class="kv-input" />
-            <input v-model="param.value" placeholder="Value" class="kv-input" />
+            <VariableHighlightInput v-model="param.value" placeholder="Value" class="kv-input" />
             <button class="remove-btn" @click="removeParam(index)">×</button>
           </div>
           <button class="add-btn" @click="addParam">+ Add Param</button>
@@ -93,7 +92,7 @@
           <div v-for="(header, index) in headers" :key="header.id" class="kv-row">
             <input type="checkbox" v-model="header.enabled" />
             <input v-model="header.key" placeholder="Key" class="kv-input" />
-            <input v-model="header.value" placeholder="Value" class="kv-input" />
+            <VariableHighlightInput v-model="header.value" placeholder="Value" class="kv-input" />
             <button class="remove-btn" @click="removeHeader(index)">×</button>
           </div>
           <button class="add-btn" @click="addHeader">+ Add Header</button>
@@ -130,7 +129,7 @@
             <div v-for="(field, index) in body.formData" :key="field.id" class="kv-row">
               <input type="checkbox" v-model="field.enabled" />
               <input v-model="field.key" placeholder="Key" class="kv-input" />
-              <input v-model="field.value" placeholder="Value" class="kv-input" />
+              <VariableHighlightInput v-model="field.value" placeholder="Value" class="kv-input" />
               <button class="remove-btn" @click="removeFormData(index)">×</button>
             </div>
             <button class="add-btn" @click="addFormData">+ Add Field</button>
@@ -140,7 +139,7 @@
             <div v-for="(field, index) in body.urlEncoded" :key="field.id" class="kv-row">
               <input type="checkbox" v-model="field.enabled" />
               <input v-model="field.key" placeholder="Key" class="kv-input" />
-              <input v-model="field.value" placeholder="Value" class="kv-input" />
+              <VariableHighlightInput v-model="field.value" placeholder="Value" class="kv-input" />
               <button class="remove-btn" @click="removeUrlEncoded(index)">×</button>
             </div>
             <button class="add-btn" @click="addUrlEncoded">+ Add Field</button>
@@ -174,6 +173,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { getCurrentEditor, getCurrentEditorDefaults } from '../../config/editors.js'
+import VariableHighlightInput from '../VariableHighlightInput.vue'
 
 // Get the configured text editor (ACE)
 const TextEditor = getCurrentEditor()
@@ -417,17 +417,17 @@ function save() {
 
 .url-input {
   flex: 1;
-  padding: 8px 12px;
-  font-size: 13px;
-  font-family: 'Monaco', 'Menlo', monospace;
+  /* CSS variables for VariableHighlightInput */
+  --input-padding: 8px 12px;
+  --input-font-size: 13px;
+  --input-font-family: 'Monaco', 'Menlo', monospace;
+  --input-radius: 6px;
+  /* Background on container so backdrop text is visible */
   background: var(--color-bg-primary);
-  border: 1px solid var(--color-border);
   border-radius: 6px;
-  color: var(--color-text-primary);
 }
 
-.url-input:focus {
-  outline: none;
+.url-input :deep(.variable-input:focus) {
   border-color: var(--color-text-secondary);
 }
 
@@ -501,11 +501,20 @@ function save() {
 
 .kv-input {
   flex: 1;
+  /* CSS variables for VariableHighlightInput */
+  --input-padding: 6px 8px;
+  --input-font-size: 12px;
+  --input-radius: 4px;
+  /* Background on container so backdrop text is visible */
+  background: var(--color-bg-secondary);
+  border-radius: 4px;
+}
+
+/* Regular input styling (for key fields that are plain inputs) */
+input.kv-input {
   padding: 6px 8px;
   font-size: 12px;
-  background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
-  border-radius: 4px;
   color: var(--color-text-primary);
 }
 

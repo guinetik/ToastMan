@@ -6,9 +6,15 @@ import { initCurlMode } from '../../ace/mode-curl.js'
 import { curlCompleter } from '../../ace/curl-completer.js'
 import { getFlagDoc } from '../../ace/curl-documentation.js'
 import { validateCurl } from '../../ace/curl-validator.js'
+import { useVariableInterpolation } from '../../composables/useVariableInterpolation.js'
+import { useEnvironments } from '../../stores/useEnvironments.js'
 
 // Import ACE dynamically to handle Vite properly
 let ace = null
+
+// Variable interpolation for tooltips and highlighting
+const variableInterpolation = useVariableInterpolation()
+const environmentsStore = useEnvironments()
 
 const logger = createLogger('AceTextEditor')
 
@@ -59,6 +65,16 @@ const tooltipX = ref(0)
 const tooltipY = ref(0)
 const tooltipDoc = ref(null)
 let tooltipTimeout = null
+
+// Variable tooltip state
+const variableTooltipVisible = ref(false)
+const variableTooltipX = ref(0)
+const variableTooltipY = ref(0)
+const variableTooltipData = ref(null)
+
+// Variable markers for blue/red highlighting
+let variableMarkers = []
+let variableMarkersTimeout = null
 
 // Validation state for error highlighting
 let validationTimeout = null
@@ -200,9 +216,10 @@ const createEditor = () => {
       emit('update:modelValue', content)
       emit('change', content)
 
-      // Trigger validation for curl mode
+      // Trigger validation and variable markers for curl mode
       if (props.language === 'curl') {
         scheduleValidation()
+        scheduleVariableMarkerUpdate()
       }
     })
 
@@ -229,11 +246,14 @@ const createEditor = () => {
       aceEditor.value.resize()
     }, 100)
 
-    // Initialize hover tooltips and validation for cURL mode
+    // Initialize hover tooltips, validation, and variable markers for cURL mode
     if (props.language === 'curl') {
       initHoverTooltips()
-      // Run initial validation
-      setTimeout(runValidation, 100)
+      // Run initial validation and variable markers
+      setTimeout(() => {
+        runValidation()
+        updateVariableMarkers()
+      }, 100)
     }
 
     logger.debug('ACE editor initialized successfully')
@@ -289,6 +309,13 @@ watch(() => props.height, () => {
     setTimeout(() => {
       aceEditor.value.resize()
     }, 50)
+  }
+})
+
+// Watch for active environment changes to update variable highlighting
+watch(() => environmentsStore.activeEnvironment.value, () => {
+  if (aceEditor.value && props.language === 'curl') {
+    updateVariableMarkers()
   }
 })
 
@@ -355,17 +382,114 @@ const initHoverTooltips = () => {
     if (token && token.type === 'keyword.operator') {
       const doc = getFlagDoc(token.value)
       if (doc) {
+        hideVariableTooltip()
         showTooltip(doc, e.clientX, e.clientY)
         return
       }
     }
 
+    // Check if we're over a variable (variable.language token type)
+    if (token && token.type === 'variable.language') {
+      // Extract variable name from {{varName}}
+      const varName = token.value.slice(2, -2).trim()
+      const exists = variableInterpolation.variableExists(varName)
+      const value = variableInterpolation.getVariableValue(varName)
+
+      hideTooltip()
+      showVariableTooltip({
+        name: varName,
+        value: exists ? value : null,
+        resolved: exists
+      }, e.clientX, e.clientY)
+      return
+    }
+
     hideTooltip()
+    hideVariableTooltip()
   })
 
   container.addEventListener('mouseleave', () => {
     hideTooltip()
+    hideVariableTooltip()
   })
+}
+
+// Variable tooltip functions
+const showVariableTooltip = (data, x, y) => {
+  if (tooltipTimeout) {
+    clearTimeout(tooltipTimeout)
+    tooltipTimeout = null
+  }
+
+  variableTooltipData.value = data
+  variableTooltipX.value = x + 10
+  variableTooltipY.value = y + 10
+  variableTooltipVisible.value = true
+}
+
+const hideVariableTooltip = () => {
+  tooltipTimeout = setTimeout(() => {
+    variableTooltipVisible.value = false
+    variableTooltipData.value = null
+  }, 100)
+}
+
+// Update variable markers for blue/red highlighting based on resolution status
+const updateVariableMarkers = () => {
+  if (!aceEditor.value || props.language !== 'curl') return
+
+  const session = aceEditor.value.session
+  const content = aceEditor.value.getValue()
+
+  // Clear previous variable markers
+  variableMarkers.forEach(id => session.removeMarker(id))
+  variableMarkers = []
+
+  // Find all variables and their positions
+  const variables = variableInterpolation.analyzeVariables(content)
+  if (variables.length === 0) return
+
+  // Get Range class from ACE
+  const Range = ace.require('ace/range').Range
+
+  // Convert character positions to row/column
+  const lines = content.split('\n')
+
+  variables.forEach(v => {
+    // Find row and column from character position
+    let charCount = 0
+    let row = 0
+    let startCol = 0
+    let endCol = 0
+
+    for (let i = 0; i < lines.length; i++) {
+      const lineLength = lines[i].length + 1 // +1 for newline
+      if (charCount + lineLength > v.start) {
+        row = i
+        startCol = v.start - charCount
+        endCol = startCol + v.match.length
+        break
+      }
+      charCount += lineLength
+    }
+
+    // Create marker range
+    const range = new Range(row, startCol, row, endCol)
+    const markerClass = v.resolved
+      ? 'ace_variable-resolved'
+      : 'ace_variable-unresolved'
+
+    const markerId = session.addMarker(range, markerClass, 'text', true)
+    variableMarkers.push(markerId)
+  })
+}
+
+// Debounced variable marker update
+const scheduleVariableMarkerUpdate = () => {
+  if (variableMarkersTimeout) {
+    clearTimeout(variableMarkersTimeout)
+  }
+  variableMarkersTimeout = setTimeout(updateVariableMarkers, 200)
 }
 
 // Track active error markers for cleanup
@@ -491,6 +615,23 @@ defineExpose({
         <p v-if="tooltipDoc.tip" class="curl-tooltip-tip">{{ tooltipDoc.tip }}</p>
       </div>
     </Teleport>
+
+    <!-- Variable Tooltip -->
+    <Teleport to="body">
+      <div
+        v-if="variableTooltipVisible && variableTooltipData"
+        class="variable-tooltip"
+        :style="{ left: variableTooltipX + 'px', top: variableTooltipY + 'px' }"
+      >
+        <span class="variable-tooltip-name">{{ variableTooltipData.name }}</span>
+        <span v-if="variableTooltipData.resolved" class="variable-tooltip-value">
+          = {{ variableTooltipData.value }}
+        </span>
+        <span v-else class="variable-tooltip-unresolved">
+          (not found in environment)
+        </span>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -514,5 +655,50 @@ defineExpose({
 
 .ace-editor-container:focus-within {
   border-color: var(--color-primary);
+}
+
+/* Variable markers in ACE editor */
+:deep(.ace_variable-resolved) {
+  color: #64B5F6 !important;
+  text-decoration: underline dotted #64B5F6;
+}
+
+:deep(.ace_variable-unresolved) {
+  color: #EF5350 !important;
+  text-decoration: underline wavy #EF5350;
+}
+</style>
+
+<!-- Global styles for tooltips (teleported to body) -->
+<style>
+.variable-tooltip {
+  position: fixed;
+  z-index: 10000;
+  background: #1e1e1e;
+  border: 1px solid #3c3c3c;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  max-width: 400px;
+  pointer-events: none;
+}
+
+.variable-tooltip-name {
+  color: #64B5F6;
+  font-weight: 600;
+}
+
+.variable-tooltip-value {
+  color: #a0a0a0;
+  margin-left: 4px;
+}
+
+.variable-tooltip-unresolved {
+  color: #EF5350;
+  font-style: italic;
+  margin-left: 8px;
+  font-size: 12px;
 }
 </style>

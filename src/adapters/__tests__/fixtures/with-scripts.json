@@ -1,0 +1,49 @@
+{
+  "info": {
+    "_postman_id": "test-scripts-001",
+    "name": "Collection with Scripts",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "console.log('Collection pre-request script');"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Request with Scripts",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.environment.set('timestamp', Date.now());"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function() {",
+              "  pm.response.to.have.status(200);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "https://api.example.com/test"
+      }
+    }
+  ]
+}

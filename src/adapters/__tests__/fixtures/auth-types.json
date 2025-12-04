@@ -1,0 +1,90 @@
+{
+  "info": {
+    "_postman_id": "test-auth-001",
+    "name": "Auth Types Collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{API_TOKEN}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Basic Auth Request",
+      "request": {
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "admin",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "secret123",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "url": "https://api.example.com/protected"
+      }
+    },
+    {
+      "name": "API Key Request",
+      "request": {
+        "auth": {
+          "type": "apikey",
+          "apikey": [
+            {
+              "key": "key",
+              "value": "X-API-Key",
+              "type": "string"
+            },
+            {
+              "key": "value",
+              "value": "my-secret-key",
+              "type": "string"
+            },
+            {
+              "key": "in",
+              "value": "header",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "url": "https://api.example.com/data"
+      }
+    },
+    {
+      "name": "OAuth2 Request",
+      "request": {
+        "auth": {
+          "type": "oauth2",
+          "oauth2": [
+            {
+              "key": "accessToken",
+              "value": "abc123",
+              "type": "string"
+            },
+            {
+              "key": "tokenType",
+              "value": "Bearer",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "url": "https://api.example.com/oauth-protected"
+      }
+    }
+  ]
+}

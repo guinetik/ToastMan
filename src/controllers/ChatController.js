@@ -256,8 +256,9 @@ export class ChatController extends BaseController {
     // Generate cURL
     this.syncVisualToCurl()
 
-    // Open/create conversation
-    this.conversationsStore.openConversation({
+    // Always create a NEW conversation when opening from collections
+    // (History uses loadSession which properly restores existing conversations)
+    this.conversationsStore.createNewConversation({
       name: requestItem.name || 'Request',
       requestId,
       collectionId,

@@ -14,6 +14,7 @@ import {
   generateId
 } from '../models/types.js'
 import { createLogger } from '../core/logger.js'
+import { PostmanAdapter } from '../adapters/PostmanAdapter.js'
 
 // Global collections store
 let collectionsStore = null
@@ -389,126 +390,73 @@ function createCollectionsStore() {
     return null
   }
 
-  const importCollection = (collectionData) => {
+  /**
+   * Import a Postman collection using the PostmanAdapter
+   * @param {Object} collectionData - Raw Postman collection data
+   * @param {Object} options - Import options
+   * @param {boolean} options.appendImportedSuffix - Whether to append " (Imported)" to the name (default: true)
+   * @returns {Object} - { collection, warnings, errors }
+   */
+  const importCollection = (collectionData, options = {}) => {
+    const { appendImportedSuffix = true } = options
+
     try {
-      // Debug: Log the raw imported data structure
-      logger.info('Importing collection - raw data structure:', collectionData)
+      logger.info('Importing collection using PostmanAdapter')
 
-      // Log a sample item to understand the structure
-      if (collectionData.item && collectionData.item.length > 0) {
-        logger.info('First item in collection:', JSON.stringify(collectionData.item[0], null, 2))
+      // Use the PostmanAdapter for import
+      const result = PostmanAdapter.import(collectionData)
+
+      // Check for fatal errors
+      if (result.errors.length > 0 && !result.collection) {
+        const errorMessage = result.errors.map(e => e.message).join('; ')
+        throw new Error(errorMessage)
       }
 
-      // Validate basic structure
-      if (!collectionData.info || !collectionData.info.name) {
-        throw new Error('Invalid collection format')
+      const imported = result.collection
+
+      // Optionally append "(Imported)" suffix to distinguish imported collections
+      if (appendImportedSuffix) {
+        imported.info.name = `${imported.info.name} (Imported)`
       }
 
-      // Generate new ID to avoid conflicts
-      const imported = JSON.parse(JSON.stringify(collectionData))
-      imported.info.id = generateId()
-      imported.info.name = `${imported.info.name} (Imported)`
+      // Log warnings if any
+      if (result.warnings.length > 0) {
+        const summary = PostmanAdapter.summarizeWarnings(result.warnings)
+        logger.info(`Collection imported with ${summary.total} warning(s):`, summary.byType)
 
-      // Recursive function to process items (preserves folder structure)
-      const processItems = (items) => {
-        if (!items) return []
-
-        return items.map(item => {
-          // Check if this is a folder with nested items
-          if (item.item && Array.isArray(item.item)) {
-            // This is a folder - process its children recursively
-            return {
-              ...item,
-              id: generateId(),
-              name: item.name || 'Unnamed Folder',
-              type: 'folder',
-              item: processItems(item.item) // Process nested items recursively
-            }
-          }
-
-          // This is an actual request item
-          let normalizedItem = {
-            ...item,
-            id: generateId(),
-            name: item.name || 'Unnamed Request',
-            type: 'request'
-          }
-
-          // Ensure the request property exists with the expected structure
-          if (!item.request) {
-            // If no request property, create a minimal one
-            normalizedItem.request = {
-              method: 'GET',
-              url: { raw: '', query: [] },
-              header: [],
-              body: null
-            }
-            logger.warn('Item has no request property:', item.name)
-          } else if (typeof item.request === 'string') {
-            // Sometimes request might be just a URL string
-            normalizedItem.request = {
-              method: 'GET',
-              url: { raw: item.request, query: [] },
-              header: [],
-              body: null
-            }
-          } else {
-            // Standard Postman format - ensure all properties exist
-            normalizedItem.request = {
-              method: item.request.method || 'GET',
-              url: item.request.url || { raw: '', query: [] },
-              header: item.request.header || item.request.headers || [],
-              body: item.request.body || null
-            }
-
-            // Normalize URL structure if it's a string
-            if (typeof normalizedItem.request.url === 'string') {
-              normalizedItem.request.url = {
-                raw: normalizedItem.request.url,
-                query: []
-              }
-            } else if (normalizedItem.request.url && !normalizedItem.request.url.raw) {
-              // Sometimes Postman doesn't include 'raw' but has protocol, host, path
-              const url = normalizedItem.request.url
-              if (url.protocol && url.host && url.path) {
-                const host = Array.isArray(url.host) ? url.host.join('.') : url.host
-                const path = Array.isArray(url.path) ? url.path.join('/') : url.path
-                const query = url.query ? `?${url.query.map(q => `${q.key}=${q.value}`).join('&')}` : ''
-                normalizedItem.request.url.raw = `${url.protocol}://${host}/${path}${query}`
-              }
-            }
-          }
-
-          // Debug: Log the normalized item
-          logger.debug('Normalized item:', {
-            name: normalizedItem.name,
-            hasRequest: !!normalizedItem.request,
-            requestMethod: normalizedItem.request?.method,
-            requestUrl: normalizedItem.request?.url?.raw,
-            requestHeaders: normalizedItem.request?.header?.length || 0
-          })
-
-          return normalizedItem
+        // Log each warning at debug level
+        result.warnings.forEach(w => {
+          logger.debug(`[${w.type}] ${w.message}`)
         })
       }
 
-      // Process all items (handles nested folders)
-      if (imported.item) {
-        imported.item = processItems(imported.item)
-
-        // Log a sample normalized item
-        if (imported.item.length > 0) {
-          logger.info('First normalized item:', JSON.stringify(imported.item[0], null, 2))
-        }
-      }
-
+      // Add to collections
       collections.value.push(imported)
       logger.info('Successfully imported collection:', imported.info.name)
-      return imported
+
+      // Return the result with warnings for UI to display
+      return {
+        collection: imported,
+        warnings: result.warnings,
+        errors: result.errors
+      }
     } catch (error) {
       logger.error('Failed to import collection:', error)
       throw error
     }
+  }
+
+  /**
+   * Export a collection to Postman format
+   * @param {string} id - Collection ID
+   * @returns {Object} - Postman-formatted collection
+   */
+  const exportCollectionToPostman = (id) => {
+    const collection = getCollection(id)
+    if (collection) {
+      return PostmanAdapter.export(collection)
+    }
+    return null
   }
 
   // Initialize with default collection if empty
@@ -564,6 +512,7 @@ function createCollectionsStore() {
 
     // Import/Export
     exportCollection,
+    exportCollectionToPostman,
     importCollection,
 
     // Utilities

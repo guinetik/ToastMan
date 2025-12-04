@@ -1,5 +1,7 @@
 import { BaseDialogController } from './BaseDialogController.js'
 import { useCollections } from '../stores/useCollections.js'
+import { useAlert } from '../composables/useAlert.js'
+import { PostmanAdapter } from '../adapters/PostmanAdapter.js'
 
 /**
  * Controller for New Collection dialog
@@ -9,6 +11,7 @@ export class NewCollectionDialogController extends BaseDialogController {
     super('new-collection')
 
     this.collectionsStore = useCollections()
+    this.alertService = useAlert()
   }
 
   /**
@@ -300,6 +303,7 @@ export class NewCollectionDialogController extends BaseDialogController {
 
   /**
    * Import collection from file
+   * Shows warnings if unsupported features are detected
    */
   async importCollection(fileData, name, description) {
     let parsedData
@@ -323,8 +327,49 @@ export class NewCollectionDialogController extends BaseDialogController {
       parsedData.info.description = description
     }
 
-    const collection = this.collectionsStore.importCollection(parsedData)
-    return collection
+    // Import using PostmanAdapter (returns { collection, warnings, errors })
+    const result = this.collectionsStore.importCollection(parsedData, {
+      appendImportedSuffix: false // We already handle naming
+    })
+
+    // Show warnings if any
+    if (result.warnings && result.warnings.length > 0) {
+      const summary = PostmanAdapter.summarizeWarnings(result.warnings)
+      this._showImportWarnings(summary)
+    }
+
+    return result.collection
+  }
+
+  /**
+   * Show import warnings in a user-friendly alert
+   * @private
+   */
+  _showImportWarnings(summary) {
+    const warningMessages = []
+
+    // Build warning message based on types
+    if (summary.byType.scripts) {
+      warningMessages.push(`${summary.byType.scripts} script(s) detected (scripts are stored but not executed)`)
+    }
+    if (summary.byType.auth) {
+      warningMessages.push(`${summary.byType.auth} authentication warning(s) (some auth types require manual configuration)`)
+    }
+    if (summary.byType.proxy) {
+      warningMessages.push(`Proxy configuration not supported`)
+    }
+    if (summary.byType.certificate) {
+      warningMessages.push(`SSL certificate configuration not supported`)
+    }
+    if (summary.byType.responses) {
+      warningMessages.push(`Saved responses imported for reference`)
+    }
+
+    const message = warningMessages.length > 0
+      ? `Collection imported with ${summary.total} notice(s):\n\n• ${warningMessages.join('\n• ')}`
+      : `Collection imported with ${summary.total} notice(s). Check console for details.`
+
+    this.alertService.alertWarning(message, 'Import Notices')
   }
 
   /**

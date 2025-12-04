@@ -1,0 +1,45 @@
+{
+  "info": {
+    "_postman_id": "test-nested-001",
+    "name": "Nested Folders Collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Users API",
+      "item": [
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "url": "https://api.example.com/users"
+          }
+        },
+        {
+          "name": "Admin",
+          "item": [
+            {
+              "name": "Delete User",
+              "request": {
+                "method": "DELETE",
+                "url": "https://api.example.com/admin/users/123"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Products API",
+      "item": [
+        {
+          "name": "Get Product",
+          "request": {
+            "method": "GET",
+            "url": "https://api.example.com/products/1"
+          }
+        }
+      ]
+    }
+  ]
+}

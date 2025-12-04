@@ -21,7 +21,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'keydown'])
 
 // Try to load composable with error handling
 let splitTextForHighlighting, previewInterpolation
@@ -40,6 +40,13 @@ const inputRef = ref(null)
 const highlightRef = ref(null)
 const showPreview = ref(false)
 
+// Hover tooltip state
+const hoverTooltipVisible = ref(false)
+const hoverTooltipX = ref(0)
+const hoverTooltipY = ref(0)
+const hoverTooltipData = ref(null)
+let hoverTimeout = null
+
 // Handle input changes
 const handleInput = (event) => {
   emit('update:modelValue', event.target.value)
@@ -55,6 +62,11 @@ const highlightedParts = computed(() => {
 const interpolationPreview = computed(() => {
   const preview = previewInterpolation(props.modelValue)
   return preview
+})
+
+// Check if there are any variables in the text
+const hasVariables = computed(() => {
+  return highlightedParts.value.some(p => p.type === 'variable')
 })
 
 // Sync scroll between input and highlight layers
@@ -92,42 +104,45 @@ const handleInputWithPreview = (event) => {
   })
 }
 
-// Create background highlighting effect
-const getBackgroundHighlight = () => {
-  // Simple approach - just add a subtle accent to the input when variables are detected
-  if (interpolationPreview.value.hasVariables) {
-    return 'linear-gradient(90deg, rgba(37, 99, 235, 0.05) 0%, rgba(37, 99, 235, 0.05) 100%)'
-  }
-  return 'none'
-}
-
 // Watch for changes to sync highlighting
 watch(() => props.modelValue, () => {
   nextTick(() => {
     syncScroll()
   })
 })
+
+// Hover tooltip functions
+const showHoverTooltip = (part, event) => {
+  if (hoverTimeout) {
+    clearTimeout(hoverTimeout)
+    hoverTimeout = null
+  }
+
+  hoverTooltipData.value = {
+    name: part.name,
+    value: part.value,
+    resolved: part.resolved
+  }
+  hoverTooltipX.value = event.clientX + 10
+  hoverTooltipY.value = event.clientY + 10
+  hoverTooltipVisible.value = true
+}
+
+const hideHoverTooltip = () => {
+  hoverTimeout = setTimeout(() => {
+    hoverTooltipVisible.value = false
+    hoverTooltipData.value = null
+  }, 100)
+}
 </script>
 
 <template>
-  <div class="variable-input-container">
-    <!-- Actual input -->
-    <input
-      ref="inputRef"
-      :value="props.modelValue"
-      @input="handleInputWithPreview"
-      @focus="handleFocus"
-      @blur="handleBlur"
-      type="text"
-      :placeholder="props.placeholder"
-      :class="['variable-input', props.class]"
-      :style="{ backgroundImage: getBackgroundHighlight() }"
-    />
-
-    <!-- Alternative: Show highlighted version above input -->
+  <div :class="['variable-input-container', props.class]">
+    <!-- Highlight layer (behind input) - shows colored text -->
     <div
-      v-if="highlightedParts.length > 1"
-      class="highlight-overlay"
+      ref="highlightRef"
+      class="highlight-backdrop"
+      aria-hidden="true"
     >
       <span
         v-for="(part, index) in highlightedParts"
@@ -138,8 +153,43 @@ watch(() => props.modelValue, () => {
           'highlight-variable--resolved': part.type === 'variable' && part.resolved,
           'highlight-variable--unresolved': part.type === 'variable' && !part.resolved
         }"
+        @mouseenter="part.type === 'variable' ? showHoverTooltip(part, $event) : null"
+        @mouseleave="hideHoverTooltip"
       >{{ part.content }}</span>
+      <!-- Placeholder when empty -->
+      <span v-if="!props.modelValue" class="highlight-placeholder">{{ props.placeholder }}</span>
     </div>
+
+    <!-- Actual input (transparent text, captures events) -->
+    <input
+      ref="inputRef"
+      :value="props.modelValue"
+      @input="handleInputWithPreview"
+      @scroll="syncScroll"
+      @focus="handleFocus"
+      @blur="handleBlur"
+      @keydown="$emit('keydown', $event)"
+      type="text"
+      :placeholder="props.placeholder"
+      :class="['variable-input', { 'has-variables': hasVariables }]"
+    />
+
+    <!-- Variable Hover Tooltip -->
+    <Teleport to="body">
+      <div
+        v-if="hoverTooltipVisible && hoverTooltipData"
+        class="variable-hover-tooltip"
+        :style="{ left: hoverTooltipX + 'px', top: hoverTooltipY + 'px' }"
+      >
+        <span class="tooltip-name">{{ hoverTooltipData.name }}</span>
+        <span v-if="hoverTooltipData.resolved" class="tooltip-value">
+          = {{ hoverTooltipData.value }}
+        </span>
+        <span v-else class="tooltip-unresolved">
+          (not found)
+        </span>
+      </div>
+    </Teleport>
 
     <!-- Variable preview tooltip -->
     <div
@@ -192,69 +242,88 @@ watch(() => props.modelValue, () => {
   width: 100%;
 }
 
+/* Highlight backdrop - positioned behind the input */
+.highlight-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  /* Match input styling exactly */
+  padding: var(--input-padding, 6px 8px);
+  font-size: var(--input-font-size, 12px);
+  font-family: var(--input-font-family, inherit);
+  white-space: pre; /* Preserve spaces exactly like the input */
+  overflow: hidden;
+  pointer-events: none; /* Let clicks pass through to input */
+  z-index: 1;
+  border-radius: var(--input-radius, 4px);
+  border: 1px solid transparent; /* Match input border space */
+}
+
+/* Allow pointer events on variable spans for tooltips */
+.highlight-backdrop span.highlight-variable {
+  pointer-events: auto;
+  cursor: default;
+}
+
 .variable-input {
+  position: relative;
+  z-index: 2;
   width: 100%;
-  background: var(--color-bg-primary);
+  background: transparent; /* Transparent to show backdrop */
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 10px 12px;
-  font-size: 14px;
-  font-family: inherit;
+  border-radius: var(--input-radius, 4px);
+  padding: var(--input-padding, 6px 8px);
+  font-size: var(--input-font-size, 12px);
+  font-family: var(--input-font-family, inherit);
   color: var(--color-text-primary);
   outline: none;
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  /* Keep caret visible */
+  caret-color: var(--color-text-primary);
+}
+
+/* When variables present, make input text transparent */
+.variable-input.has-variables {
+  color: transparent;
 }
 
 .variable-input:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-light);
+  border-color: var(--color-primary, #666);
+  box-shadow: 0 0 0 2px var(--color-primary-light, rgba(100, 100, 100, 0.2));
+}
+
+/* Hide placeholder when using backdrop */
+.variable-input.has-variables::placeholder {
+  color: transparent;
 }
 
 .variable-input::placeholder {
   color: var(--color-text-muted);
 }
 
-/* Highlight overlay */
-.highlight-overlay {
-  position: absolute;
-  top: -25px;
-  left: 0;
-  right: 0;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-sm);
-  padding: 4px 8px;
-  font-size: 12px;
-  font-family: monospace;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  box-shadow: var(--shadow-sm);
-  z-index: 10;
+/* Placeholder in backdrop */
+.highlight-placeholder {
+  color: var(--color-text-muted);
 }
 
 /* Highlighting styles */
 .highlight-text {
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary, #e0e0e0);
 }
 
 .highlight-variable {
-  border-radius: 3px;
-  padding: 2px 4px;
-  margin: 0 1px;
+  border-radius: 2px;
   font-weight: 600;
 }
 
 .highlight-variable--resolved {
-  background-color: var(--color-variable-resolved-bg);
-  color: var(--color-variable-resolved-text);
-  border: 1px solid var(--color-variable-resolved-border);
+  color: #64B5F6 !important;
 }
 
 .highlight-variable--unresolved {
-  background-color: var(--color-variable-unresolved-bg);
-  color: var(--color-variable-unresolved-text);
-  border: 1px solid var(--color-variable-unresolved-border);
+  color: #EF5350 !important;
 }
 
 /* Preview tooltip */
@@ -369,5 +438,39 @@ watch(() => props.modelValue, () => {
     width: 90vw;
     max-width: none;
   }
+}
+</style>
+
+<!-- Global styles for hover tooltip (teleported to body) -->
+<style>
+.variable-hover-tooltip {
+  position: fixed;
+  z-index: 10000;
+  background: #1e1e1e;
+  border: 1px solid #3c3c3c;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  max-width: 300px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.variable-hover-tooltip .tooltip-name {
+  color: #64B5F6;
+  font-weight: 600;
+}
+
+.variable-hover-tooltip .tooltip-value {
+  color: #a0a0a0;
+  margin-left: 4px;
+}
+
+.variable-hover-tooltip .tooltip-unresolved {
+  color: #EF5350;
+  font-style: italic;
+  margin-left: 6px;
 }
 </style>
