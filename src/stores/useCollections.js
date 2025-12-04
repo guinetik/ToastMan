@@ -147,10 +147,43 @@ function createCollectionsStore() {
         request.name = updates.name
       }
       if (updates.request) {
-        Object.assign(request.request, updates.request)
+        // Deep merge request object to preserve nested properties
+        deepMerge(request.request, updates.request)
       }
     }
     return request
+  }
+
+  /**
+   * Deep merge source into target, modifying target in place
+   * @param {Object} target - Target object to merge into
+   * @param {Object} source - Source object to merge from
+   */
+  const deepMerge = (target, source) => {
+    for (const key in source) {
+      if (Object.prototype.hasOwnProperty.call(source, key)) {
+        const sourceVal = source[key]
+        const targetVal = target[key]
+
+        // If both are plain objects, recursively merge
+        if (isPlainObject(sourceVal) && isPlainObject(targetVal)) {
+          deepMerge(targetVal, sourceVal)
+        } else {
+          // Otherwise, replace with source value
+          target[key] = sourceVal
+        }
+      }
+    }
+  }
+
+  /**
+   * Check if value is a plain object (not array, null, etc.)
+   */
+  const isPlainObject = (val) => {
+    return val !== null &&
+           typeof val === 'object' &&
+           !Array.isArray(val) &&
+           Object.prototype.toString.call(val) === '[object Object]'
   }
 
   const deleteRequest = (collectionId, requestId) => {

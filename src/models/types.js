@@ -51,13 +51,22 @@ export function createUrl(raw = '') {
   try {
     const url = new URL(raw.startsWith('http') ? raw : `https://${raw || 'example.com'}`)
 
+    // Extract query parameters from the URL
+    const query = []
+    url.searchParams.forEach((value, key) => {
+      query.push(createKeyValue(key, value, true))
+    })
+
+    // Build raw URL without query string (base URL only)
+    const baseRaw = url.origin + url.pathname
+
     return {
-      raw,
+      raw: baseRaw,
       protocol: url.protocol.replace(':', ''),
       host: url.hostname.split('.'),
       port: url.port || undefined,
       path: url.pathname === '/' ? [] : url.pathname.split('/').filter(Boolean),
-      query: [],
+      query,
       hash: url.hash ? url.hash.substring(1) : undefined
     }
   } catch (error) {

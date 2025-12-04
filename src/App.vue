@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { Splitpanes, Pane } from 'splitpanes'
 import 'splitpanes/dist/splitpanes.css'
 import Sidebar from './components/Sidebar.vue'
-import RequestTabs from './components/RequestTabs.vue'
+import ChatTabs from './components/chat/ChatTabs.vue'
 import SettingsDialog from './components/dialogs/SettingsDialog.vue'
 import AlertDialog from './components/dialogs/AlertDialog.vue'
 import { useEnvironments } from './stores/useEnvironments.js'
@@ -15,6 +15,9 @@ const logger = createLogger('app')
 const environmentsStore = useEnvironments()
 const tabsStore = useTabs()
 const { alertState, handleConfirm, handleCancel, closeAlert } = useAlert()
+
+// Chat tabs ref
+const chatTabsRef = ref(null)
 
 // Global environment indicator
 const activeEnvironment = computed(() => {
@@ -38,12 +41,16 @@ const closeSettings = () => {
 }
 
 const createNewRequest = () => {
-  logger.debug('Creating new request tab')
-  const newTab = tabsStore.createTab({
-    name: 'New Request',
-    method: 'GET'
-  })
-  logger.info('Created new tab:', newTab.id)
+  logger.debug('Creating new request')
+  if (chatTabsRef.value) {
+    chatTabsRef.value.addNewTab()
+  } else {
+    tabsStore.createTab({
+      name: 'New Request',
+      method: 'GET'
+    })
+  }
+  logger.info('Created new request')
 }
 
 const handleResize = (event) => {
@@ -133,9 +140,9 @@ onMounted(() => {
           <Sidebar />
         </Pane>
 
-        <!-- Right Panel -->
+        <!-- Right Panel - Chat Tabs -->
         <Pane>
-          <RequestTabs />
+          <ChatTabs ref="chatTabsRef" />
         </Pane>
       </Splitpanes>
     </div>

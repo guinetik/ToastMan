@@ -232,6 +232,3 @@ export class FetchHttpClient extends HttpClient {
     this.logger.warn('Client certificates cannot be configured via JavaScript. The browser will handle certificate selection.')
   }
 }
-
-// Register FetchHttpClient with factory
-HttpClientFactory.register('fetch', FetchHttpClient)

@@ -61,6 +61,17 @@
   --color-variable-unresolved-text: #ef4444;
   --color-variable-unresolved-border: rgba(239, 68, 68, 0.4);
 
+  /* Chat Interface */
+  --chat-request-bg: #1a1a2e;
+  --chat-response-bg: var(--color-bg-secondary);
+  --chat-bubble-radius: 12px;
+  --chat-bubble-padding: 12px 16px;
+  --chat-bubble-max-width: 85%;
+  --chat-bubble-gap: 16px;
+  --composer-bg: var(--color-bg-secondary);
+  --composer-height: 60px;
+  --composer-expanded-max-height: 400px;
+
   /* Focus Ring */
   --color-focus-ring: var(--color-text-primary);
 
@@ -156,6 +167,10 @@
   --color-variable-resolved-border: rgba(34, 197, 94, 0.3);
   --color-variable-unresolved-bg: rgba(239, 68, 68, 0.15);
   --color-variable-unresolved-text: #dc2626;
+
+  /* Chat Interface - Light Mode */
+  --chat-request-bg: #f0f0f5;
+  --chat-response-bg: var(--color-bg-secondary);
   --color-variable-unresolved-border: rgba(239, 68, 68, 0.3);
 
   /* Shadows - Very subtle for white background */
@@ -335,3 +350,214 @@ input:focus, textarea:focus, select:focus {
 }
 
 /* Remove light mode - dark mode is default */
+
+/* ACE Editor cURL Syntax Highlighting */
+.ace_keyword.ace_control {
+  color: var(--color-post);
+  font-weight: 600;
+}
+
+.ace_keyword.ace_operator {
+  color: var(--color-patch);
+}
+
+.ace_string.ace_other {
+  color: var(--color-get);
+}
+
+.ace_string.ace_quoted.ace_double,
+.ace_string.ace_quoted.ace_single {
+  color: #e9c46a;
+}
+
+.ace_variable.ace_language {
+  color: #f4a261;
+  background: rgba(244, 162, 97, 0.15);
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+.ace_support.ace_type {
+  color: #2a9d8f;
+}
+
+.ace_constant.ace_character.ace_escape {
+  color: #888;
+}
+
+.ace_constant.ace_numeric {
+  color: #b4befe;
+}
+
+.ace_comment.ace_line {
+  color: #6c7086;
+  font-style: italic;
+}
+
+/* ACE Autocomplete popup styling */
+.ace_autocomplete {
+  background: var(--color-bg-secondary) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+.ace_autocomplete .ace_line-hover {
+  background: var(--color-bg-hover) !important;
+}
+
+.ace_autocomplete .ace_marker-layer .ace_active-line {
+  background: var(--color-bg-tertiary) !important;
+}
+
+.ace_autocomplete .ace_completion-highlight {
+  color: var(--color-get) !important;
+}
+
+.ace_autocomplete .ace_rightAlignedText {
+  color: var(--color-text-muted) !important;
+}
+
+/* cURL Flag Documentation Tooltip */
+.curl-tooltip {
+  position: fixed;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  max-width: 360px;
+  z-index: 10000;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  animation: tooltipFadeIn 0.15s ease-out;
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.curl-tooltip-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.curl-tooltip-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--color-text-primary);
+}
+
+.curl-tooltip-flags {
+  display: flex;
+  gap: 6px;
+}
+
+.curl-tooltip-flags code {
+  background: var(--color-bg-tertiary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  color: var(--color-patch);
+}
+
+.curl-tooltip-desc {
+  font-size: 13px;
+  color: var(--color-text-primary);
+  line-height: 1.4;
+  margin: 0 0 8px 0;
+}
+
+.curl-tooltip-example {
+  background: var(--color-bg-primary);
+  border-radius: 4px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+}
+
+.curl-tooltip-label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.curl-tooltip-example code {
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-size: 12px;
+  color: var(--color-get);
+  word-break: break-all;
+}
+
+.curl-tooltip-tip {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-style: italic;
+  margin: 0;
+  padding-top: 6px;
+  border-top: 1px dashed var(--color-border);
+}
+
+/* ACE Editor Error/Warning Annotations in Gutter */
+.ace_gutter-cell.ace_error {
+  background-image: none !important;
+  background-color: var(--color-error-bg) !important;
+  color: var(--color-error) !important;
+  border-left: 3px solid var(--color-error) !important;
+}
+
+.ace_gutter-cell.ace_warning {
+  background-image: none !important;
+  background-color: var(--color-warning-bg) !important;
+  color: var(--color-warning) !important;
+  border-left: 3px solid var(--color-warning) !important;
+}
+
+/* Error/warning text markers - squiggly underlines */
+.ace_error-marker {
+  position: absolute;
+  border-bottom: 2px wavy var(--color-error);
+  background: rgba(239, 68, 68, 0.15);
+  border-radius: 2px;
+}
+
+.ace_warning-marker {
+  position: absolute;
+  border-bottom: 2px wavy var(--color-warning);
+  background: rgba(245, 158, 11, 0.15);
+  border-radius: 2px;
+}
+
+/* Error/warning tooltip styling */
+.ace_tooltip {
+  background: var(--color-bg-secondary) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 6px !important;
+  padding: 8px 12px !important;
+  color: var(--color-text-primary) !important;
+  font-size: 12px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  max-width: 400px !important;
+}
+
+.ace_tooltip .ace_error {
+  color: var(--color-error) !important;
+}
+
+.ace_tooltip .ace_warning {
+  color: var(--color-warning) !important;
+}
