@@ -23,6 +23,8 @@ export class RequestSettings extends BaseModel {
 export class UISettings extends BaseModel {
   static schema = {
     theme: { type: 'string', enum: ['light', 'dark', 'auto'], default: 'dark' },
+    editorThemeDark: { type: 'string', default: 'gob' },      // ACE editor theme for dark mode
+    editorThemeLight: { type: 'string', default: 'textmate' }, // ACE editor theme for light mode
     fontSize: { type: 'number', default: 14, validator: (v) => v >= 10 && v <= 24 },
     fontFamily: { type: 'string', default: 'monospace' },
     sidebarWidth: { type: 'number', default: 25, validator: (v) => v >= 15 && v <= 50 },

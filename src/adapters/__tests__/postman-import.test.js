@@ -297,13 +297,15 @@ describe('PostmanAdapter.import', () => {
       expect(scriptWarning).toBeDefined()
     })
 
-    it('should warn about request-level scripts', () => {
+    it('should warn about pre-request scripts only (test scripts are now executed)', () => {
       const result = PostmanAdapter.import(withScripts)
 
+      // Only pre-request scripts should generate warnings (test/post-request scripts are now executed)
       const requestScriptWarning = result.warnings.find(w =>
-        w.type === 'scripts' && w.message.includes('pre-request') && w.message.includes('test')
+        w.type === 'scripts' && w.message.includes('pre-request')
       )
       expect(requestScriptWarning).toBeDefined()
+      expect(requestScriptWarning.message).not.toContain('test')
     })
 
     it('should preserve script content', () => {

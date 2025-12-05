@@ -8,6 +8,8 @@ import { getFlagDoc } from '../../ace/curl-documentation.js'
 import { validateCurl } from '../../ace/curl-validator.js'
 import { useVariableInterpolation } from '../../composables/useVariableInterpolation.js'
 import { useEnvironments } from '../../stores/useEnvironments.js'
+import { useSettingsStorage } from '../../composables/useStorage.js'
+import { getAceThemePath } from '../../config/editors.js'
 
 // Import ACE dynamically to handle Vite properly
 let ace = null
@@ -79,14 +81,55 @@ let variableMarkersTimeout = null
 // Validation state for error highlighting
 let validationTimeout = null
 
-// Computed theme mapping
-const aceTheme = computed(() => {
-  const themeMap = {
-    dark: 'ace/theme/gob',           // Dark theme with black background
-    light: 'ace/theme/textmate'      // Clean light theme
+// Settings for editor theme
+const { data: settings } = useSettingsStorage()
+
+// Track loaded themes to avoid re-loading
+const loadedThemes = new Set(['gob', 'textmate'])
+
+// Load a theme dynamically from CDN
+const loadTheme = async (themeId) => {
+  if (loadedThemes.has(themeId)) {
+    return true
   }
-  return themeMap[props.theme] || 'ace/theme/gob'
+
+  try {
+    await new Promise((resolve, reject) => {
+      const script = document.createElement('script')
+      script.src = `https://cdn.jsdelivr.net/npm/ace-builds@1.32.6/src-noconflict/theme-${themeId}.js`
+      script.onload = resolve
+      script.onerror = reject
+      document.head.appendChild(script)
+    })
+    loadedThemes.add(themeId)
+    logger.debug(`Loaded ACE theme: ${themeId}`)
+    return true
+  } catch (error) {
+    logger.error(`Failed to load ACE theme: ${themeId}`, error)
+    return false
+  }
+}
+
+// Computed theme - reactive to user settings
+// Handle both flat structure (useSettingsStorage) and nested structure (Settings model)
+const aceTheme = computed(() => {
+  const appTheme = props.theme || 'dark'
+  // Check for nested structure first (settings.ui.editorThemeDark), then flat (settings.editorThemeDark)
+  const darkTheme = settings.value?.ui?.editorThemeDark || settings.value?.editorThemeDark || 'gob'
+  const lightTheme = settings.value?.ui?.editorThemeLight || settings.value?.editorThemeLight || 'textmate'
+  const selectedTheme = appTheme === 'light' ? lightTheme : darkTheme
+  return selectedTheme
 })
+
+// Watch for theme changes and apply them live
+watch(aceTheme, async (newThemeId) => {
+  if (aceEditor.value && ace) {
+    // Load theme if not already loaded
+    await loadTheme(newThemeId)
+    aceEditor.value.setTheme(getAceThemePath(newThemeId))
+    logger.debug(`Applied theme: ${newThemeId}`)
+  }
+}, { immediate: false })
 
 // Computed mode mapping
 const aceMode = computed(() => {
@@ -171,14 +214,16 @@ const loadAceComponents = async () => {
   }
 }
 
-const createEditor = () => {
+const createEditor = async () => {
   if (!ace || !editorContainer.value || aceEditor.value) return
 
   try {
     aceEditor.value = ace.edit(editorContainer.value)
 
-    // Set theme and mode
-    aceEditor.value.setTheme(aceTheme.value)
+    // Load and set theme
+    const themeId = aceTheme.value
+    await loadTheme(themeId)
+    aceEditor.value.setTheme(getAceThemePath(themeId))
     aceEditor.value.session.setMode(aceMode.value)
 
     // Configure editor options
@@ -291,9 +336,11 @@ watch(() => props.language, (newLanguage) => {
   }
 })
 
-watch(() => props.theme, (newTheme) => {
-  if (aceEditor.value) {
-    aceEditor.value.setTheme(aceTheme.value)
+watch(() => props.theme, async () => {
+  if (aceEditor.value && ace) {
+    const themeId = aceTheme.value
+    await loadTheme(themeId)
+    aceEditor.value.setTheme(getAceThemePath(themeId))
   }
 })
 

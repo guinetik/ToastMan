@@ -70,12 +70,13 @@ export function createUrl(raw = '') {
     // Extract query parameters from the URL
     const query = []
     url.searchParams.forEach((value, key) => {
-      // Restore variables in query params
+      // Restore variables in query params (case-insensitive for consistency)
       let restoredKey = key
       let restoredValue = value
       variableMap.forEach((original, placeholder) => {
-        restoredKey = restoredKey.replace(placeholder, original)
-        restoredValue = restoredValue.replace(placeholder, original)
+        const regex = new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')
+        restoredKey = restoredKey.replace(regex, original)
+        restoredValue = restoredValue.replace(regex, original)
       })
       query.push(createKeyValue(restoredKey, restoredValue, true))
     })
@@ -83,21 +84,31 @@ export function createUrl(raw = '') {
     // Build raw URL without query string (base URL only)
     let baseRaw = url.origin + url.pathname
 
-    // Restore variables in the base URL
+    // Restore variables in the base URL (case-insensitive since URL API lowercases hostnames)
     variableMap.forEach((original, placeholder) => {
-      baseRaw = baseRaw.replace(placeholder, original)
+      const regex = new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')
+      baseRaw = baseRaw.replace(regex, original)
     })
 
-    // Build path with restored variables
+    // Build path with restored variables (case-insensitive for consistency)
     let pathname = url.pathname
     variableMap.forEach((original, placeholder) => {
-      pathname = pathname.replace(placeholder, original)
+      const regex = new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')
+      pathname = pathname.replace(regex, original)
+    })
+
+    // Restore variables in hostname (URL lowercases hostnames, so use case-insensitive replace)
+    let hostname = url.hostname
+    variableMap.forEach((original, placeholder) => {
+      // Case-insensitive replacement since URL API lowercases hostnames
+      const regex = new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')
+      hostname = hostname.replace(regex, original)
     })
 
     return {
       raw: baseRaw,
       protocol: url.protocol.replace(':', ''),
-      host: url.hostname.split('.'),
+      host: hostname.split('.'),
       port: url.port || undefined,
       path: pathname === '/' ? [] : pathname.split('/').filter(Boolean),
       query,

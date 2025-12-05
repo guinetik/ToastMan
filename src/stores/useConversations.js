@@ -11,6 +11,9 @@ import {
   createRequestMessage,
   createResponseMessage,
   createValidationMessage,
+  createScriptResultsMessage,
+  createConsoleLogMessage,
+  createEnvChangeMessage,
   addMessageToConversation,
   MESSAGE_TYPES
 } from '../models/Conversation.js'
@@ -181,6 +184,80 @@ function createConversationsStore() {
   }
 
   /**
+   * Add script results message to the active conversation
+   * @param {object} scriptResult - The script execution result from PostmanScriptRunner
+   * @returns {object|null} The created message
+   */
+  const addScriptResults = (scriptResult) => {
+    const conversation = activeConversation.value
+    if (!conversation) {
+      logger.warn('No active conversation to add script results to')
+      return null
+    }
+
+    // Only add if there are tests or an error
+    if (!scriptResult.tests?.length && !scriptResult.error) {
+      return null
+    }
+
+    const message = createScriptResultsMessage(scriptResult)
+    addMessageToConversation(conversation, message)
+
+    logger.debug('Script results message added:', message.id)
+    return message
+  }
+
+  /**
+   * Add console log message to the active conversation
+   * @param {Array} logs - Array of console log entries
+   * @returns {object|null} The created message
+   */
+  const addConsoleLogs = (logs) => {
+    const conversation = activeConversation.value
+    if (!conversation) {
+      logger.warn('No active conversation to add console logs to')
+      return null
+    }
+
+    // Only add if there are logs
+    if (!logs?.length) {
+      return null
+    }
+
+    const message = createConsoleLogMessage(logs)
+    addMessageToConversation(conversation, message)
+
+    logger.debug('Console log message added:', message.id)
+    return message
+  }
+
+  /**
+   * Add environment change message to the active conversation
+   * @param {Array} changes - Array of env changes
+   * @param {string} environmentName - Name of the active environment
+   * @param {boolean} hasActiveEnvironment - Whether there was an active environment
+   * @returns {object|null} The created message
+   */
+  const addEnvChanges = (changes, environmentName = '', hasActiveEnvironment = true) => {
+    const conversation = activeConversation.value
+    if (!conversation) {
+      logger.warn('No active conversation to add env changes to')
+      return null
+    }
+
+    // Only add if there are changes
+    if (!changes?.length) {
+      return null
+    }
+
+    const message = createEnvChangeMessage(changes, environmentName, hasActiveEnvironment)
+    addMessageToConversation(conversation, message)
+
+    logger.debug('Environment change message added:', message.id)
+    return message
+  }
+
+  /**
    * Clear messages from the active conversation
    */
   const clearActiveConversation = () => {
@@ -271,6 +348,9 @@ function createConversationsStore() {
     addRequest,
     addResponse,
     addValidationError,
+    addScriptResults,
+    addConsoleLogs,
+    addEnvChanges,
     clearActiveConversation,
     deleteConversation,
     getConversationByRequest,

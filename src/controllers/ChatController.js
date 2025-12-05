@@ -18,6 +18,7 @@ import { curlToRequest, validateCurlInput } from '../utils/curlParser.js'
 import { requestToCurl, requestToDisplay } from '../utils/curlGenerator.js'
 import { createRequest, createKeyValue, createRequestBody, createUrl } from '../models/types.js'
 import { validateCurl } from '../ace/curl-validator.js'
+import { PostmanScriptRunner } from '../core/scripting/PostmanScriptRunner.js'
 
 export class ChatController extends BaseController {
   constructor() {
@@ -67,6 +68,12 @@ export class ChatController extends BaseController {
         apikey: { key: 'X-API-Key', value: '', in: 'header' }
       },
 
+      // Script configuration
+      script: {
+        preRequest: '',
+        postRequest: ''
+      },
+
       // Active visual tab (headers, body, params)
       activeVisualTab: 'params',
 
@@ -89,10 +96,17 @@ export class ChatController extends BaseController {
     this.createWatcher(
       () => this.state.composerMode,
       (newMode, oldMode) => {
+        // Sync between curl and visual modes
+        // Script mode is independent and doesn't require syncing
         if (oldMode === 'curl' && newMode === 'visual') {
           this.syncCurlToVisual()
         } else if (oldMode === 'visual' && newMode === 'curl') {
           this.syncVisualToCurl()
+        } else if (oldMode === 'script' && newMode === 'curl') {
+          // When leaving script mode to curl, ensure curl is synced
+          this.syncVisualToCurl()
+        } else if (oldMode === 'script' && newMode === 'visual') {
+          // Visual form already has current state, no sync needed
         }
       }
     )
@@ -116,7 +130,7 @@ export class ChatController extends BaseController {
    * Set composer mode
    */
   setComposerMode(mode) {
-    if (mode === 'curl' || mode === 'visual') {
+    if (mode === 'curl' || mode === 'visual' || mode === 'script') {
       this.state.composerMode = mode
     }
   }
@@ -296,6 +310,29 @@ export class ChatController extends BaseController {
       }
     }
 
+    // Scripts - extract from Postman event array
+    this.state.script = {
+      preRequest: '',
+      postRequest: ''
+    }
+
+    if (requestItem.event && Array.isArray(requestItem.event)) {
+      for (const event of requestItem.event) {
+        if (event.listen === 'test' && event.script?.exec) {
+          // Convert array of lines to single string
+          const scriptLines = Array.isArray(event.script.exec)
+            ? event.script.exec
+            : [event.script.exec]
+          this.state.script.postRequest = scriptLines.join('\n')
+        } else if (event.listen === 'prerequest' && event.script?.exec) {
+          const scriptLines = Array.isArray(event.script.exec)
+            ? event.script.exec
+            : [event.script.exec]
+          this.state.script.preRequest = scriptLines.join('\n')
+        }
+      }
+    }
+
     // Generate cURL
     this.syncVisualToCurl()
 
@@ -470,6 +507,11 @@ export class ChatController extends BaseController {
       // Add response message to conversation
       this.conversationsStore.addResponse(response)
 
+      // Execute post-request script if present
+      if (this.state.script.postRequest?.trim()) {
+        await this.executePostRequestScript(response)
+      }
+
       // Auto-save to collection if linked
       if (this.state.currentRequestId && this.state.currentCollectionId) {
         this.saveToCollection()
@@ -496,6 +538,107 @@ export class ChatController extends BaseController {
   }
 
   /**
+   * Execute post-request script after receiving a response
+   * @param {object} response - The HTTP response object
+   */
+  async executePostRequestScript(response) {
+    const scriptContent = this.state.script.postRequest
+    if (!scriptContent?.trim()) return
+
+    this.logger.debug('Executing post-request script')
+
+    try {
+      // Build environment accessor functions
+      const environmentAccessor = {
+        get: (key) => {
+          return this.environmentsStore.getVariable(key)
+        },
+        set: (key, value) => {
+          this.environmentsStore.setVariable(key, String(value))
+        },
+        unset: (key) => {
+          this.environmentsStore.unsetVariable(key)
+        },
+        has: (key) => {
+          return this.environmentsStore.getVariable(key) !== undefined
+        }
+      }
+
+      // Get request name for pm.info
+      let requestName = 'Request'
+      if (this.state.currentRequestId && this.state.currentCollectionId) {
+        const requestItem = this.collectionsStore.getRequest(
+          this.state.currentCollectionId,
+          this.state.currentRequestId
+        )
+        if (requestItem) {
+          requestName = requestItem.name
+        }
+      }
+
+      // Create the script runner with environment store
+      const runner = new PostmanScriptRunner({
+        environmentStore: this.environmentsStore,
+        logger: this.logger
+      })
+
+      // Execute the script with response context
+      const result = runner.execute({
+        script: scriptContent,
+        response: {
+          status: response.status,
+          statusText: response.statusText,
+          headers: response.headers || {},
+          body: response.body,
+          time: response.time
+        },
+        requestName
+      })
+
+      // Add console log messages to conversation if any
+      if (result.consoleLogs && result.consoleLogs.length > 0) {
+        this.conversationsStore.addConsoleLogs(result.consoleLogs)
+      }
+
+      // Add environment change messages to conversation if any
+      if (result.environmentChanges && result.environmentChanges.length > 0) {
+        const activeEnv = this.environmentsStore.activeEnvironment
+        this.conversationsStore.addEnvChanges(
+          result.environmentChanges,
+          activeEnv?.name || '',
+          !!activeEnv
+        )
+      }
+
+      // Add test results message to conversation if there are tests
+      if ((result.tests && result.tests.length > 0) || result.error) {
+        this.conversationsStore.addScriptResults({
+          tests: result.tests || [],
+          duration: result.duration || 0,
+          error: result.error
+        })
+      }
+
+      // Log summary
+      const tests = result.tests || []
+      const envChanges = result.environmentChanges || []
+      const passed = tests.filter(t => t.passed).length
+      const failed = tests.filter(t => !t.passed).length
+      this.logger.info(`Script executed: ${passed} passed, ${failed} failed, ${envChanges.length} env changes`)
+
+    } catch (error) {
+      this.logger.error('Script execution error:', error)
+
+      // Add error result to conversation
+      this.conversationsStore.addScriptResults({
+        tests: [],
+        duration: 0,
+        error: error.message || 'Script execution failed'
+      })
+    }
+  }
+
+  /**
    * Save current request state to collection
    */
   saveToCollection() {
@@ -506,10 +649,36 @@ export class ChatController extends BaseController {
 
     const request = this.buildRequestFromVisual()
 
+    // Build event array for scripts (Postman format)
+    const event = []
+
+    if (this.state.script.preRequest?.trim()) {
+      event.push({
+        listen: 'prerequest',
+        script: {
+          type: 'text/javascript',
+          exec: this.state.script.preRequest.split('\n')
+        }
+      })
+    }
+
+    if (this.state.script.postRequest?.trim()) {
+      event.push({
+        listen: 'test',
+        script: {
+          type: 'text/javascript',
+          exec: this.state.script.postRequest.split('\n')
+        }
+      })
+    }
+
     this.collectionsStore.updateRequest(
       this.state.currentCollectionId,
       this.state.currentRequestId,
-      { request }
+      {
+        request,
+        event: event.length > 0 ? event : undefined
+      }
     )
 
     this.logger.debug('Request saved to collection')
@@ -530,6 +699,10 @@ export class ChatController extends BaseController {
       bearer: { token: '' },
       basic: { username: '', password: '' },
       apikey: { key: 'X-API-Key', value: '', in: 'header' }
+    }
+    this.state.script = {
+      preRequest: '',
+      postRequest: ''
     }
     this.state.requestError = null
   }

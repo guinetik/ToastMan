@@ -21,6 +21,14 @@
               Headers ({{ headersCount }})
             </button>
             <button
+              v-if="hasBody"
+              class="download-btn"
+              @click="downloadResponse"
+              title="Download response"
+            >
+              ⤵
+            </button>
+            <button
               class="maximize-btn"
               @click="emit(maximized ? 'minimize' : 'maximize', message)"
               :title="maximized ? 'Restore' : 'Maximize'"
@@ -75,6 +83,14 @@
               title="View response body"
             >
               Body
+            </button>
+            <button
+              v-if="hasBody"
+              class="download-btn"
+              @click="downloadResponse"
+              title="Download response"
+            >
+              ⤵
             </button>
             <button
               class="maximize-btn"
@@ -238,6 +254,42 @@ const formattedTimestamp = computed(() => {
 
 function toggleBody() {
   bodyExpanded.value = !bodyExpanded.value
+}
+
+function downloadResponse() {
+  if (!hasBody.value) return
+
+  // Determine file extension from content type
+  const contentType = headers.value['content-type'] || ''
+  let extension = 'txt'
+  let mimeType = 'text/plain'
+
+  if (contentType.includes('json')) {
+    extension = 'json'
+    mimeType = 'application/json'
+  } else if (contentType.includes('html')) {
+    extension = 'html'
+    mimeType = 'text/html'
+  } else if (contentType.includes('xml')) {
+    extension = 'xml'
+    mimeType = 'application/xml'
+  }
+
+  // Create blob and download
+  const content = formattedBody.value
+  const blob = new Blob([content], { type: mimeType })
+  const url = URL.createObjectURL(blob)
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+  const filename = `response-${timestamp}.${extension}`
+
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }
 </script>
 
@@ -531,6 +583,25 @@ function toggleBody() {
 }
 
 .maximize-btn:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-text-secondary);
+}
+
+/* Download button */
+.download-btn {
+  padding: 4px 8px;
+  font-size: 14px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  transition: all 0.2s ease;
+  line-height: 1;
+}
+
+.download-btn:hover {
   background: var(--color-bg-hover);
   color: var(--color-text-primary);
   border-color: var(--color-text-secondary);

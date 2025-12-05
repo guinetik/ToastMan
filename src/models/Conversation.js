@@ -14,7 +14,10 @@ import { generateId } from './types.js'
 export const MESSAGE_TYPES = {
   REQUEST: 'request',
   RESPONSE: 'response',
-  VALIDATION: 'validation'
+  VALIDATION: 'validation',
+  SCRIPT_RESULTS: 'script_results',
+  CONSOLE_LOG: 'console_log',
+  ENV_CHANGE: 'env_change'
 }
 
 /**
@@ -87,6 +90,54 @@ export function createValidationMessage(errors, curlInput = '') {
       curlInput,
       errorCount: errors.filter(e => e.type === 'error').length,
       warningCount: errors.filter(e => e.type === 'warning').length
+    }
+  })
+}
+
+/**
+ * Create a script results message
+ * @param {object} scriptResult - The script execution result from PostmanScriptRunner
+ * @returns {object}
+ */
+export function createScriptResultsMessage(scriptResult) {
+  return createConversationMessage({
+    type: MESSAGE_TYPES.SCRIPT_RESULTS,
+    data: {
+      tests: scriptResult.tests || [],
+      duration: scriptResult.duration || 0,
+      error: scriptResult.error || null
+    }
+  })
+}
+
+/**
+ * Create a console log message
+ * @param {Array} logs - Array of console log entries { type, args, timestamp }
+ * @returns {object}
+ */
+export function createConsoleLogMessage(logs) {
+  return createConversationMessage({
+    type: MESSAGE_TYPES.CONSOLE_LOG,
+    data: {
+      logs
+    }
+  })
+}
+
+/**
+ * Create an environment change message
+ * @param {Array} changes - Array of env changes { action, key, value, oldValue }
+ * @param {string} environmentName - Name of the active environment
+ * @param {boolean} hasActiveEnvironment - Whether there was an active environment
+ * @returns {object}
+ */
+export function createEnvChangeMessage(changes, environmentName = '', hasActiveEnvironment = true) {
+  return createConversationMessage({
+    type: MESSAGE_TYPES.ENV_CHANGE,
+    data: {
+      changes,
+      environmentName,
+      hasActiveEnvironment
     }
   })
 }
@@ -180,6 +231,9 @@ export default {
   createRequestMessage,
   createResponseMessage,
   createValidationMessage,
+  createScriptResultsMessage,
+  createConsoleLogMessage,
+  createEnvChangeMessage,
   addMessageToConversation,
   getLastRequestMessage,
   getLastResponseMessage,

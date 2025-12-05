@@ -528,19 +528,35 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(4px);
+  background: rgba(10, 10, 15, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   z-index: 10000;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
-  animation: fadeIn 0.2s ease;
+  animation: corsBackdropFadeIn 0.2s ease-out;
+}
+
+@keyframes corsBackdropFadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(8px);
+  }
 }
 
 .cors-modal {
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
+  background: linear-gradient(
+    135deg,
+    rgba(30, 30, 30, 0.98) 0%,
+    rgba(20, 20, 20, 0.98) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-lg);
   max-width: 700px;
   width: 100%;
@@ -548,7 +564,21 @@ onMounted(() => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow:
+    0 25px 50px -12px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+  animation: corsModalAppear 0.25s ease-out;
+}
+
+@keyframes corsModalAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .cors-modal-header {

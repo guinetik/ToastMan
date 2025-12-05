@@ -83,24 +83,43 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(10, 10, 15, 0.85);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: backdropFadeIn 0.2s ease-out;
+}
+
+@keyframes backdropFadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(8px);
+  }
 }
 
 .dialog-container {
-  background: var(--color-bg-secondary);
+  background: linear-gradient(
+    135deg,
+    rgba(30, 30, 30, 0.98) 0%,
+    rgba(20, 20, 20, 0.98) 100%
+  );
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  border: 1px solid var(--color-border);
+  box-shadow:
+    0 25px 50px -12px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   flex-direction: column;
   max-width: 90vw;
   overflow: hidden;
-  animation: dialogAppear 0.2s ease-out;
+  animation: dialogAppear 0.25s ease-out;
 }
 
 @keyframes dialogAppear {

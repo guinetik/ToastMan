@@ -4,6 +4,14 @@
     <div v-if="conversation" class="thread-header">
       <h3 class="thread-title">{{ conversation.name }}</h3>
       <div class="thread-actions">
+        <button
+          class="action-btn toggle-btn"
+          :class="{ active: showTests }"
+          @click="showTests = !showTests"
+          :title="showTests ? 'Hide test results' : 'Show test results'"
+        >
+          {{ showTests ? 'Hide Tests' : 'Show Tests' }}
+        </button>
         <button class="action-btn" @click="clearConversation" title="Clear conversation">
           Clear
         </button>
@@ -12,7 +20,7 @@
 
     <!-- Messages List -->
     <div ref="messagesContainer" class="messages-container">
-      <div v-if="messages.length === 0" class="empty-state">
+      <div v-if="filteredMessages.length === 0" class="empty-state">
         <div class="empty-icon">💬</div>
         <p class="empty-title">Start a conversation</p>
         <p class="empty-subtitle">
@@ -21,7 +29,7 @@
       </div>
 
       <TransitionGroup name="message" tag="div" class="messages-list">
-        <template v-for="message in messages" :key="message.id">
+        <template v-for="message in filteredMessages" :key="message.id">
           <RequestBubble
             v-if="message.type === 'request'"
             :message="message"
@@ -34,6 +42,18 @@
           />
           <ValidationBubble
             v-else-if="message.type === 'validation'"
+            :message="message"
+          />
+          <ConsoleMessage
+            v-else-if="message.type === 'console_log'"
+            :message="message"
+          />
+          <ScriptMessage
+            v-else-if="message.type === 'script_results'"
+            :message="message"
+          />
+          <EnvChangeMessage
+            v-else-if="message.type === 'env_change'"
             :message="message"
           />
         </template>
@@ -57,6 +77,9 @@ import { ref, computed, watch, nextTick } from 'vue'
 import RequestBubble from './RequestBubble.vue'
 import ResponseBubble from './ResponseBubble.vue'
 import ValidationBubble from './ValidationBubble.vue'
+import ScriptMessage from './ScriptMessage.vue'
+import ConsoleMessage from './ConsoleMessage.vue'
+import EnvChangeMessage from './EnvChangeMessage.vue'
 
 const props = defineProps({
   conversation: {
@@ -76,6 +99,18 @@ const props = defineProps({
 const emit = defineEmits(['edit-request', 'clear', 'maximize-response'])
 
 const messagesContainer = ref(null)
+const showTests = ref(true)
+
+// Message types that are test-related
+const testMessageTypes = ['script_results', 'console_log', 'env_change']
+
+// Filter messages based on toggle
+const filteredMessages = computed(() => {
+  if (showTests.value) {
+    return props.messages
+  }
+  return props.messages.filter(m => !testMessageTypes.includes(m.type))
+})
 
 // Auto-scroll to bottom when new messages arrive
 watch(
@@ -158,6 +193,20 @@ function handleMaximize(message) {
 .action-btn:hover {
   background: var(--color-bg-hover);
   color: var(--color-text-primary);
+}
+
+.toggle-btn {
+  background: transparent;
+}
+
+.toggle-btn.active {
+  background: rgba(37, 99, 235, 0.15);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.toggle-btn.active:hover {
+  background: rgba(37, 99, 235, 0.25);
 }
 
 .messages-container {

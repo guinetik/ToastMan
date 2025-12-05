@@ -49,8 +49,17 @@ export class SettingsDialogController extends BaseDialogController {
    */
   saveSettings() {
     try {
-      localStorage.setItem('toastman_settings', JSON.stringify(this.state.settings.toJSON()))
+      const settingsData = this.state.settings.toJSON()
+      localStorage.setItem('toastman_settings', JSON.stringify(settingsData))
       this.logger.info('Settings saved successfully')
+
+      // Dispatch custom event to notify other components (like AceTextEditor)
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'toastman_settings',
+        newValue: JSON.stringify(settingsData),
+        storageArea: localStorage
+      }))
+
       return true
     } catch (error) {
       this.logger.error('Failed to save settings:', error)
@@ -220,6 +229,16 @@ export class SettingsDialogController extends BaseDialogController {
 
     if (updates.fontSize) {
       document.documentElement.style.setProperty('--font-size-base', `${updates.fontSize}px`)
+    }
+
+    // Notify other components of editor theme changes for live preview
+    if (updates.editorThemeDark || updates.editorThemeLight) {
+      const previewData = { ui: this.state.formData.ui }
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'toastman_settings',
+        newValue: JSON.stringify(previewData),
+        storageArea: localStorage
+      }))
     }
   }
 

@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { UISettingsController } from '../../controllers/settings/UISettingsController.js'
+import { ACE_DARK_THEMES, ACE_LIGHT_THEMES } from '../../config/editors.js'
 
 const props = defineProps({
   settings: {
@@ -27,6 +28,16 @@ const { errors } = controller.state
 const theme = computed({
   get: () => props.settings.theme,
   set: (value) => controller.updateSettings({ theme: value })
+})
+
+const editorThemeDark = computed({
+  get: () => props.settings.editorThemeDark || 'gob',
+  set: (value) => controller.updateSettings({ editorThemeDark: value })
+})
+
+const editorThemeLight = computed({
+  get: () => props.settings.editorThemeLight || 'textmate',
+  set: (value) => controller.updateSettings({ editorThemeLight: value })
 })
 
 const fontSize = computed({
@@ -66,6 +77,30 @@ const autoComplete = computed({
       </select>
       <div class="setting-description">
         Choose the application color theme
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <label class="setting-label">Editor Theme (Dark Mode)</label>
+      <select v-model="editorThemeDark" class="setting-select">
+        <option v-for="t in ACE_DARK_THEMES" :key="t.id" :value="t.id">
+          {{ t.name }}
+        </option>
+      </select>
+      <div class="setting-description">
+        {{ ACE_DARK_THEMES.find(t => t.id === editorThemeDark)?.description || 'Code editor theme when in dark mode' }}
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <label class="setting-label">Editor Theme (Light Mode)</label>
+      <select v-model="editorThemeLight" class="setting-select">
+        <option v-for="t in ACE_LIGHT_THEMES" :key="t.id" :value="t.id">
+          {{ t.name }}
+        </option>
+      </select>
+      <div class="setting-description">
+        {{ ACE_LIGHT_THEMES.find(t => t.id === editorThemeLight)?.description || 'Code editor theme when in light mode' }}
       </div>
     </div>
 

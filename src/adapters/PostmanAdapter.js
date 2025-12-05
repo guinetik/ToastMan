@@ -74,7 +74,7 @@ export class PostmanAdapter {
     if (collection.event && collection.event.length > 0) {
       warnings.push({
         type: 'scripts',
-        message: 'Collection-level scripts detected. Scripts are stored but not executed.'
+        message: 'Collection-level scripts detected. Collection scripts run for all requests and are not supported.'
       })
     }
 
@@ -169,7 +169,7 @@ export class PostmanAdapter {
         if (item.event && item.event.length > 0) {
           itemWarnings.push({
             type: 'scripts',
-            message: `Folder "${item.name}" has scripts. Scripts are stored but not executed.`,
+            message: `Folder "${item.name}" has scripts. Folder scripts run for all contained requests and are not supported.`,
             item: item.name
           })
           folder.event = item.event
@@ -231,17 +231,15 @@ export class PostmanAdapter {
       const hasPreRequest = item.event.some(e => e.listen === 'prerequest')
       const hasTest = item.event.some(e => e.listen === 'test')
 
-      if (hasPreRequest || hasTest) {
-        const scriptTypes = []
-        if (hasPreRequest) scriptTypes.push('pre-request')
-        if (hasTest) scriptTypes.push('test')
-
+      // Only warn for pre-request scripts (post-request/test scripts are now executed)
+      if (hasPreRequest) {
         requestWarnings.push({
           type: 'scripts',
-          message: `Request "${item.name}" has ${scriptTypes.join(' and ')} scripts. Scripts are stored but not executed.`,
+          message: `Request "${item.name}" has pre-request scripts. Pre-request scripts are stored but not executed.`,
           item: item.name
         })
       }
+
       normalized.event = item.event
     }
 

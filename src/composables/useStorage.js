@@ -107,12 +107,18 @@ export function useStorage(key, defaultValue = null, options = {}) {
   window.addEventListener('storage', handleStorageChange)
 
   // Listen for internal storage events (from same tab)
-  // Note: We don't need to update data here since we're the source of the event
-  // This handler was causing circular updates - removing the data.value assignment
+  // We need to update our ref when another instance of useStorage for the same key updates
   const handleInternalStorageChange = (event) => {
-    // Only handle events from OTHER useStorage instances for the same key
-    // Since we're the one who dispatched this event, we don't need to update
-    // The data is already current
+    if (event.detail.key === key) {
+      // Only update if the value is different (prevents circular updates)
+      const currentStringified = safeJsonStringify(data.value)
+      const newStringified = safeJsonStringify(event.detail.value)
+      if (currentStringified !== newStringified) {
+        isUpdatingFromEvent = true
+        data.value = event.detail.value
+        nextTick(() => { isUpdatingFromEvent = false })
+      }
+    }
   }
 
   storageEvents.addEventListener('storage-change', handleInternalStorageChange)
@@ -161,10 +167,11 @@ export function useEnvironmentsStorage() {
 }
 
 /**
- * Settings storage
+ * Settings storage with schema migration support
+ * Merges defaults with stored values to ensure new fields are always present
  */
 export function useSettingsStorage() {
-  return useStorage(STORAGE_KEYS.SETTINGS, {
+  const defaults = {
     proxy: {
       enabled: false,
       protocol: 'http',
@@ -176,11 +183,39 @@ export function useSettingsStorage() {
     },
     certificates: [],
     theme: 'dark',
+    editorThemeDark: 'gob',         // Editor theme for dark mode
+    editorThemeLight: 'textmate',   // Editor theme for light mode
     autoSave: true,
     requestTimeout: 30000,
     followRedirects: true,
-    maxRedirects: 10
-  })
+    maxRedirects: 10,
+    fontSize: 14,
+    fontFamily: 'monospace',
+    sidebarWidth: 25,
+    responseViewMode: 'pretty',
+    requestViewMode: 'params',
+    showLineNumbers: true,
+    wordWrap: false,
+    minimap: false,
+    autoComplete: true
+  }
+
+  const storage = useStorage(STORAGE_KEYS.SETTINGS, defaults)
+
+  // Merge defaults with stored values to ensure new fields exist
+  if (storage.data.value) {
+    const merged = { ...defaults, ...storage.data.value }
+    // Also merge nested proxy object
+    if (storage.data.value.proxy) {
+      merged.proxy = { ...defaults.proxy, ...storage.data.value.proxy }
+    }
+    // Only update if there are missing fields
+    if (JSON.stringify(merged) !== JSON.stringify(storage.data.value)) {
+      storage.data.value = merged
+    }
+  }
+
+  return storage
 }
 
 /**

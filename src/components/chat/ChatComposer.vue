@@ -16,6 +16,14 @@
       >
         Visual
       </button>
+      <button
+        class="tab-btn"
+        :class="{ active: mode === 'script', 'has-script': hasScript }"
+        @click="setMode('script')"
+      >
+        Script
+        <span v-if="hasScript" class="script-dot"></span>
+      </button>
     </div>
 
     <!-- cURL Mode -->
@@ -34,7 +42,7 @@
     </div>
 
     <!-- Visual Mode -->
-    <div v-else class="visual-input-container">
+    <div v-else-if="mode === 'visual'" class="visual-input-container">
       <div class="url-row">
         <select v-model="method" class="method-select" :style="{ color: methodColor }">
           <option v-for="m in httpMethods" :key="m" :value="m">{{ m }}</option>
@@ -235,6 +243,62 @@
       </div>
     </div>
 
+    <!-- Script Mode -->
+    <div v-else-if="mode === 'script'" class="script-input-container">
+      <div class="script-header">
+        <div class="script-type-selector">
+          <select v-model="scriptType" class="script-type-select">
+            <option value="test">Post-Request Script</option>
+            <option value="prerequest">Pre-Request Script</option>
+          </select>
+          <span v-if="scriptType === 'prerequest'" class="prerequest-warning">
+            Pre-request scripts are stored but not executed
+          </span>
+        </div>
+        <div class="script-actions">
+          <select v-model="selectedSnippet" @change="insertSnippet" class="snippet-select">
+            <option value="">Insert Snippet...</option>
+            <optgroup v-for="(categorySnippets, category) in snippetsByCategory" :key="category" :label="category">
+              <option v-for="snippet in categorySnippets" :key="snippet.name" :value="snippet.name">
+                {{ snippet.name }}
+              </option>
+            </optgroup>
+          </select>
+        </div>
+      </div>
+
+      <div class="script-editor-container">
+        <component
+          :is="TextEditor"
+          ref="scriptEditorRef"
+          v-model="script.postRequest"
+          language="javascript"
+          :theme="editorDefaults.theme"
+          height="100%"
+          placeholder="// Write your post-request script here&#10;// Example: pm.test('Status is 200', function() {&#10;//   pm.expect(pm.response.code).to.equal(200);&#10;// });"
+          :options="{ showGutter: true, wrap: true, fontSize: 12 }"
+        />
+      </div>
+
+      <div class="script-help">
+        <details>
+          <summary>Available APIs</summary>
+          <div class="api-list">
+            <code>pm.response.code</code> - Status code<br>
+            <code>pm.response.json()</code> - Parse body as JSON<br>
+            <code>pm.response.text()</code> - Raw body text<br>
+            <code>pm.response.responseTime</code> - Duration in ms<br>
+            <code>pm.response.headers.get(name)</code> - Get header<br>
+            <code>pm.environment.get(key)</code> - Get env variable<br>
+            <code>pm.environment.set(key, value)</code> - Set env variable<br>
+            <code>pm.test(name, fn)</code> - Run test assertion<br>
+            <code>pm.expect(value)</code> - Chai-like assertions<br>
+            <code>console.log(...)</code> - Log output
+          </div>
+        </details>
+      </div>
+    </div>
+
     <!-- Action Buttons -->
     <div class="composer-actions">
       <button
@@ -261,10 +325,14 @@
 import { ref, computed, watch } from 'vue'
 import { getCurrentEditor, getCurrentEditorDefaults } from '../../config/editors.js'
 import VariableHighlightInput from '../VariableHighlightInput.vue'
+import { getSnippetsByCategory, findSnippet } from '../../core/scripting/snippets.js'
 
 // Get the configured text editor (ACE)
 const TextEditor = getCurrentEditor()
 const editorDefaults = getCurrentEditorDefaults()
+
+// Script snippets
+const snippetsByCategory = getSnippetsByCategory()
 
 const props = defineProps({
   controller: {
@@ -289,9 +357,16 @@ const auth = ref(props.controller.state.auth || {
   basic: { username: '', password: '' },
   apikey: { key: 'X-API-Key', value: '', in: 'header' }
 })
+const script = ref(props.controller.state.script || {
+  preRequest: '',
+  postRequest: ''
+})
 const activeTab = ref('params')
+const scriptType = ref('test')
+const selectedSnippet = ref('')
 
 const curlInputRef = ref(null)
+const scriptEditorRef = ref(null)
 
 const isLoading = computed(() => props.controller.state.isLoading)
 
@@ -340,6 +415,11 @@ const canSave = computed(() => {
          props.controller.state.currentCollectionId
 })
 
+const hasScript = computed(() => {
+  return (script.value.postRequest && script.value.postRequest.trim().length > 0) ||
+         (script.value.preRequest && script.value.preRequest.trim().length > 0)
+})
+
 // Sync local state to controller
 watch(mode, (val) => props.controller.setComposerMode(val))
 watch(curlInput, (val) => props.controller.setCurlInput(val))
@@ -349,6 +429,7 @@ watch(headers, (val) => props.controller.updateField('headers', val), { deep: tr
 watch(params, (val) => props.controller.updateField('params', val), { deep: true })
 watch(body, (val) => props.controller.updateField('body', val), { deep: true })
 watch(auth, (val) => props.controller.updateField('auth', val), { deep: true })
+watch(script, (val) => props.controller.updateField('script', val), { deep: true })
 
 // Sync controller state to local (for when controller loads a request)
 watch(() => props.controller.state.composerMode, (val) => { mode.value = val })
@@ -360,6 +441,9 @@ watch(() => props.controller.state.params, (val) => { params.value = val }, { de
 watch(() => props.controller.state.body, (val) => { body.value = val }, { deep: true })
 watch(() => props.controller.state.auth, (val) => {
   if (val) auth.value = val
+}, { deep: true })
+watch(() => props.controller.state.script, (val) => {
+  if (val) script.value = val
 }, { deep: true })
 
 function setMode(m) {
@@ -407,6 +491,21 @@ function send() {
 function save() {
   if (!canSave.value) return
   emit('save')
+}
+
+function insertSnippet() {
+  if (!selectedSnippet.value) return
+
+  const snippet = findSnippet(selectedSnippet.value)
+  if (snippet) {
+    // Insert the snippet code into the current script
+    const currentScript = script.value.postRequest || ''
+    const separator = currentScript.trim() ? '\n\n' : ''
+    script.value.postRequest = currentScript + separator + snippet.code
+  }
+
+  // Reset the dropdown
+  selectedSnippet.value = ''
 }
 </script>
 
@@ -879,5 +978,144 @@ input.auth-input::placeholder {
   font-style: italic;
   font-size: 13px;
   margin: 0;
+}
+
+/* Script Tab Styles */
+.tab-btn.has-script {
+  position: relative;
+}
+
+.script-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--color-warning, #f59e0b);
+  border-radius: 50%;
+  display: inline-block;
+  margin-left: 4px;
+}
+
+.script-input-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.script-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.script-type-selector {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.script-type-select {
+  padding: 6px 10px;
+  font-size: 12px;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-primary);
+  min-width: 160px;
+}
+
+.prerequest-warning {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  font-size: 11px;
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--color-warning, #f59e0b);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 4px;
+}
+
+.script-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.snippet-select {
+  padding: 6px 10px;
+  font-size: 12px;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-primary);
+  min-width: 160px;
+}
+
+.snippet-select option {
+  padding: 4px 8px;
+}
+
+.script-editor-container {
+  flex: 1;
+  min-height: 150px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--color-bg-primary);
+}
+
+.script-editor-container :deep(.ace-text-editor) {
+  height: 100%;
+}
+
+.script-editor-container :deep(.ace-editor-container) {
+  min-height: 150px;
+}
+
+.script-help {
+  flex-shrink: 0;
+}
+
+.script-help details {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.script-help summary {
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.script-help summary:hover {
+  background: var(--color-bg-hover);
+}
+
+.script-help[open] summary {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.api-list {
+  padding: 10px 12px;
+  font-size: 11px;
+  line-height: 1.8;
+  color: var(--color-text-secondary);
+}
+
+.api-list code {
+  background: var(--color-bg-tertiary);
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 11px;
+  color: #a78bfa;
 }
 </style>
