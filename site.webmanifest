@@ -1,7 +1,7 @@
 {
-  "name": "ToastMan API Testing Tool",
+  "name": "ToastMan - Learn cURL by Using It",
   "short_name": "ToastMan",
-  "description": "A lightweight API testing tool built with Vue 3",
+  "description": "The API testing tool that teaches you cURL. Build visually, see the command. Paste commands, see them broken down.",
   "icons": [
     {
       "src": "/android-chrome-192x192.png",
@@ -14,9 +14,9 @@
       "type": "image/png"
     }
   ],
-  "theme_color": "#2563eb",
+  "theme_color": "#1a1a1a",
   "background_color": "#1a1a1a",
   "display": "standalone",
   "start_url": "/",
-  "orientation": "portrait-primary"
+  "orientation": "any"
 }
