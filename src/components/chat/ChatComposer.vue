@@ -28,6 +28,16 @@
 
     <!-- cURL Mode -->
     <div v-if="mode === 'curl'" class="curl-input-container">
+      <div class="curl-toolbar">
+        <button
+          class="curl-format-btn"
+          :class="{ active: curlBeautified }"
+          @click="toggleCurlFormat"
+          :title="curlBeautified ? 'Minify cURL (single line)' : 'Beautify cURL (multi-line)'"
+        >
+          {{ curlBeautified ? '⊟ Minify' : '⊞ Beautify' }}
+        </button>
+      </div>
       <component
         :is="TextEditor"
         ref="curlInputRef"
@@ -36,7 +46,7 @@
         theme="dark"
         height="100%"
         placeholder="Paste cURL: https://api.example.com -X POST -H 'Content-Type: application/json'"
-        :options="{ showGutter: true, wrap: true, fontSize: 13, showLineNumbers: false, showFoldWidgets: false }"
+        :options="{ showGutter: true, wrap: !curlBeautified, fontSize: 13, showLineNumbers: false, showFoldWidgets: false }"
         @send="send"
       />
     </div>
@@ -367,6 +377,7 @@ const selectedSnippet = ref('')
 
 const curlInputRef = ref(null)
 const scriptEditorRef = ref(null)
+const curlBeautified = ref(false)
 
 const isLoading = computed(() => props.controller.state.isLoading)
 
@@ -507,6 +518,75 @@ function insertSnippet() {
   // Reset the dropdown
   selectedSnippet.value = ''
 }
+
+/**
+ * Toggle cURL format between beautified (multi-line) and minified (single line)
+ */
+function toggleCurlFormat() {
+  if (curlBeautified.value) {
+    // Minify: remove line continuations and extra whitespace
+    curlInput.value = minifyCurl(curlInput.value)
+  } else {
+    // Beautify: add line breaks with backslash continuations
+    curlInput.value = beautifyCurl(curlInput.value)
+  }
+  curlBeautified.value = !curlBeautified.value
+}
+
+/**
+ * Beautify cURL command - each option on its own line with backslash continuation
+ */
+function beautifyCurl(curl) {
+  if (!curl.trim()) return curl
+
+  // First, normalize: remove existing line continuations and collapse whitespace
+  let normalized = curl
+    .replace(/\s*\\\s*\n\s*/g, ' ')  // Remove existing \ continuations
+    .replace(/\s+/g, ' ')             // Collapse multiple spaces
+    .trim()
+
+  // Options that should be on their own line
+  const breakBefore = [
+    '-X', '--request',
+    '-H', '--header',
+    '-d', '--data', '--data-raw', '--data-binary', '--data-urlencode',
+    '-F', '--form',
+    '-u', '--user',
+    '-A', '--user-agent',
+    '-b', '--cookie',
+    '-c', '--cookie-jar',
+    '-e', '--referer',
+    '-o', '--output',
+    '-L', '--location',
+    '-k', '--insecure',
+    '-v', '--verbose',
+    '-s', '--silent',
+    '--compressed',
+    '--connect-timeout',
+    '--max-time'
+  ]
+
+  // Build regex to match these options
+  const optionsPattern = breakBefore.map(opt => opt.replace(/-/g, '\\-')).join('|')
+  const regex = new RegExp(`\\s+(${optionsPattern})(?=\\s|$)`, 'g')
+
+  // Add line break before each option
+  const beautified = normalized.replace(regex, ' \\\n  $1')
+
+  return beautified
+}
+
+/**
+ * Minify cURL command - single line, no continuations
+ */
+function minifyCurl(curl) {
+  if (!curl.trim()) return curl
+
+  return curl
+    .replace(/\s*\\\s*\n\s*/g, ' ')  // Remove line continuations
+    .replace(/\s+/g, ' ')             // Collapse multiple spaces
+    .trim()
+}
 </script>
 
 <style scoped>
@@ -553,6 +633,36 @@ function insertSnippet() {
   flex-direction: column;
   min-height: 60px; /* Minimum usable height */
   max-height: 100%; /* Don't exceed parent */
+}
+
+.curl-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding-bottom: 6px;
+  flex-shrink: 0;
+}
+
+.curl-format-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  transition: all 0.15s ease;
+}
+
+.curl-format-btn:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-text-secondary);
+  color: var(--color-text-primary);
+}
+
+.curl-format-btn.active {
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-text-secondary);
+  color: var(--color-text-primary);
 }
 
 /* Override ACE editor min-height for compact curl input */

@@ -77,6 +77,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { useVariableInterpolation } from '../../composables/useVariableInterpolation.js'
 
 const props = defineProps({
   message: {
@@ -86,6 +87,9 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['edit'])
+
+// Get interpolation utilities
+const { interpolateText } = useVariableInterpolation()
 
 const expanded = ref(false)
 const sectionsOpen = ref({
@@ -105,8 +109,11 @@ const url = computed(() => {
   return urlObj.raw || ''
 })
 
+// Interpolate URL to resolve environment variables
+const resolvedUrl = computed(() => interpolateText(url.value))
+
 const displayUrl = computed(() => {
-  const fullUrl = url.value
+  const fullUrl = resolvedUrl.value
   if (fullUrl.length > 60) {
     return fullUrl.substring(0, 60) + '...'
   }

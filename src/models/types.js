@@ -49,82 +49,49 @@ export function createKeyValue(key = '', value = '', enabled = true) {
  * Note: Preserves {{variable}} patterns without URL-encoding them
  */
 export function createUrl(raw = '') {
-  try {
-    // Check if URL contains variable patterns - if so, we need special handling
-    const hasVariables = /\{\{[^}]+\}\}/.test(raw)
+  // Always preserve raw exactly as user typed it
+  // Don't try to "fix" URLs - let errors happen naturally at request time
 
-    // Temporarily replace variables with placeholders to prevent URL encoding
-    const variableMap = new Map()
-    let processedRaw = raw
-    if (hasVariables) {
-      let idx = 0
-      processedRaw = raw.replace(/\{\{([^}]+)\}\}/g, (match) => {
-        const placeholder = `__VAR_PLACEHOLDER_${idx++}__`
-        variableMap.set(placeholder, match)
-        return placeholder
-      })
-    }
+  // Extract query string if present
+  const queryStart = raw.indexOf('?')
+  const baseUrl = queryStart > -1 ? raw.substring(0, queryStart) : raw
+  const queryString = queryStart > -1 ? raw.substring(queryStart + 1) : ''
 
-    const url = new URL(processedRaw.startsWith('http') ? processedRaw : `https://${processedRaw || 'example.com'}`)
-
-    // Extract query parameters from the URL
-    const query = []
-    url.searchParams.forEach((value, key) => {
-      // Restore variables in query params (case-insensitive for consistency)
-      let restoredKey = key
-      let restoredValue = value
-      variableMap.forEach((original, placeholder) => {
-        const regex = new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')
-        restoredKey = restoredKey.replace(regex, original)
-        restoredValue = restoredValue.replace(regex, original)
-      })
-      query.push(createKeyValue(restoredKey, restoredValue, true))
+  // Parse query params
+  const query = []
+  if (queryString) {
+    queryString.split('&').forEach(param => {
+      const eqIndex = param.indexOf('=')
+      if (eqIndex > -1) {
+        query.push(createKeyValue(
+          decodeURIComponent(param.substring(0, eqIndex)),
+          decodeURIComponent(param.substring(eqIndex + 1)),
+          true
+        ))
+      } else if (param) {
+        query.push(createKeyValue(decodeURIComponent(param), '', true))
+      }
     })
+  }
 
-    // Build raw URL without query string (base URL only)
-    let baseRaw = url.origin + url.pathname
+  // Try to extract path (everything after first /)
+  const pathStart = baseUrl.indexOf('/', baseUrl.indexOf('//') > -1 ? baseUrl.indexOf('//') + 2 : 0)
+  const path = pathStart > -1
+    ? baseUrl.substring(pathStart).split('/').filter(Boolean)
+    : []
 
-    // Restore variables in the base URL (case-insensitive since URL API lowercases hostnames)
-    variableMap.forEach((original, placeholder) => {
-      const regex = new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')
-      baseRaw = baseRaw.replace(regex, original)
-    })
+  // Extract hash if present
+  const hashIndex = raw.indexOf('#')
+  const hash = hashIndex > -1 ? raw.substring(hashIndex + 1) : undefined
 
-    // Build path with restored variables (case-insensitive for consistency)
-    let pathname = url.pathname
-    variableMap.forEach((original, placeholder) => {
-      const regex = new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')
-      pathname = pathname.replace(regex, original)
-    })
-
-    // Restore variables in hostname (URL lowercases hostnames, so use case-insensitive replace)
-    let hostname = url.hostname
-    variableMap.forEach((original, placeholder) => {
-      // Case-insensitive replacement since URL API lowercases hostnames
-      const regex = new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')
-      hostname = hostname.replace(regex, original)
-    })
-
-    return {
-      raw: baseRaw,
-      protocol: url.protocol.replace(':', ''),
-      host: hostname.split('.'),
-      port: url.port || undefined,
-      path: pathname === '/' ? [] : pathname.split('/').filter(Boolean),
-      query,
-      hash: url.hash ? url.hash.substring(1) : undefined
-    }
-  } catch (error) {
-    // Fallback for invalid URLs - preserve raw as-is
-    return {
-      raw,
-      protocol: 'https',
-      host: ['example', 'com'],
-      port: undefined,
-      path: [],
-      query: [],
-      hash: undefined
-    }
+  return {
+    raw: baseUrl,
+    protocol: raw.startsWith('https://') ? 'https' : (raw.startsWith('http://') ? 'http' : ''),
+    host: [], // Not needed - we use raw
+    port: undefined,
+    path,
+    query,
+    hash
   }
 }
 

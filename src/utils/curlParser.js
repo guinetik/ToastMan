@@ -82,6 +82,10 @@ function isUrl(str) {
   if (str.startsWith('http://') || str.startsWith('https://')) {
     return true
   }
+  // Template variables like {{BASE_URL}}/path are URLs
+  if (str.includes('{{') && str.includes('}}')) {
+    return true
+  }
   // Looks like a domain (contains . and no spaces, doesn't start with -)
   if (!str.startsWith('-') && str.includes('.') && !str.includes(' ')) {
     return true

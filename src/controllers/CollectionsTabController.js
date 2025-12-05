@@ -99,6 +99,14 @@ export class CollectionsTabController extends BaseController {
     return this.collectionsController.getMethodColor(method)
   }
 
+  searchCollections(query) {
+    return this.collectionsController.searchCollections(query)
+  }
+
+  clearFilters() {
+    return this.collectionsController.clearFilters()
+  }
+
   async createCollection(name) {
     return this.collectionsController.createCollection(name)
   }

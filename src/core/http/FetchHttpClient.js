@@ -103,10 +103,18 @@ export class FetchHttpClient extends HttpClient {
         }
         return body
 
+      case 'formdata':
       case 'form-data':
         // Create FormData object
         const formData = new FormData()
-        if (typeof body === 'object' && !Array.isArray(body)) {
+        // Handle array of {key, value} objects (Postman format)
+        if (Array.isArray(body)) {
+          body.forEach(item => {
+            if (item.key && item.enabled !== false) {
+              formData.append(item.key, item.value || '')
+            }
+          })
+        } else if (typeof body === 'object') {
           Object.entries(body).forEach(([key, value]) => {
             formData.append(key, value)
           })
@@ -115,9 +123,21 @@ export class FetchHttpClient extends HttpClient {
         delete headers['Content-Type']
         return formData
 
+      case 'urlencoded':
       case 'x-www-form-urlencoded':
         headers['Content-Type'] = 'application/x-www-form-urlencoded'
-        if (typeof body === 'object' && !Array.isArray(body)) {
+        // Handle array of {key, value} objects (Postman format)
+        if (Array.isArray(body)) {
+          const params = new URLSearchParams()
+          body.forEach(item => {
+            if (item.key && item.enabled !== false) {
+              params.append(item.key, item.value || '')
+            }
+          })
+          return params.toString()
+        }
+        // Handle plain object
+        if (typeof body === 'object') {
           return new URLSearchParams(body).toString()
         }
         return body

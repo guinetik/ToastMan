@@ -45,6 +45,16 @@ const handleCreateEnvironment = async (name) => {
   }
 }
 
+const handleImportEnvironment = async (data) => {
+  const result = await controller.importEnvironment(data)
+  if (result.success) {
+    showNewEnvironmentDialog.value = false
+    logger.info('Environment imported successfully:', data.name)
+  } else {
+    logger.error('Failed to import environment:', result.error)
+  }
+}
+
 const setActiveEnvironment = (envId) => controller.setActiveEnvironment(envId)
 
 // Context menu methods
@@ -144,6 +154,7 @@ onUnmounted(() => {
       v-if="showNewEnvironmentDialog"
       @close="showNewEnvironmentDialog = false"
       @create="handleCreateEnvironment"
+      @import="handleImportEnvironment"
     />
 
     <!-- Environment Context Menu -->

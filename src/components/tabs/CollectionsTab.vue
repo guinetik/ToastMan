@@ -14,6 +14,10 @@ let controller = null
 // Reactive refs that will be bound to controller state
 const state = ref({})
 
+// Search input state
+const searchQuery = ref('')
+let debounceTimer = null
+
 // Context menu references
 const contextMenuRef = ref(null)
 const requestContextMenuRef = ref(null)
@@ -57,6 +61,12 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  // Clean up debounce timer
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+    debounceTimer = null
+  }
+
   // Clean up controller
   if (controller) {
     if (controller._intervalId) {
@@ -96,6 +106,23 @@ const getMethodColor = (method) => controller?.getMethodColor(method) || '#6b728
 const getCollections = () => controller?.getCollections() || []
 const getFilteredCollections = () => controller?.getFilteredCollections() || []
 const isCollectionExpanded = (id) => controller?.isCollectionExpanded(id) || false
+
+// Search methods
+const handleSearchInput = (event) => {
+  const value = event.target.value
+  searchQuery.value = value
+
+  // Debounce search to avoid excessive filtering
+  if (debounceTimer) clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => {
+    controller?.searchCollections(value)
+  }, 150)
+}
+
+const clearSearch = () => {
+  searchQuery.value = ''
+  controller?.searchCollections('')
+}
 </script>
 
 <template>
@@ -103,6 +130,27 @@ const isCollectionExpanded = (id) => controller?.isCollectionExpanded(id) || fal
     <div class="section-header">
       <span class="section-title">Collections</span>
       <button class="btn-icon" title="New Collection" @click="createNewCollection">+</button>
+    </div>
+
+    <!-- Fuzzy Search Input -->
+    <div class="search-container">
+      <span class="search-icon">🔍</span>
+      <input
+        type="text"
+        class="search-input"
+        placeholder="Search requests..."
+        :value="searchQuery"
+        @input="handleSearchInput"
+        @keydown.escape="clearSearch"
+      />
+      <button
+        v-if="searchQuery"
+        class="search-clear"
+        @click="clearSearch"
+        title="Clear search"
+      >
+        ×
+      </button>
     </div>
 
     <div class="collections-list">
@@ -125,6 +173,12 @@ const isCollectionExpanded = (id) => controller?.isCollectionExpanded(id) || fal
             <li>Import from Postman collections</li>
           </ul>
         </div>
+      </div>
+      <!-- No search results -->
+      <div v-else-if="searchQuery && getFilteredCollections().length === 0" class="empty-state search-empty">
+        <span class="search-empty-icon">🔍</span>
+        <p>No requests match "<strong>{{ searchQuery }}</strong>"</p>
+        <button class="btn-secondary" @click="clearSearch">Clear search</button>
       </div>
       <template v-else>
         <div
@@ -216,9 +270,96 @@ const isCollectionExpanded = (id) => controller?.isCollectionExpanded(id) || fal
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--color-border-light);
+}
+
+/* Search Input */
+.search-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+}
+
+.search-container:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.search-icon {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  outline: none;
+}
+
+.search-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.search-clear {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-muted);
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  transition: all 0.2s ease;
+}
+
+.search-clear:hover {
+  background: var(--color-error);
+  color: white;
+}
+
+/* Search empty state */
+.search-empty {
+  padding: 24px;
+}
+
+.search-empty-icon {
+  font-size: 32px;
+  opacity: 0.5;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.search-empty p {
+  margin: 0 0 16px 0;
+}
+
+.btn-secondary {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
 }
 
 .section-title {

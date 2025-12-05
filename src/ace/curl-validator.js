@@ -368,6 +368,10 @@ function isUrl(str) {
   if (str.startsWith('http://') || str.startsWith('https://')) {
     return true
   }
+  // Template variables like {{BASE_URL}}/path are URLs
+  if (str.includes('{{') && str.includes('}}')) {
+    return true
+  }
   if (!str.startsWith('-') && str.includes('.') && !str.includes(' ')) {
     return true
   }

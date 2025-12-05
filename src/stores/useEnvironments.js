@@ -254,22 +254,28 @@ function createEnvironmentsStore() {
         throw new Error('Invalid environment format')
       }
 
-      // Create Environment instance for validation
-      const imported = new Environment(environmentData)
+      // Valid types for EnvironmentVariable
+      const validTypes = ['default', 'secret', 'boolean', 'number', 'json']
+
+      // Normalize values before creating Environment instance
+      // Postman uses types like "any" which we map to "default"
+      const normalizedValues = (environmentData.values || []).map(variable => ({
+        ...variable,
+        id: generateId(),
+        type: validTypes.includes(variable.type) ? variable.type : 'default'
+      }))
+
+      // Create Environment instance with normalized data
+      // Also normalize color (Postman exports null which we convert to empty string)
+      const imported = new Environment({
+        ...environmentData,
+        values: normalizedValues,
+        color: environmentData.color || ''
+      })
       imported.id = generateId()
       imported.name = `${imported.name} (Imported)`
       imported._postman_exported_at = new Date().toISOString()
       imported._postman_exported_using = 'ToastMan'
-
-      // Generate new IDs for all variables
-      if (imported.values) {
-        imported.values = imported.values.map(variable => ({
-          ...variable,
-          id: generateId()
-        }))
-      } else {
-        imported.values = []
-      }
 
       const importedJson = imported.toJSON()
       environments.value.push(importedJson)

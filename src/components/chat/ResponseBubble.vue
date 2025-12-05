@@ -38,13 +38,13 @@
           </div>
         </div>
 
-        <!-- Error Display -->
-        <div v-if="isError" class="error-content">
+        <!-- Network Error Display (only for status 0 / no response) -->
+        <div v-if="isNetworkError" class="error-content">
           <span class="error-icon">⚠️</span>
           <span class="error-message">{{ errorMessage }}</span>
         </div>
 
-        <!-- Response Body -->
+        <!-- Response Body (show for all responses including 4xx/5xx) -->
         <div v-else class="response-body">
           <div class="body-preview" :class="{ expanded: bodyExpanded || maximized }">
             <component
@@ -121,28 +121,75 @@ import { getCurrentEditor, getCurrentEditorDefaults } from '../../config/editors
 const TextEditor = getCurrentEditor()
 const editorDefaults = getCurrentEditorDefaults()
 
-// HTTP status text mapping for when fetch doesn't provide it (CORS responses)
+// Complete HTTP status text mapping (RFC 9110 + common extensions)
 const HTTP_STATUS_TEXT = {
+  // 1xx Informational
+  100: 'Continue',
+  101: 'Switching Protocols',
+  102: 'Processing',
+  103: 'Early Hints',
+  // 2xx Success
   200: 'OK',
   201: 'Created',
   202: 'Accepted',
+  203: 'Non-Authoritative Information',
   204: 'No Content',
+  205: 'Reset Content',
+  206: 'Partial Content',
+  207: 'Multi-Status',
+  208: 'Already Reported',
+  226: 'IM Used',
+  // 3xx Redirection
+  300: 'Multiple Choices',
   301: 'Moved Permanently',
   302: 'Found',
+  303: 'See Other',
   304: 'Not Modified',
+  305: 'Use Proxy',
+  307: 'Temporary Redirect',
+  308: 'Permanent Redirect',
+  // 4xx Client Errors
   400: 'Bad Request',
   401: 'Unauthorized',
+  402: 'Payment Required',
   403: 'Forbidden',
   404: 'Not Found',
   405: 'Method Not Allowed',
+  406: 'Not Acceptable',
+  407: 'Proxy Authentication Required',
   408: 'Request Timeout',
   409: 'Conflict',
-  422: 'Unprocessable Entity',
+  410: 'Gone',
+  411: 'Length Required',
+  412: 'Precondition Failed',
+  413: 'Content Too Large',
+  414: 'URI Too Long',
+  415: 'Unsupported Media Type',
+  416: 'Range Not Satisfiable',
+  417: 'Expectation Failed',
+  418: "I'm a Teapot",
+  421: 'Misdirected Request',
+  422: 'Unprocessable Content',
+  423: 'Locked',
+  424: 'Failed Dependency',
+  425: 'Too Early',
+  426: 'Upgrade Required',
+  428: 'Precondition Required',
   429: 'Too Many Requests',
+  431: 'Request Header Fields Too Large',
+  451: 'Unavailable For Legal Reasons',
+  // 5xx Server Errors
   500: 'Internal Server Error',
+  501: 'Not Implemented',
   502: 'Bad Gateway',
   503: 'Service Unavailable',
-  504: 'Gateway Timeout'
+  504: 'Gateway Timeout',
+  505: 'HTTP Version Not Supported',
+  506: 'Variant Also Negotiates',
+  507: 'Insufficient Storage',
+  508: 'Loop Detected',
+  510: 'Not Extended',
+  511: 'Network Authentication Required'
 }
 
 const props = defineProps({
@@ -171,6 +218,7 @@ const displayStatusText = computed(() => {
   return HTTP_STATUS_TEXT[status.value] || 'Unknown'
 })
 const isError = computed(() => !response.value.success || status.value === 0)
+const isNetworkError = computed(() => status.value === 0) // Only for network failures, not 4xx/5xx
 const errorMessage = computed(() => response.value.error || 'Request failed')
 
 const statusClass = computed(() => {
@@ -189,26 +237,51 @@ const headersCount = computed(() => Object.keys(headers.value).length)
 const body = computed(() => response.value.body)
 const hasBody = computed(() => body.value !== null && body.value !== undefined)
 
+// Max size to display in editor (500KB) - larger responses freeze the UI
+const MAX_DISPLAY_SIZE = 500 * 1024
+const bodySize = computed(() => {
+  if (!hasBody.value) return 0
+  const content = typeof body.value === 'string' ? body.value : JSON.stringify(body.value)
+  return new Blob([content]).size
+})
+const isBodyTooLarge = computed(() => bodySize.value > MAX_DISPLAY_SIZE)
+
 const formattedBody = computed(() => {
   if (!hasBody.value) return ''
 
+  let content = ''
   if (typeof body.value === 'object') {
     try {
-      return JSON.stringify(body.value, null, 2)
+      content = JSON.stringify(body.value, null, 2)
     } catch {
-      return String(body.value)
+      content = String(body.value)
     }
-  }
-
-  if (typeof body.value === 'string') {
+  } else if (typeof body.value === 'string') {
     try {
-      return JSON.stringify(JSON.parse(body.value), null, 2)
+      content = JSON.stringify(JSON.parse(body.value), null, 2)
     } catch {
-      return body.value
+      content = body.value
     }
+  } else {
+    content = String(body.value)
   }
 
-  return String(body.value)
+  // Truncate if too large to prevent UI freeze
+  if (content.length > MAX_DISPLAY_SIZE) {
+    const truncated = content.substring(0, MAX_DISPLAY_SIZE)
+    const lastNewline = truncated.lastIndexOf('\n')
+    return (lastNewline > 0 ? truncated.substring(0, lastNewline) : truncated) +
+      '\n\n... [Response truncated - ' + formattedBodySize.value + ' total. Use download button to get full response]'
+  }
+
+  return content
+})
+
+const formattedBodySize = computed(() => {
+  const size = bodySize.value
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
+  return `${(size / (1024 * 1024)).toFixed(2)} MB`
 })
 
 const bodyTruncated = computed(() => {
@@ -275,8 +348,13 @@ function downloadResponse() {
     mimeType = 'application/xml'
   }
 
-  // Create blob and download
-  const content = formattedBody.value
+  // Create blob and download - use raw body, not truncated version
+  let content = ''
+  if (typeof body.value === 'object') {
+    content = JSON.stringify(body.value, null, 2)
+  } else {
+    content = String(body.value)
+  }
   const blob = new Blob([content], { type: mimeType })
   const url = URL.createObjectURL(blob)
 

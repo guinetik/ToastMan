@@ -14,6 +14,228 @@
 import { createExpect, AssertionError } from './Assertions.js'
 
 /**
+ * ResponseAssertions - Chai BDD-style assertions for pm.response.to.have...
+ * Provides the fluent API: pm.response.to.have.status(200)
+ */
+class ResponseAssertions {
+  constructor(response) {
+    this._response = response
+    this._negate = false
+  }
+
+  /**
+   * Assert helper - handles negation and throws AssertionError on failure
+   */
+  _assert(condition, message, expected, actual) {
+    const pass = this._negate ? !condition : condition
+    if (!pass) {
+      const negatePrefix = this._negate ? 'not ' : ''
+      throw new AssertionError(
+        message.replace('{not}', negatePrefix),
+        expected,
+        actual
+      )
+    }
+    return this
+  }
+
+  // Chainable language getters
+  get to() { return this }
+  get be() { return this }
+  get have() { return this }
+  get and() { return this }
+  get a() { return this }
+  get an() { return this }
+
+  /**
+   * Negate the next assertion
+   */
+  get not() {
+    const negated = new ResponseAssertions(this._response)
+    negated._negate = !this._negate
+    return negated
+  }
+
+  /**
+   * Assert response status code
+   * Usage: pm.response.to.have.status(200)
+   *        pm.response.to.have.status("OK")
+   */
+  status(expected) {
+    if (typeof expected === 'number') {
+      return this._assert(
+        this._response.code === expected,
+        `Expected status code to {not}be ${expected}, got ${this._response.code}`,
+        expected,
+        this._response.code
+      )
+    }
+    // String match against status text
+    return this._assert(
+      this._response.status.toLowerCase().includes(expected.toLowerCase()),
+      `Expected status to {not}contain "${expected}", got "${this._response.status}"`,
+      expected,
+      this._response.status
+    )
+  }
+
+  /**
+   * Assert response has header (optionally with value)
+   * Usage: pm.response.to.have.header("Content-Type")
+   *        pm.response.to.have.header("Content-Type", "application/json")
+   */
+  header(name, value) {
+    const headerValue = this._response.headers.get(name)
+    const hasHeader = headerValue !== undefined
+
+    if (arguments.length === 1) {
+      return this._assert(
+        hasHeader,
+        `Expected response to {not}have header "${name}"`,
+        name,
+        hasHeader ? headerValue : 'not present'
+      )
+    }
+
+    // Check header value
+    const valueMatches = hasHeader && headerValue.toLowerCase().includes(value.toLowerCase())
+    return this._assert(
+      valueMatches,
+      `Expected header "${name}" to {not}contain "${value}", got "${headerValue || 'not present'}"`,
+      value,
+      headerValue
+    )
+  }
+
+  /**
+   * Assert response body contains JSON
+   * Usage: pm.response.to.be.json
+   */
+  get json() {
+    let isJson = false
+    try {
+      this._response.json()
+      isJson = true
+    } catch {
+      isJson = false
+    }
+    return this._assert(
+      isJson,
+      `Expected response body to {not}be valid JSON`,
+      'valid JSON',
+      'invalid JSON'
+    )
+  }
+
+  /**
+   * Assert response has body
+   * Usage: pm.response.to.have.body
+   *        pm.response.to.have.body("expected text")
+   */
+  body(expected) {
+    const bodyText = this._response.text()
+
+    if (arguments.length === 0) {
+      return this._assert(
+        bodyText && bodyText.length > 0,
+        `Expected response to {not}have a body`,
+        'body present',
+        bodyText ? 'body present' : 'empty body'
+      )
+    }
+
+    // String or regex match
+    if (expected instanceof RegExp) {
+      return this._assert(
+        expected.test(bodyText),
+        `Expected body to {not}match ${expected}`,
+        expected.toString(),
+        bodyText
+      )
+    }
+
+    return this._assert(
+      bodyText.includes(expected),
+      `Expected body to {not}contain "${expected}"`,
+      expected,
+      bodyText
+    )
+  }
+
+  /**
+   * Assert response has JSON body with property
+   * Usage: pm.response.to.have.jsonBody("data.id")
+   *        pm.response.to.have.jsonBody("data.id", 123)
+   */
+  jsonBody(path, expectedValue) {
+    let json
+    try {
+      json = this._response.json()
+    } catch (e) {
+      throw new AssertionError(
+        `Cannot check jsonBody: Response is not valid JSON`,
+        'valid JSON',
+        'invalid JSON'
+      )
+    }
+
+    // Navigate the path
+    const parts = path.split('.')
+    let value = json
+    for (const part of parts) {
+      if (value === null || value === undefined) {
+        value = undefined
+        break
+      }
+      value = value[part]
+    }
+
+    if (arguments.length === 1) {
+      return this._assert(
+        value !== undefined,
+        `Expected JSON body to {not}have path "${path}"`,
+        path,
+        value === undefined ? 'undefined' : value
+      )
+    }
+
+    return this._assert(
+      value === expectedValue,
+      `Expected JSON body path "${path}" to {not}equal ${JSON.stringify(expectedValue)}, got ${JSON.stringify(value)}`,
+      expectedValue,
+      value
+    )
+  }
+
+  /**
+   * Assert response time is below threshold
+   * Usage: pm.response.to.have.responseTime.below(500)
+   */
+  get responseTime() {
+    const time = this._response.responseTime
+    const self = this
+    return {
+      below(ms) {
+        return self._assert(
+          time < ms,
+          `Expected response time to {not}be below ${ms}ms, got ${time}ms`,
+          `< ${ms}ms`,
+          `${time}ms`
+        )
+      },
+      above(ms) {
+        return self._assert(
+          time > ms,
+          `Expected response time to {not}be above ${ms}ms, got ${time}ms`,
+          `> ${ms}ms`,
+          `${time}ms`
+        )
+      }
+    }
+  }
+}
+
+/**
  * HeaderList - Provides header access methods like Postman
  */
 class HeaderList {
@@ -176,49 +398,59 @@ export class PostmanScriptRunner {
     let parsedJson = null
     let jsonParseError = null
 
-    const pm = {
-      // Response object
-      response: {
-        code: response?.status || 0,
-        status: response?.statusText || '',
-        responseTime: response?.time || 0,
+    // Create the response object with BDD assertion chain support
+    const pmResponse = {
+      code: response?.status || 0,
+      status: response?.statusText || '',
+      responseTime: response?.time || 0,
 
-        headers: new HeaderList(response?.headers || {}),
+      headers: new HeaderList(response?.headers || {}),
 
-        json() {
-          if (jsonParseError) {
-            throw jsonParseError
-          }
-          if (parsedJson !== null) {
-            return parsedJson
-          }
-          try {
-            const body = response?.body
-            if (typeof body === 'string') {
-              parsedJson = JSON.parse(body)
-            } else if (typeof body === 'object') {
-              parsedJson = body
-            } else {
-              parsedJson = null
-            }
-            return parsedJson
-          } catch (error) {
-            jsonParseError = new Error(`Failed to parse response as JSON: ${error.message}`)
-            throw jsonParseError
-          }
-        },
-
-        text() {
+      json() {
+        if (jsonParseError) {
+          throw jsonParseError
+        }
+        if (parsedJson !== null) {
+          return parsedJson
+        }
+        try {
           const body = response?.body
           if (typeof body === 'string') {
-            return body
+            parsedJson = JSON.parse(body)
+          } else if (typeof body === 'object') {
+            parsedJson = body
+          } else {
+            parsedJson = null
           }
-          if (typeof body === 'object') {
-            return JSON.stringify(body)
-          }
-          return String(body || '')
+          return parsedJson
+        } catch (error) {
+          jsonParseError = new Error(`Failed to parse response as JSON: ${error.message}`)
+          throw jsonParseError
         }
       },
+
+      text() {
+        const body = response?.body
+        if (typeof body === 'string') {
+          return body
+        }
+        if (typeof body === 'object') {
+          return JSON.stringify(body)
+        }
+        return String(body || '')
+      }
+    }
+
+    // Add BDD assertion chain: pm.response.to.have.status(200)
+    Object.defineProperty(pmResponse, 'to', {
+      get() {
+        return new ResponseAssertions(pmResponse)
+      }
+    })
+
+    const pm = {
+      // Response object with BDD assertions
+      response: pmResponse,
 
       // Environment API
       environment: {

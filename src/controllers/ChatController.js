@@ -464,6 +464,44 @@ export class ChatController extends BaseController {
         value: this.variableInterpolation.interpolateText(h.value || '')
       }))
 
+      // Add auth headers based on request.auth configuration
+      if (request.auth?.type && request.auth.type !== 'none') {
+        const authType = request.auth.type
+
+        if (authType === 'bearer' && request.auth.bearer?.token) {
+          const token = this.variableInterpolation.interpolateText(request.auth.bearer.token)
+          if (token) {
+            interpolatedHeaders.push({
+              key: 'Authorization',
+              value: `Bearer ${token}`,
+              enabled: true
+            })
+          }
+        } else if (authType === 'basic' && request.auth.basic) {
+          const username = this.variableInterpolation.interpolateText(request.auth.basic.username || '')
+          const password = this.variableInterpolation.interpolateText(request.auth.basic.password || '')
+          if (username || password) {
+            const credentials = btoa(`${username}:${password}`)
+            interpolatedHeaders.push({
+              key: 'Authorization',
+              value: `Basic ${credentials}`,
+              enabled: true
+            })
+          }
+        } else if (authType === 'apikey' && request.auth.apikey) {
+          const apiKey = request.auth.apikey
+          const keyName = this.variableInterpolation.interpolateText(apiKey.key || 'X-API-Key')
+          const keyValue = this.variableInterpolation.interpolateText(apiKey.value || '')
+          if (keyValue && apiKey.in === 'header') {
+            interpolatedHeaders.push({
+              key: keyName,
+              value: keyValue,
+              enabled: true
+            })
+          }
+        }
+      }
+
       // Interpolate query parameters
       const interpolatedParams = (request.url?.query || []).map(p => ({
         ...p,

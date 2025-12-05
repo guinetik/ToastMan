@@ -7,19 +7,18 @@
 
 import { generateId } from '../models/types.js'
 
-// Postman body mode mappings (Postman → ToastMan)
+// Postman body mode mappings - keep original Postman names for compatibility
+// ToastMan uses the same mode names as Postman
 const BODY_MODE_MAP = {
-  'urlencoded': 'x-www-form-urlencoded',
-  'formdata': 'form-data',
-  'file': 'binary',
+  'urlencoded': 'urlencoded',
+  'formdata': 'formdata',
+  'file': 'file',
   'raw': 'raw',
   'graphql': 'graphql'
 }
 
-// Reverse mapping (ToastMan → Postman)
-const BODY_MODE_REVERSE_MAP = Object.fromEntries(
-  Object.entries(BODY_MODE_MAP).map(([k, v]) => [v, k])
-)
+// Reverse mapping (same since we use Postman names)
+const BODY_MODE_REVERSE_MAP = BODY_MODE_MAP
 
 // Supported auth types
 const SUPPORTED_AUTH_TYPES = ['basic', 'bearer', 'apikey', 'digest', 'ntlm', 'awsv4', 'hawk']

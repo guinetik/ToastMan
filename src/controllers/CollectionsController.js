@@ -3,6 +3,7 @@ import { Collection, CollectionFolder } from '../models/Collection.js'
 import { Request } from '../models/Request.js'
 import { useCollections } from '../stores/useCollections.js'
 import { useTabs } from '../stores/useTabs.js'
+import { fuzzyMatchRequest } from '../utils/fuzzySearch.js'
 
 /**
  * Controller for Collections functionality
@@ -74,7 +75,7 @@ export class CollectionsController extends BaseController {
       const collections = this.getComputed('collections')
       if (!collections || !Array.isArray(collections)) return []
 
-      const query = this.state.searchQuery.toLowerCase()
+      const query = this.state.searchQuery.trim()
 
       if (!query && !this.state.filterMethod) {
         return collections
@@ -116,35 +117,77 @@ export class CollectionsController extends BaseController {
 
   /**
    * Filter collection items based on search query and method
+   * Uses fuzzy matching for queries - characters must appear in order but not consecutively
+   * Results are sorted by match score (best matches first)
    */
   filterItems(items, query, method) {
     if (!items) return []
 
-    return items.filter(item => {
+    // Score and filter items
+    const scoredItems = []
+
+    for (const item of items) {
+      // Handle folders recursively
       if (item.item && Array.isArray(item.item)) {
-        const folder = new CollectionFolder(item)
-        const filteredSubItems = this.filterItems(folder.item, query, method)
-        return filteredSubItems.length > 0
+        const filteredSubItems = this.filterItems(item.item, query, method)
+
+        if (filteredSubItems.length > 0) {
+          // Create a shallow copy of folder with filtered children
+          const filteredFolder = Object.assign(
+            Object.create(Object.getPrototypeOf(item)),
+            item,
+            { item: filteredSubItems }
+          )
+          // Calculate best child score for sorting
+          const bestChildScore = filteredSubItems.reduce((max, child) =>
+            Math.max(max, child._fuzzyScore || 0), 0)
+          filteredFolder._fuzzyScore = bestChildScore
+          scoredItems.push(filteredFolder)
+        }
+        continue
       }
 
-      if (!item.request) return false
+      // Handle requests
+      if (!item.request) continue
 
-      const request = new Request(item.request)
-
-      if (method && request.method !== method) {
-        return false
+      // Method filter (exact match)
+      const requestMethod = item.request.method || 'GET'
+      if (method && requestMethod !== method) {
+        continue
       }
 
+      // Fuzzy search filter
       if (query) {
-        const name = (item.name || '').toLowerCase()
-        const url = request.getUrlString().toLowerCase()
-        const description = (request.description || '').toLowerCase()
+        const urlString = typeof item.request.url === 'string'
+          ? item.request.url
+          : item.request.url?.raw || ''
 
-        return name.includes(query) || url.includes(query) || description.includes(query)
+        const searchTarget = {
+          name: item.name || '',
+          url: urlString,
+          method: requestMethod
+        }
+
+        const { match, score } = fuzzyMatchRequest(query, searchTarget)
+
+        if (!match) continue
+
+        // Add score to item for sorting (won't break model since it's just a property)
+        item._fuzzyScore = score
+        scoredItems.push(item)
+      } else {
+        // No query, include all (that passed method filter)
+        item._fuzzyScore = 0
+        scoredItems.push(item)
       }
+    }
 
-      return true
-    })
+    // Sort by score (highest first) when there's a query
+    if (query && scoredItems.length > 0) {
+      scoredItems.sort((a, b) => (b._fuzzyScore || 0) - (a._fuzzyScore || 0))
+    }
+
+    return scoredItems
   }
 
   /**
