@@ -59,6 +59,14 @@ export class ChatController extends BaseController {
         urlEncoded: []
       },
 
+      // Auth configuration
+      auth: {
+        type: 'none',
+        bearer: { token: '' },
+        basic: { username: '', password: '' },
+        apikey: { key: 'X-API-Key', value: '', in: 'header' }
+      },
+
       // Active visual tab (headers, body, params)
       activeVisualTab: 'params',
 
@@ -156,6 +164,23 @@ export class ChatController extends BaseController {
         }
       }
 
+      // Auth
+      if (request.auth && request.auth.type) {
+        this.state.auth = {
+          type: request.auth.type,
+          bearer: request.auth.bearer || { token: '' },
+          basic: request.auth.basic || { username: '', password: '' },
+          apikey: request.auth.apikey || { key: 'X-API-Key', value: '', in: 'header' }
+        }
+      } else {
+        this.state.auth = {
+          type: 'none',
+          bearer: { token: '' },
+          basic: { username: '', password: '' },
+          apikey: { key: 'X-API-Key', value: '', in: 'header' }
+        }
+      }
+
       this.logger.debug('Synced cURL to visual')
     } catch (error) {
       this.logger.error('Failed to sync cURL to visual:', error)
@@ -196,7 +221,8 @@ export class ChatController extends BaseController {
       method: this.state.method,
       url: urlObj,
       header: this.state.headers.filter(h => h.enabled !== false && h.key),
-      body
+      body,
+      auth: this.state.auth
     }
   }
 
@@ -251,6 +277,23 @@ export class ChatController extends BaseController {
       }
     } else {
       this.state.body = { mode: 'none', raw: '', formData: [], urlEncoded: [] }
+    }
+
+    // Auth
+    if (request.auth && request.auth.type) {
+      this.state.auth = {
+        type: request.auth.type,
+        bearer: request.auth.bearer || { token: '' },
+        basic: request.auth.basic || { username: '', password: '' },
+        apikey: request.auth.apikey || { key: 'X-API-Key', value: '', in: 'header' }
+      }
+    } else {
+      this.state.auth = {
+        type: 'none',
+        bearer: { token: '' },
+        basic: { username: '', password: '' },
+        apikey: { key: 'X-API-Key', value: '', in: 'header' }
+      }
     }
 
     // Generate cURL
@@ -482,6 +525,12 @@ export class ChatController extends BaseController {
     this.state.headers = []
     this.state.params = []
     this.state.body = { mode: 'none', raw: '', formData: [], urlEncoded: [] }
+    this.state.auth = {
+      type: 'none',
+      bearer: { token: '' },
+      basic: { username: '', password: '' },
+      apikey: { key: 'X-API-Key', value: '', in: 'header' }
+    }
     this.state.requestError = null
   }
 
@@ -562,6 +611,23 @@ export class ChatController extends BaseController {
         }
       } else {
         this.state.body = { mode: 'none', raw: '', formData: [], urlEncoded: [] }
+      }
+
+      // Auth
+      if (request.auth && request.auth.type) {
+        this.state.auth = {
+          type: request.auth.type,
+          bearer: request.auth.bearer || { token: '' },
+          basic: request.auth.basic || { username: '', password: '' },
+          apikey: request.auth.apikey || { key: 'X-API-Key', value: '', in: 'header' }
+        }
+      } else {
+        this.state.auth = {
+          type: 'none',
+          bearer: { token: '' },
+          basic: { username: '', password: '' },
+          apikey: { key: 'X-API-Key', value: '', in: 'header' }
+        }
       }
 
       // Restore cURL from last request

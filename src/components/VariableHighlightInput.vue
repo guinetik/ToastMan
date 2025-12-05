@@ -320,6 +320,12 @@ const hideHoverTooltip = () => {
 
 /* Highlighting styles */
 .highlight-text {
+  /* Hide regular text in backdrop - only show when variables are present */
+  color: transparent;
+}
+
+/* Show backdrop text only when there are variables */
+.variable-input-container:has(.has-variables) .highlight-text {
   color: var(--color-text-primary, #e0e0e0);
 }
 

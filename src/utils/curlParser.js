@@ -134,6 +134,19 @@ function parseFormField(fieldStr) {
 }
 
 /**
+ * Decode base64 string safely
+ * @param {string} str - Base64 encoded string
+ * @returns {string|null} Decoded string or null if invalid
+ */
+function safeBase64Decode(str) {
+  try {
+    return atob(str)
+  } catch (e) {
+    return null
+  }
+}
+
+/**
  * Parse a cURL-style string into a Postman-compatible request object
  * @param {string} curlString - The cURL string (without `curl` prefix)
  * @returns {object} Postman-compatible request object
@@ -160,6 +173,7 @@ export function curlToRequest(curlString) {
   let bodyRaw = ''
   const formData = []
   const urlEncoded = []
+  let auth = null
 
   let i = 0
   while (i < tokens.length) {
@@ -184,10 +198,79 @@ export function curlToRequest(curlString) {
         }
         break
 
+      case '-u':
+      case '--user':
+        // Basic auth: -u username:password
+        if (i + 1 < tokens.length) {
+          const userPass = tokens[i + 1]
+          const colonIndex = userPass.indexOf(':')
+          if (colonIndex !== -1) {
+            auth = {
+              type: 'basic',
+              basic: {
+                username: userPass.substring(0, colonIndex),
+                password: userPass.substring(colonIndex + 1)
+              }
+            }
+          } else {
+            // No password provided
+            auth = {
+              type: 'basic',
+              basic: { username: userPass, password: '' }
+            }
+          }
+          i += 2
+        } else {
+          i++
+        }
+        break
+
       case '-H':
       case '--header':
         if (i + 1 < tokens.length) {
           const parsed = parseHeader(tokens[i + 1])
+
+          // Check for Authorization header and extract auth
+          if (parsed.key.toLowerCase() === 'authorization') {
+            const authValue = parsed.value
+
+            // Bearer token
+            if (authValue.toLowerCase().startsWith('bearer ')) {
+              auth = {
+                type: 'bearer',
+                bearer: { token: authValue.slice(7).trim() }
+              }
+              i += 2
+              continue // Skip adding to headers array
+            }
+
+            // Basic auth (base64 encoded)
+            if (authValue.toLowerCase().startsWith('basic ')) {
+              const encoded = authValue.slice(6).trim()
+              const decoded = safeBase64Decode(encoded)
+              if (decoded) {
+                const colonIndex = decoded.indexOf(':')
+                if (colonIndex !== -1) {
+                  auth = {
+                    type: 'basic',
+                    basic: {
+                      username: decoded.substring(0, colonIndex),
+                      password: decoded.substring(colonIndex + 1)
+                    }
+                  }
+                } else {
+                  auth = {
+                    type: 'basic',
+                    basic: { username: decoded, password: '' }
+                  }
+                }
+                i += 2
+                continue // Skip adding to headers array
+              }
+              // If decode fails, fall through and add as regular header
+            }
+          }
+
           headers.push(createKeyValue(parsed.key, parsed.value, true))
           i += 2
         } else {
@@ -280,7 +363,8 @@ export function curlToRequest(curlString) {
     method,
     url: urlObj,
     header: headers.length > 0 ? headers : [],
-    body
+    body,
+    auth
   }
 }
 
@@ -293,7 +377,8 @@ function createEmptyRequest() {
     method: 'GET',
     url: createUrl(''),
     header: [],
-    body: createRequestBody('none')
+    body: createRequestBody('none'),
+    auth: null
   }
 }
 

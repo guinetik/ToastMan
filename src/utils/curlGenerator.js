@@ -31,16 +31,33 @@ function escapeDoubleQuotes(str) {
 /**
  * Get the raw URL string from various URL formats
  * @param {object|string} url - URL object or string
+ * @param {object} [auth] - Optional auth object for API key in query params
  * @returns {string}
  */
-function getUrlString(url) {
+function getUrlString(url, auth) {
   if (!url) return ''
 
+  // Check if we need to add API key to query params
+  const apiKeyQuery = (auth?.type === 'apikey' && auth?.apikey?.in === 'query' &&
+                       auth?.apikey?.key && auth?.apikey?.value)
+    ? { key: auth.apikey.key, value: auth.apikey.value }
+    : null
+
   if (typeof url === 'string') {
+    // Append API key to URL string if needed
+    if (apiKeyQuery) {
+      const separator = url.includes('?') ? '&' : '?'
+      return `${url}${separator}${encodeURIComponent(apiKeyQuery.key)}=${encodeURIComponent(apiKeyQuery.value)}`
+    }
     return url
   }
 
   if (url.raw) {
+    // Append API key to raw URL if needed
+    if (apiKeyQuery) {
+      const separator = url.raw.includes('?') ? '&' : '?'
+      return `${url.raw}${separator}${encodeURIComponent(apiKeyQuery.key)}=${encodeURIComponent(apiKeyQuery.value)}`
+    }
     return url.raw
   }
 
@@ -50,16 +67,21 @@ function getUrlString(url) {
   const port = url.port ? `:${url.port}` : ''
   const path = Array.isArray(url.path) ? '/' + url.path.join('/') : (url.path || '')
 
-  let queryString = ''
+  // Collect query params
+  const queryParams = []
   if (url.query && url.query.length > 0) {
     const enabledParams = url.query.filter(q => q.enabled !== false)
-    if (enabledParams.length > 0) {
-      queryString = '?' + enabledParams
-        .map(q => `${encodeURIComponent(q.key)}=${encodeURIComponent(q.value)}`)
-        .join('&')
-    }
+    queryParams.push(...enabledParams.map(q =>
+      `${encodeURIComponent(q.key)}=${encodeURIComponent(q.value)}`
+    ))
   }
 
+  // Add API key query param if needed
+  if (apiKeyQuery) {
+    queryParams.push(`${encodeURIComponent(apiKeyQuery.key)}=${encodeURIComponent(apiKeyQuery.value)}`)
+  }
+
+  const queryString = queryParams.length > 0 ? '?' + queryParams.join('&') : ''
   const hash = url.hash ? `#${url.hash}` : ''
 
   return `${protocol}://${host}${port}${path}${queryString}${hash}`
@@ -89,7 +111,8 @@ export function requestToCurl(request, options = {}) {
   }
 
   // URL (first for readability in our non-curl format)
-  const url = getUrlString(request.url)
+  // Pass auth to handle API key in query params
+  const url = getUrlString(request.url, request.auth)
   if (url) {
     parts.push(`'${escapeForShell(url)}'`)
   }
@@ -100,11 +123,53 @@ export function requestToCurl(request, options = {}) {
     parts.push(`-X ${method}`)
   }
 
-  // Headers
+  // Authentication
+  const auth = request.auth
+  if (auth && auth.type && auth.type !== 'none') {
+    switch (auth.type) {
+      case 'basic':
+        const basicAuth = auth.basic || {}
+        if (basicAuth.username) {
+          const username = escapeForShell(basicAuth.username)
+          const password = escapeForShell(basicAuth.password || '')
+          parts.push(`-u '${username}:${password}'`)
+        }
+        break
+
+      case 'bearer':
+        const bearerAuth = auth.bearer || {}
+        if (bearerAuth.token) {
+          parts.push(`-H 'Authorization: Bearer ${escapeForShell(bearerAuth.token)}'`)
+        }
+        break
+
+      case 'apikey':
+        const apikeyAuth = auth.apikey || {}
+        if (apikeyAuth.key && apikeyAuth.value) {
+          if (apikeyAuth.in === 'query') {
+            // API key in query params - will be handled in URL generation
+            // For now, we'll add it as a note or handle it separately
+            // The URL should already contain the query param if added via UI
+          } else {
+            // Default: header
+            parts.push(`-H '${escapeForShell(apikeyAuth.key)}: ${escapeForShell(apikeyAuth.value)}'`)
+          }
+        }
+        break
+    }
+  }
+
+  // Headers (skip Authorization if auth is configured to avoid duplication)
   const headers = request.header || request.headers || []
   for (const header of headers) {
     if (header.enabled === false) continue
     if (!header.key) continue
+
+    // Skip Authorization header if auth is configured (auth takes precedence)
+    if (header.key.toLowerCase() === 'authorization' &&
+        auth && auth.type && auth.type !== 'none') {
+      continue
+    }
 
     const headerValue = `${header.key}: ${header.value || ''}`
     parts.push(`-H '${escapeForShell(headerValue)}'`)

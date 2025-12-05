@@ -6,6 +6,7 @@ import CollectionPickerDialog from './dialogs/CollectionPickerDialog.vue'
 import VariableInput from './VariableInput.vue'
 import SyntaxHighlighter from './SyntaxHighlighter.vue'
 import RequestBodyEditor from './editors/RequestBodyEditor.vue'
+import RequestAuthEditor from './editors/RequestAuthEditor.vue'
 
 // Controller instance
 let controller = null
@@ -216,6 +217,13 @@ const detectResponseLanguage = (responseData) => controller?.detectResponseLangu
               >
                 Body
               </button>
+              <button
+                :class="['nav-tab', { active: state.activeRequestTab === 'auth' }]"
+                @click="setActiveRequestTab('auth')"
+              >
+                Auth
+                <span v-if="state.currentAuth?.type && state.currentAuth.type !== 'none'" class="auth-indicator"></span>
+              </button>
             </div>
 
             <!-- Request Details Content -->
@@ -283,6 +291,11 @@ const detectResponseLanguage = (responseData) => controller?.detectResponseLangu
               <!-- Body Tab -->
               <div v-if="state.activeRequestTab === 'body'" class="body-section">
                 <RequestBodyEditor v-model="state.currentBody" />
+              </div>
+
+              <!-- Auth Tab -->
+              <div v-if="state.activeRequestTab === 'auth'" class="auth-section">
+                <RequestAuthEditor v-model="state.currentAuth" />
               </div>
             </div>
           </div>
@@ -455,6 +468,13 @@ const detectResponseLanguage = (responseData) => controller?.detectResponseLangu
             >
               Body
             </button>
+            <button
+              :class="['nav-tab', { active: state.activeRequestTab === 'auth' }]"
+              @click="setActiveRequestTab('auth')"
+            >
+              Auth
+              <span v-if="state.currentAuth?.type && state.currentAuth.type !== 'none'" class="auth-indicator"></span>
+            </button>
           </div>
 
           <!-- Request Details Content -->
@@ -522,6 +542,11 @@ const detectResponseLanguage = (responseData) => controller?.detectResponseLangu
             <!-- Body Tab -->
             <div v-if="state.activeRequestTab === 'body'" class="body-section">
               <RequestBodyEditor v-model="state.currentBody" />
+            </div>
+
+            <!-- Auth Tab -->
+            <div v-if="state.activeRequestTab === 'auth'" class="auth-section">
+              <RequestAuthEditor v-model="state.currentAuth" />
             </div>
           </div>
         </div>
@@ -913,6 +938,22 @@ const detectResponseLanguage = (responseData) => controller?.detectResponseLangu
   color: var(--color-text-primary);
   border-bottom-color: var(--color-text-primary);
   font-weight: 600;
+}
+
+.auth-indicator {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: var(--color-success);
+  border-radius: 50%;
+  margin-left: 4px;
+}
+
+.auth-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .request-details {

@@ -72,6 +72,14 @@
         >
           Body
         </button>
+        <button
+          class="visual-tab-btn"
+          :class="{ active: activeTab === 'auth' }"
+          @click="activeTab = 'auth'"
+        >
+          Auth
+          <span v-if="auth.type !== 'none'" class="auth-dot"></span>
+        </button>
       </div>
 
       <!-- Options Panel -->
@@ -145,6 +153,85 @@
             <button class="add-btn" @click="addUrlEncoded">+ Add Field</button>
           </div>
         </div>
+
+        <!-- Auth Tab -->
+        <div v-if="activeTab === 'auth'" class="auth-editor">
+          <div class="auth-type-row">
+            <label class="auth-label">Type</label>
+            <select v-model="auth.type" class="auth-select">
+              <option value="none">No Auth</option>
+              <option value="bearer">Bearer Token</option>
+              <option value="basic">Basic Auth</option>
+              <option value="apikey">API Key</option>
+            </select>
+          </div>
+
+          <!-- Bearer Token -->
+          <div v-if="auth.type === 'bearer'" class="auth-fields">
+            <div class="auth-field">
+              <label class="auth-label">Token</label>
+              <VariableHighlightInput
+                v-model="auth.bearer.token"
+                placeholder="Enter bearer token (e.g., eyJhbGciOi...)"
+              />
+            </div>
+            <div class="auth-hint">
+              <code>-H 'Authorization: Bearer &lt;token&gt;'</code>
+            </div>
+          </div>
+
+          <!-- Basic Auth -->
+          <div v-if="auth.type === 'basic'" class="auth-fields">
+            <div class="auth-field">
+              <label class="auth-label">Username</label>
+              <input v-model="auth.basic.username" class="auth-input" placeholder="Username" />
+            </div>
+            <div class="auth-field">
+              <label class="auth-label">Password</label>
+              <input v-model="auth.basic.password" type="password" class="auth-input" placeholder="Password" />
+            </div>
+            <div class="auth-hint">
+              <code>-u '&lt;username&gt;:&lt;password&gt;'</code>
+            </div>
+          </div>
+
+          <!-- API Key -->
+          <div v-if="auth.type === 'apikey'" class="auth-fields">
+            <div class="auth-field">
+              <label class="auth-label">Key</label>
+              <input v-model="auth.apikey.key" class="auth-input" placeholder="Header name (e.g., X-API-Key)" />
+            </div>
+            <div class="auth-field">
+              <label class="auth-label">Value</label>
+              <VariableHighlightInput
+                v-model="auth.apikey.value"
+                placeholder="API key value"
+              />
+            </div>
+            <div class="auth-field">
+              <label class="auth-label">Add to</label>
+              <div class="auth-radio-group">
+                <label>
+                  <input type="radio" v-model="auth.apikey.in" value="header" />
+                  Header
+                </label>
+                <label>
+                  <input type="radio" v-model="auth.apikey.in" value="query" />
+                  Query Param
+                </label>
+              </div>
+            </div>
+            <div class="auth-hint">
+              <code v-if="auth.apikey.in === 'header'">-H '{{ auth.apikey.key || 'X-API-Key' }}: &lt;value&gt;'</code>
+              <code v-else>?{{ auth.apikey.key || 'api_key' }}=&lt;value&gt;</code>
+            </div>
+          </div>
+
+          <!-- No Auth Message -->
+          <div v-if="auth.type === 'none'" class="auth-empty">
+            <p>This request does not use any authentication.</p>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -196,6 +283,12 @@ const url = ref(props.controller.state.url)
 const headers = ref(props.controller.state.headers)
 const params = ref(props.controller.state.params)
 const body = ref(props.controller.state.body)
+const auth = ref(props.controller.state.auth || {
+  type: 'none',
+  bearer: { token: '' },
+  basic: { username: '', password: '' },
+  apikey: { key: 'X-API-Key', value: '', in: 'header' }
+})
 const activeTab = ref('params')
 
 const curlInputRef = ref(null)
@@ -255,6 +348,7 @@ watch(url, (val) => props.controller.updateField('url', val))
 watch(headers, (val) => props.controller.updateField('headers', val), { deep: true })
 watch(params, (val) => props.controller.updateField('params', val), { deep: true })
 watch(body, (val) => props.controller.updateField('body', val), { deep: true })
+watch(auth, (val) => props.controller.updateField('auth', val), { deep: true })
 
 // Sync controller state to local (for when controller loads a request)
 watch(() => props.controller.state.composerMode, (val) => { mode.value = val })
@@ -264,6 +358,9 @@ watch(() => props.controller.state.url, (val) => { url.value = val })
 watch(() => props.controller.state.headers, (val) => { headers.value = val }, { deep: true })
 watch(() => props.controller.state.params, (val) => { params.value = val }, { deep: true })
 watch(() => props.controller.state.body, (val) => { body.value = val }, { deep: true })
+watch(() => props.controller.state.auth, (val) => {
+  if (val) auth.value = val
+}, { deep: true })
 
 function setMode(m) {
   mode.value = m
@@ -661,5 +758,126 @@ input.kv-input {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* Auth Tab Styles */
+.auth-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--color-success, #22c55e);
+  border-radius: 50%;
+  display: inline-block;
+  margin-left: 4px;
+}
+
+.auth-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+
+.auth-type-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.auth-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  min-width: 60px;
+}
+
+.auth-select {
+  padding: 6px 10px;
+  font-size: 12px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-primary);
+  min-width: 140px;
+}
+
+.auth-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+}
+
+.auth-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Regular input fields (username, password, key name) */
+input.auth-input {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 12px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-primary);
+}
+
+input.auth-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+/* VariableHighlightInput container styling */
+.auth-field .variable-input-container {
+  flex: 1;
+  /* CSS variables for VariableHighlightInput internal styling */
+  --input-padding: 6px 10px;
+  --input-font-size: 12px;
+  --input-font-family: inherit;
+  --input-radius: 4px;
+  /* Background on container so backdrop text is visible */
+  background: var(--color-bg-secondary);
+  border-radius: 4px;
+}
+
+.auth-radio-group {
+  display: flex;
+  gap: 16px;
+}
+
+.auth-radio-group label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.auth-hint {
+  padding: 8px 10px;
+  background: var(--color-bg-tertiary);
+  border-radius: 4px;
+  margin-top: 4px;
+}
+
+.auth-hint code {
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.auth-empty {
+  padding: 20px;
+  text-align: center;
+}
+
+.auth-empty p {
+  color: var(--color-text-muted);
+  font-style: italic;
+  font-size: 13px;
+  margin: 0;
 }
 </style>

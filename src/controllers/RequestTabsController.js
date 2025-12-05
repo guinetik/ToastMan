@@ -54,6 +54,14 @@ export class RequestTabsController extends BaseController {
         binary: null
       },
 
+      // Auth configuration
+      currentAuth: {
+        type: 'none',
+        bearer: { token: '' },
+        basic: { username: '', password: '' },
+        apikey: { key: 'X-API-Key', value: '', in: 'header' }
+      },
+
       // Response data
       responseData: null,
       isLoading: false,
@@ -106,7 +114,8 @@ export class RequestTabsController extends BaseController {
         this.state.currentMethod,
         this.state.currentHeaders,
         this.state.currentParams,
-        this.state.currentBody
+        this.state.currentBody,
+        this.state.currentAuth
       ],
       () => {
         this.saveRequestData()
@@ -208,6 +217,23 @@ export class RequestTabsController extends BaseController {
           binary: null
         }
       }
+
+      // Extract auth
+      if (request.auth && request.auth.type) {
+        this.state.currentAuth = {
+          type: request.auth.type || 'none',
+          bearer: request.auth.bearer || { token: '' },
+          basic: request.auth.basic || { username: '', password: '' },
+          apikey: request.auth.apikey || { key: 'X-API-Key', value: '', in: 'header' }
+        }
+      } else {
+        this.state.currentAuth = {
+          type: 'none',
+          bearer: { token: '' },
+          basic: { username: '', password: '' },
+          apikey: { key: 'X-API-Key', value: '', in: 'header' }
+        }
+      }
     } else if (currentRequest) {
       // Handle legacy format where request data might be directly on currentRequest
       this.logger.warn('Request has unexpected structure, attempting fallback', currentRequest)
@@ -222,6 +248,12 @@ export class RequestTabsController extends BaseController {
         urlEncoded: [],
         binary: null
       }
+      this.state.currentAuth = {
+        type: 'none',
+        bearer: { token: '' },
+        basic: { username: '', password: '' },
+        apikey: { key: 'X-API-Key', value: '', in: 'header' }
+      }
     } else {
       // New request defaults
       this.state.currentUrl = ''
@@ -234,6 +266,12 @@ export class RequestTabsController extends BaseController {
         formData: [],
         urlEncoded: [],
         binary: null
+      }
+      this.state.currentAuth = {
+        type: 'none',
+        bearer: { token: '' },
+        basic: { username: '', password: '' },
+        apikey: { key: 'X-API-Key', value: '', in: 'header' }
       }
     }
   }
@@ -260,7 +298,8 @@ export class RequestTabsController extends BaseController {
               query: this.state.currentParams.filter(p => p.key)
             },
             header: this.state.currentHeaders.filter(h => h.key),
-            body: this.state.currentBody
+            body: this.state.currentBody,
+            auth: this.state.currentAuth
           }
         })
       }
@@ -308,7 +347,8 @@ export class RequestTabsController extends BaseController {
       method: this.state.currentMethod,
       url: { raw: this.state.currentUrl },
       header: this.state.currentHeaders.filter(h => h.enabled && h.key),
-      body: this.state.currentBody
+      body: this.state.currentBody,
+      auth: this.state.currentAuth
     }
 
     // Determine save strategy based on existing request state and user choices
