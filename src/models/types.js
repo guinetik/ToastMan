@@ -46,31 +46,65 @@ export function createKeyValue(key = '', value = '', enabled = true) {
 
 /**
  * URL structure compatible with Postman format
+ * Note: Preserves {{variable}} patterns without URL-encoding them
  */
 export function createUrl(raw = '') {
   try {
-    const url = new URL(raw.startsWith('http') ? raw : `https://${raw || 'example.com'}`)
+    // Check if URL contains variable patterns - if so, we need special handling
+    const hasVariables = /\{\{[^}]+\}\}/.test(raw)
+
+    // Temporarily replace variables with placeholders to prevent URL encoding
+    const variableMap = new Map()
+    let processedRaw = raw
+    if (hasVariables) {
+      let idx = 0
+      processedRaw = raw.replace(/\{\{([^}]+)\}\}/g, (match) => {
+        const placeholder = `__VAR_PLACEHOLDER_${idx++}__`
+        variableMap.set(placeholder, match)
+        return placeholder
+      })
+    }
+
+    const url = new URL(processedRaw.startsWith('http') ? processedRaw : `https://${processedRaw || 'example.com'}`)
 
     // Extract query parameters from the URL
     const query = []
     url.searchParams.forEach((value, key) => {
-      query.push(createKeyValue(key, value, true))
+      // Restore variables in query params
+      let restoredKey = key
+      let restoredValue = value
+      variableMap.forEach((original, placeholder) => {
+        restoredKey = restoredKey.replace(placeholder, original)
+        restoredValue = restoredValue.replace(placeholder, original)
+      })
+      query.push(createKeyValue(restoredKey, restoredValue, true))
     })
 
     // Build raw URL without query string (base URL only)
-    const baseRaw = url.origin + url.pathname
+    let baseRaw = url.origin + url.pathname
+
+    // Restore variables in the base URL
+    variableMap.forEach((original, placeholder) => {
+      baseRaw = baseRaw.replace(placeholder, original)
+    })
+
+    // Build path with restored variables
+    let pathname = url.pathname
+    variableMap.forEach((original, placeholder) => {
+      pathname = pathname.replace(placeholder, original)
+    })
 
     return {
       raw: baseRaw,
       protocol: url.protocol.replace(':', ''),
       host: url.hostname.split('.'),
       port: url.port || undefined,
-      path: url.pathname === '/' ? [] : url.pathname.split('/').filter(Boolean),
+      path: pathname === '/' ? [] : pathname.split('/').filter(Boolean),
       query,
       hash: url.hash ? url.hash.substring(1) : undefined
     }
   } catch (error) {
-    // Fallback for invalid URLs
+    // Fallback for invalid URLs - preserve raw as-is
     return {
       raw,
       protocol: 'https',

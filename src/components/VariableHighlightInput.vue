@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
 import { useVariableInterpolation } from '../composables/useVariableInterpolation.js'
+import { useEnvironments } from '../stores/useEnvironments.js'
 import { Logger } from '../core/logger.js'
 
 // Create logger instance
@@ -22,6 +23,9 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:modelValue', 'keydown'])
+
+// Get environments store for reactivity
+const environmentsStore = useEnvironments()
 
 // Try to load composable with error handling
 let splitTextForHighlighting, previewInterpolation
@@ -53,13 +57,19 @@ const handleInput = (event) => {
 }
 
 // Split text for highlighting
+// Note: We reference activeEnvironment to create a reactive dependency
+// so this recomputes when the environment changes
 const highlightedParts = computed(() => {
+  // Access environment to establish dependency (triggers recompute on env change)
+  const _env = environmentsStore.activeEnvironment.value
   const parts = splitTextForHighlighting(props.modelValue)
   return parts
 })
 
 // Preview information
 const interpolationPreview = computed(() => {
+  // Access environment to establish dependency
+  const _env = environmentsStore.activeEnvironment.value
   const preview = previewInterpolation(props.modelValue)
   return preview
 })

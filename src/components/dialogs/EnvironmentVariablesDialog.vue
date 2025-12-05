@@ -106,14 +106,28 @@ const validateVariable = (variable) => {
   return null
 }
 
+// Cache validation errors to prevent multiple validateVariable calls per render
+// This prevents the "Maximum recursive updates exceeded" error
+const validationErrors = computed(() => {
+  const errors = {}
+  variables.value.forEach((v, index) => {
+    if (v.key) {
+      const error = validateVariable(v)
+      if (error) {
+        errors[index] = error
+      }
+    }
+  })
+  return errors
+})
+
+// Get error for a specific variable by index (uses cached result)
+const getVariableError = (index) => {
+  return validationErrors.value[index] || null
+}
+
 const hasErrors = computed(() => {
-  const errors = variables.value.filter(v => v.key && validateVariable(v))
-  if (errors.length > 0) {
-    errors.forEach(v => {
-      logger.error('[DEBUG] Variable error:', v.key, '-', validateVariable(v))
-    })
-  }
-  return errors.length > 0
+  return Object.keys(validationErrors.value).length > 0
 })
 
 const saveChanges = () => {
@@ -209,13 +223,13 @@ const formatPlaceholder = (type) => {
                 @input="handleKeyInput(index, $event)"
                 placeholder="Variable name..."
                 class="input-field"
-                :class="{ error: variable.key && validateVariable(variable) }"
+                :class="{ error: getVariableError(index) }"
               >
               <div
-                v-if="variable.key && validateVariable(variable)"
+                v-if="getVariableError(index)"
                 class="error-text"
               >
-                {{ validateVariable(variable) }}
+                {{ getVariableError(index) }}
               </div>
             </div>
 

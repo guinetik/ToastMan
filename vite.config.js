@@ -23,5 +23,6 @@ const downloadFilePlugin = () => {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [vue(), downloadFilePlugin()],
-  base: process.env.NODE_ENV === 'production' ? '/ToastMan/' : '/',
+  // Custom domain - no subdirectory needed
+  base: '/',
 })

@@ -5,7 +5,7 @@
  * and event-driven updates across the application.
  */
 
-import { ref, watch, toRaw } from 'vue'
+import { ref, watch, toRaw, nextTick } from 'vue'
 import { createLogger } from '../core/logger.js'
 
 const STORAGE_KEYS = {
@@ -61,9 +61,15 @@ export function useStorage(key, defaultValue = null, options = {}) {
   const storedValue = safeJsonParse(localStorage.getItem(key), defaultValue)
   const data = ref(storedValue)
 
+  // Flag to prevent circular updates when receiving storage events
+  let isUpdatingFromEvent = false
+
   // Debounced save function
   let saveTimeout = null
   const save = () => {
+    // Skip save if this change came from a storage event (prevents circular updates)
+    if (isUpdatingFromEvent) return
+
     clearTimeout(saveTimeout)
     saveTimeout = setTimeout(() => {
       const stringified = safeJsonStringify(data.value)
@@ -91,20 +97,22 @@ export function useStorage(key, defaultValue = null, options = {}) {
   const handleStorageChange = (event) => {
     if (event.key === key && event.newValue !== null) {
       const newValue = safeJsonParse(event.newValue, defaultValue)
+      // Set flag to prevent circular save
+      isUpdatingFromEvent = true
       data.value = newValue
+      nextTick(() => { isUpdatingFromEvent = false })
     }
   }
 
   window.addEventListener('storage', handleStorageChange)
 
-  // Listen for internal storage events
+  // Listen for internal storage events (from same tab)
+  // Note: We don't need to update data here since we're the source of the event
+  // This handler was causing circular updates - removing the data.value assignment
   const handleInternalStorageChange = (event) => {
-    if (event.detail.key === key) {
-      // Don't update if it's the same reference (avoid loops)
-      if (event.detail.value !== data.value) {
-        data.value = event.detail.value
-      }
-    }
+    // Only handle events from OTHER useStorage instances for the same key
+    // Since we're the one who dispatched this event, we don't need to update
+    // The data is already current
   }
 
   storageEvents.addEventListener('storage-change', handleInternalStorageChange)

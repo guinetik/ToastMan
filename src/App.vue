@@ -6,6 +6,7 @@ import Sidebar from './components/Sidebar.vue'
 import ChatTabs from './components/chat/ChatTabs.vue'
 import SettingsDialog from './components/dialogs/SettingsDialog.vue'
 import AlertDialog from './components/dialogs/AlertDialog.vue'
+import CurlTutorialDialog from './components/dialogs/CurlTutorialDialog.vue'
 import { useEnvironments } from './stores/useEnvironments.js'
 import { useTabs } from './stores/useTabs.js'
 import { useAlert } from './composables/useAlert.js'
@@ -19,8 +20,9 @@ const { alertState, handleConfirm, handleCancel, closeAlert } = useAlert()
 // Chat tabs ref
 const chatTabsRef = ref(null)
 
-// CORS modal state
+// Modal states
 const showCorsModal = ref(false)
+const showCurlTutorial = ref(false)
 
 // Global environment indicator
 const activeEnvironment = computed(() => {
@@ -165,6 +167,13 @@ onMounted(() => {
           ➕ New Request
         </button>
         <button
+          class="curl-tutorial-button"
+          @click="showCurlTutorial = true"
+          title="cURL Tutorial"
+        >
+          📖 cURL Tutorial
+        </button>
+        <button
           class="cors-button"
           @click="showCorsModal = true"
           title="CORS Information"
@@ -296,6 +305,12 @@ onMounted(() => {
         </div>
       </div>
     </Teleport>
+
+    <!-- cURL Tutorial Modal -->
+    <CurlTutorialDialog
+      :show="showCurlTutorial"
+      @close="showCurlTutorial = false"
+    />
   </div>
 </template>
 
@@ -458,6 +473,29 @@ onMounted(() => {
   background: var(--color-bg-hover);
   padding: 2px 6px;
   border-radius: 4px;
+}
+
+/* cURL Tutorial Button */
+.curl-tutorial-button {
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: #1a3a2a;
+  border: 1px solid #2d5a40;
+  color: #4ade80;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.curl-tutorial-button:hover {
+  background: #2d5a40;
+  border-color: #4ade80;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(74, 222, 128, 0.2);
 }
 
 /* CORS Button */

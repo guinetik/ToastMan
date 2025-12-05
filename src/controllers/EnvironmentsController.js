@@ -20,56 +20,31 @@ export class EnvironmentsController extends BaseController {
   init() {
     super.init()
 
+    // Note: We return raw data from store, NOT new Environment instances.
+    // Creating new instances in computed causes infinite loops because
+    // Vue sees new object references as "changed" data on every evaluation.
     this.environments = this.createComputed('environments', () => {
       if (!this.environmentsStore) {
-        this.logger.warn('Environments store not available')
         return []
       }
 
-      // Access the reactive computed from the store
+      // Return raw data directly - do NOT wrap in new Environment()
       const environments = this.environmentsStore.environments.value || []
 
-      this.logger.debug('Raw environments from store:', environments.length, 'items')
-
       if (!Array.isArray(environments)) {
-        this.logger.warn('Environments is not an array:', environments)
         return []
       }
 
-      const processedEnvironments = environments.map(e => {
-        try {
-          return new Environment(e)
-        } catch (error) {
-          this.logger.error('Failed to parse environment:', error)
-          this.logger.error('Raw environment data:', e)
-          return e
-        }
-      })
-
-      this.logger.debug('Processed environments:', processedEnvironments.length, 'items')
-      return processedEnvironments
+      return environments
     })
 
     this.activeEnvironment = this.createComputed('activeEnvironment', () => {
       if (!this.environmentsStore) {
-        this.logger.warn('Environments store not available for active environment')
         return null
       }
 
-      // Access the reactive computed from the store
-      const activeEnvironment = this.environmentsStore.activeEnvironment.value
-
-      this.logger.debug('Raw active environment from store:', activeEnvironment)
-
-      if (!activeEnvironment) return null
-
-      try {
-        return new Environment(activeEnvironment)
-      } catch (error) {
-        this.logger.error('Failed to parse active environment:', error)
-        this.logger.error('Raw active environment data:', activeEnvironment)
-        return activeEnvironment
-      }
+      // Return raw data directly - do NOT wrap in new Environment()
+      return this.environmentsStore.activeEnvironment.value || null
     })
   }
 
