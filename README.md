@@ -1,107 +1,55 @@
-# ToastMan 🍞
+# ToastMan
 
-A lightweight API testing tool built with Vue 3. Think Postman, but simpler and without the bloat.
+**The API testing tool that teaches you cURL.**
 
-![demo](public/og-image.png)
+Build requests visually, see the cURL command. Paste cURL commands, see them broken down. Learn cURL without even trying.
 
-## Why ToastMan?
+![ToastMan](public/social_image.png)
 
-Sometimes you need to test APIs but can't use Postman (company restrictions, offline environments, or you just want something lightweight). ToastMan gives you the core functionality you actually use without the enterprise features you don't.
+## The Trick
+
+Every API doc gives you a cURL command. But if you don't know cURL, you're stuck copying it blindly or manually translating it to Postman.
+
+ToastMan works both ways:
+- **Visual → cURL**: Build a request with forms, see the equivalent cURL command
+- **cURL → Visual**: Paste a cURL command, see it broken down into method, headers, body
+
+Switch between modes anytime. The more you use it, the more cURL starts making sense.
 
 ## Features
 
-- **HTTP Requests**: All standard methods (GET, POST, PUT, DELETE, etc.)
-- **Collections**: Organize requests into folders
-- **Environments**: Manage variables across different setups
-- **Authentication**: Basic, Bearer, API Key, OAuth2, and more
-- **Request Bodies**: JSON, form-data, URL-encoded, GraphQL support
-- **History**: Track your recent requests
-- **Resizable Layout**: Adjust panels to your preference
+- **Two-way sync**: Visual mode and cURL mode stay in sync
+- **cURL tutorial**: Built-in reference for common cURL options
+- **Environment variables**: Use `{{baseUrl}}`, `{{apiKey}}` with live highlighting
+- **Conversation view**: See request/response history as a thread
+- **Collections**: Save and organize requests
+- **Postman compatible**: Import/export collections and environments
+- **Offline PWA**: No account, no cloud, works offline
+
+## Quick Start
+
+```bash
+npm install
+npm run dev
+```
+
+Or visit [toastman.guinetik.com](https://toastman.guinetik.com)
+
+## How It Works
+
+1. **Start visual**: Fill in URL, headers, body → see the cURL command update live
+2. **Or paste cURL**: Drop in a command from docs → see it broken down into fields
+3. **Send it**: See the response in the conversation thread
+4. **Learn**: After a while, you'll be writing cURL commands from memory
+
+Variables like `{{token}}` highlight red (undefined) or blue (found in environment).
 
 ## Tech Stack
 
-- **Vue 3** with Composition API
-- **Vuetify** for Material Design components
-- **Vite** for build tooling
-- **Splitpanes** for resizable layout
-
-## Getting Started
-
-```bash
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
-```
-
-## Project Structure
-
-```
-src/
-├── components/          # Vue components
-│   ├── tabs/           # Sidebar tab components
-│   └── dialogs/        # Modal dialogs
-├── controllers/        # Business logic (MVC pattern)
-├── models/            # Data models
-├── stores/            # State management
-├── composables/       # Reusable composition functions
-└── core/              # Utilities and constants
-```
-
-## Architecture
-
-ToastMan uses an MVC-inspired architecture:
-
-- **Models**: Handle data structure and validation (`Request`, `Collection`, `Environment`)
-- **Controllers**: Manage business logic and state
-- **Components**: Vue components for UI rendering
-
-## Development Notes
-
-### Key Models
-
-- `Request`: HTTP request with URL, headers, body, auth
-- `Collection`: Organized groups of requests
-- `Environment`: Variable sets for different contexts
-- `Response`: HTTP response data and metadata
-
-### Debug Tools
-
-Open browser console and use:
-
-```javascript
-// Enable logging for specific components
-window.toastmanDebug.enableCollections()
-window.toastmanDebug.enableStorage()
-
-// Enable all logging
-window.toastmanDebug.logAllComponents()
-
-// Check logging status
-window.toastmanDebug.status()
-```
-
-### Storage
-
-Data is persisted to `localStorage`:
-- Collections and requests
-- Environment variables
-- Application settings
-- Request history
-
-## Contributing
-
-This is a learning project exploring Vue 3. Feel free to:
-
-- Report bugs
-- Suggest features
-- Submit PRs
-- Use it as reference for Vue 3 patterns
+- Vue 3 + Composition API
+- Vite
+- Custom components (no heavy UI framework)
 
 ## License
 
-Apache 2.0 - do whatever you want with it.
+Apache 2.0

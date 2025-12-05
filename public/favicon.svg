@@ -1,39 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <!-- Dark background with rounded corners -->
-  <rect width="512" height="512" rx="64" fill="#1a1a1a"/>
+  <!-- Minimal geometric ToastMan icon -->
+  <!-- Toast shape with JSON curly braces { } -->
 
-  <!-- Toast slice centered -->
-  <g transform="translate(256, 256)">
-    <!-- Toast body with golden brown color -->
-    <rect x="-120" y="-140" width="240" height="280" rx="20" fill="#d97706"/>
-    <rect x="-110" y="-130" width="220" height="260" rx="16" fill="#f59e0b"/>
+  <!-- Dark rounded background -->
+  <rect width="512" height="512" rx="96" fill="#1a1a1a"/>
 
-    <!-- Toast crust highlight -->
-    <rect x="-100" y="-120" width="200" height="240" rx="12" fill="#fbbf24"/>
+  <!-- Toast silhouette - simple rounded rectangle -->
+  <rect x="136" y="96" width="240" height="320" rx="32" fill="#e5e5e5"/>
 
-    <!-- Toast texture (grill marks) -->
-    <rect x="-80" y="-100" width="8" height="200" fill="#f59e0b" opacity="0.6"/>
-    <rect x="-50" y="-100" width="8" height="200" fill="#f59e0b" opacity="0.6"/>
-    <rect x="-20" y="-100" width="8" height="200" fill="#f59e0b" opacity="0.6"/>
-    <rect x="10" y="-100" width="8" height="200" fill="#f59e0b" opacity="0.6"/>
-    <rect x="40" y="-100" width="8" height="200" fill="#f59e0b" opacity="0.6"/>
-    <rect x="70" y="-100" width="8" height="200" fill="#f59e0b" opacity="0.6"/>
+  <!-- JSON curly braces carved into toast -->
+  <!-- Left brace { -->
+  <path d="M 215 180 Q 195 180 195 200 L 195 240 Q 195 256 175 256 Q 195 256 195 272 L 195 312 Q 195 332 215 332"
+        stroke="#1a1a1a"
+        stroke-width="24"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        fill="none"/>
 
-    <!-- API brackets on toast -->
-    <g transform="scale(1)">
-      <!-- Left curly brace -->
-      <path d="M -35 -50 Q -45 -50 -45 -40 L -45 -15 Q -45 0 -55 0 Q -45 0 -45 15 L -45 40 Q -45 50 -35 50"
-            stroke="#2563eb" stroke-width="12" fill="none" stroke-linecap="round"/>
-
-      <!-- Right curly brace -->
-      <path d="M 35 -50 Q 45 -50 45 -40 L 45 -15 Q 45 0 55 0 Q 45 0 45 15 L 45 40 Q 45 50 35 50"
-            stroke="#2563eb" stroke-width="12" fill="none" stroke-linecap="round"/>
-    </g>
-
-    <!-- Subtle shadow/depth -->
-    <ellipse cx="0" cy="135" rx="100" ry="10" fill="#000" opacity="0.2"/>
-
-    <!-- Highlight on top for shine effect -->
-    <ellipse cx="-30" cy="-80" rx="50" ry="25" fill="#fde68a" opacity="0.4"/>
-  </g>
+  <!-- Right brace } -->
+  <path d="M 297 180 Q 317 180 317 200 L 317 240 Q 317 256 337 256 Q 317 256 317 272 L 317 312 Q 317 332 297 332"
+        stroke="#1a1a1a"
+        stroke-width="24"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        fill="none"/>
 </svg>
