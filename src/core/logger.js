@@ -120,13 +120,13 @@ class LoggingManager {
       this.allowAll = state.allowAll || false;
       this.globalEnabled = state.globalEnabled !== false;
 
-      // If no saved state exists, set up sensible defaults for theme work
+      // If no saved state exists, set up sensible defaults
       if (!localStorage.getItem('sandbox_logging_filters')) {
-        this.allowedComponents = new Set(['themeswitcher', 'codemirroreditor', 'editoradapter']);
+        this.allowedComponents = new Set(['themeswitcher', 'codemirroreditor', 'editoradapter', 'analytics']);
       }
     } catch (e) {
       // Ignore localStorage errors, use defaults
-      this.allowedComponents = new Set(['themeswitcher', 'codemirroreditor', 'editoradapter']);
+      this.allowedComponents = new Set(['themeswitcher', 'codemirroreditor', 'editoradapter', 'analytics']);
     }
   }
 }

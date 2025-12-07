@@ -11,7 +11,7 @@
 import { createLogger } from '../core/logger.js'
 import { ANALYTICS_CATEGORIES } from '../lib/analytics/AnalyticsEvents.js'
 
-const logger = createLogger('Analytics')
+const logger = createLogger({ prefix: 'Analytics' })
 
 // Analytics state
 let isInitialized = false
@@ -42,9 +42,16 @@ export const initializeAnalytics = () => {
   }
 
   measurementId = import.meta.env.VITE_GA_MEASUREMENT_ID
+  const isDev = import.meta.env.DEV
+
+  logger.info('Analytics init:', {
+    measurementId: measurementId ? `${measurementId.substring(0, 5)}...` : 'NOT SET',
+    isDev,
+    debugFlag: import.meta.env.VITE_GA_DEBUG
+  })
 
   if (!measurementId) {
-    logger.warn('GA Measurement ID not configured (VITE_GA_MEASUREMENT_ID)')
+    logger.warn('GA Measurement ID not configured - add VITE_GA_MEASUREMENT_ID to .env and rebuild')
     isInitialized = true
     isEnabled = false
     return
@@ -79,7 +86,7 @@ export const initializeAnalytics = () => {
   document.head.appendChild(script)
 
   isInitialized = true
-  logger.info('Google Analytics initialized', { measurementId })
+  console.log('[GA] Initialized with ID:', measurementId, '| isEnabled:', isEnabled)
 }
 
 /**
@@ -93,19 +100,20 @@ const trackEvent = (eventName, params = {}) => {
     return
   }
 
-  // Always log in dev mode for debugging
-  if (import.meta.env.DEV) {
-    logger.debug('Event:', { eventName, params })
-  }
+  // Always log events for debugging (enable Analytics logging to see)
+  logger.info('Event:', eventName, params)
 
   if (!isEnabled) {
+    logger.debug('Analytics disabled, event not sent')
     return
   }
 
   try {
+    // Direct console.log to always show (bypass logger filter)
+    console.log('[GA Event]', eventName, params)
     window.gtag('event', eventName, params)
   } catch (error) {
-    logger.error('Failed to track event', { eventName, error: error.message })
+    console.error('[GA Error]', eventName, error.message)
   }
 }
 
