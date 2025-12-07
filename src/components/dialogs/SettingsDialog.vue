@@ -86,7 +86,7 @@ onUnmounted(() => {
   <BaseDialog
     title="Settings"
     width="700px"
-    height="600px"
+    height="750px"
     @close="closeDialog"
   >
     <div class="settings-container">
@@ -95,32 +95,47 @@ onUnmounted(() => {
         <button
           :class="['settings-tab', { active: activeTab === 'general' }]"
           @click="switchTab('general')"
+          data-icon="⚙️"
+          title="General"
         >
-          ⚙️ General
+          <span class="tab-icon">⚙️</span>
+          <span class="tab-text">General</span>
         </button>
         <button
           :class="['settings-tab', { active: activeTab === 'request' }]"
           @click="switchTab('request')"
+          data-icon="🌐"
+          title="Request"
         >
-          🌐 Request
+          <span class="tab-icon">🌐</span>
+          <span class="tab-text">Request</span>
         </button>
         <button
           :class="['settings-tab', { active: activeTab === 'ui' }]"
           @click="switchTab('ui')"
+          data-icon="🎨"
+          title="UI"
         >
-          🎨 UI
+          <span class="tab-icon">🎨</span>
+          <span class="tab-text">UI</span>
         </button>
         <button
           :class="['settings-tab', { active: activeTab === 'proxy' }]"
           @click="switchTab('proxy')"
+          data-icon="🔄"
+          title="Proxy"
         >
-          🔄 Proxy
+          <span class="tab-icon">🔄</span>
+          <span class="tab-text">Proxy</span>
         </button>
         <button
           :class="['settings-tab', { active: activeTab === 'certificates' }]"
           @click="switchTab('certificates')"
+          data-icon="🔒"
+          title="Certificates"
         >
-          🔒 Certificates
+          <span class="tab-icon">🔒</span>
+          <span class="tab-text">Certificates</span>
         </button>
       </div>
 
@@ -296,5 +311,64 @@ onUnmounted(() => {
   background: var(--color-bg-hover);
   border-color: var(--color-primary-light);
   transform: translateY(-1px);
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .settings-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+  }
+
+  .settings-tabs::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+  }
+
+  .settings-tab {
+    padding: 10px 12px;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+
+  .settings-content {
+    padding-right: 4px;
+    margin-right: -4px;
+  }
+
+  .settings-actions {
+    flex-direction: column-reverse;
+    gap: 8px;
+  }
+
+  .actions-left,
+  .actions-right {
+    width: 100%;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    width: 100%;
+    padding: 12px 20px;
+  }
+}
+
+/* Very small screens - icon-only tabs */
+@media (max-width: 480px) {
+  .settings-tab {
+    padding: 8px 10px;
+    min-width: auto;
+  }
+
+  .tab-text {
+    display: none;
+  }
+
+  .tab-icon {
+    font-size: 18px;
+  }
 }
 </style>

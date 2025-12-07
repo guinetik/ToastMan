@@ -18,6 +18,61 @@ const state = ref({})
 const searchQuery = ref('')
 let debounceTimer = null
 
+// Collection long-press tracking
+const longPressingCollections = ref(new Set())
+let longPressTimers = new Map()
+const LONG_PRESS_DURATION = 500
+
+// Simple touch handlers for collection long-press
+const handleCollectionTouchStart = (event, collection) => {
+  const touch = event.touches[0]
+
+  const timer = setTimeout(() => {
+    longPressingCollections.value.add(collection.info.id)
+
+    // Create a synthetic event with clientX/clientY from touch coordinates
+    const syntheticEvent = new MouseEvent('contextmenu', {
+      bubbles: true,
+      cancelable: true,
+      view: window,
+      clientX: touch.clientX,
+      clientY: touch.clientY,
+      screenX: touch.screenX,
+      screenY: touch.screenY
+    })
+
+    // Copy target from original event
+    Object.defineProperty(syntheticEvent, 'target', {
+      value: event.target,
+      enumerable: true
+    })
+
+    showContextMenu(syntheticEvent, collection)
+
+    if (navigator.vibrate) {
+      navigator.vibrate(50)
+    }
+    setTimeout(() => {
+      longPressingCollections.value.delete(collection.info.id)
+    }, 200)
+  }, LONG_PRESS_DURATION)
+
+  longPressTimers.set(collection.info.id, timer)
+}
+
+const handleCollectionTouchEnd = (collection) => {
+  const timer = longPressTimers.get(collection.info.id)
+  if (timer) {
+    clearTimeout(timer)
+    longPressTimers.delete(collection.info.id)
+  }
+  longPressingCollections.value.delete(collection.info.id)
+}
+
+const isCollectionLongPressing = (collectionId) => {
+  return longPressingCollections.value.has(collectionId)
+}
+
 // Context menu references
 const contextMenuRef = ref(null)
 const requestContextMenuRef = ref(null)
@@ -189,8 +244,12 @@ const clearSearch = () => {
           <div
             v-if="collection && collection.info"
             class="collection-header"
+            :class="{ 'long-pressing': isCollectionLongPressing(collection.info.id) }"
             @click="toggleCollection(collection.info.id)"
             @contextmenu="showContextMenu($event, collection)"
+            @touchstart="handleCollectionTouchStart($event, collection)"
+            @touchend="handleCollectionTouchEnd(collection)"
+            @touchcancel="handleCollectionTouchEnd(collection)"
           >
             <span class="expand-icon">
               {{ isCollectionExpanded(collection.info.id) ? '📂' : '📁' }}
@@ -567,5 +626,12 @@ const clearSearch = () => {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* Long-press visual feedback */
+.collection-header.long-pressing {
+  background: var(--color-bg-active) !important;
+  box-shadow: inset 0 0 0 2px var(--color-border-dark) !important;
+  transform: scale(0.98);
 }
 </style>

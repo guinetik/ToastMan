@@ -54,9 +54,11 @@
     <!-- Visual Mode -->
     <div v-else-if="mode === 'visual'" class="visual-input-container">
       <div class="url-row">
-        <select v-model="method" class="method-select" :style="{ color: methodColor }">
-          <option v-for="m in httpMethods" :key="m" :value="m">{{ m }}</option>
-        </select>
+        <CustomDropdown
+          v-model="method"
+          :options="httpMethods"
+          class="method-select"
+        />
         <VariableHighlightInput
           v-model="url"
           class="url-input"
@@ -132,11 +134,12 @@
               {{ bm.label }}
             </label>
             <!-- Raw type selector -->
-            <select v-if="body.mode === 'raw'" v-model="rawType" class="raw-type-select">
-              <option v-for="rt in rawTypes" :key="rt.value" :value="rt.value">
-                {{ rt.label }}
-              </option>
-            </select>
+            <CustomDropdown
+              v-if="body.mode === 'raw'"
+              v-model="rawType"
+              :options="rawTypes"
+              class="raw-type-select"
+            />
           </div>
 
           <div v-if="body.mode === 'raw'" class="body-raw-editor">
@@ -176,12 +179,11 @@
         <div v-if="activeTab === 'auth'" class="auth-editor">
           <div class="auth-type-row">
             <label class="auth-label">Type</label>
-            <select v-model="auth.type" class="auth-select">
-              <option value="none">No Auth</option>
-              <option value="bearer">Bearer Token</option>
-              <option value="basic">Basic Auth</option>
-              <option value="apikey">API Key</option>
-            </select>
+            <CustomDropdown
+              v-model="auth.type"
+              :options="authTypes"
+              class="auth-select"
+            />
           </div>
 
           <!-- Bearer Token -->
@@ -257,23 +259,23 @@
     <div v-else-if="mode === 'script'" class="script-input-container">
       <div class="script-header">
         <div class="script-type-selector">
-          <select v-model="scriptType" class="script-type-select">
-            <option value="test">Post-Request Script</option>
-            <option value="prerequest">Pre-Request Script</option>
-          </select>
+          <CustomDropdown
+            v-model="scriptType"
+            :options="scriptTypeOptions"
+            class="script-type-select"
+          />
           <span v-if="scriptType === 'prerequest'" class="prerequest-warning">
             Pre-request scripts are stored but not executed
           </span>
         </div>
         <div class="script-actions">
-          <select v-model="selectedSnippet" @change="insertSnippet" class="snippet-select">
-            <option value="">Insert Snippet...</option>
-            <optgroup v-for="(categorySnippets, category) in snippetsByCategory" :key="category" :label="category">
-              <option v-for="snippet in categorySnippets" :key="snippet.name" :value="snippet.name">
-                {{ snippet.name }}
-              </option>
-            </optgroup>
-          </select>
+          <CustomDropdown
+            v-model="selectedSnippet"
+            :options="snippetOptions"
+            placeholder="Insert Snippet..."
+            @update:modelValue="insertSnippet"
+            class="snippet-select"
+          />
         </div>
       </div>
 
@@ -335,6 +337,7 @@
 import { ref, computed, watch } from 'vue'
 import { getCurrentEditor, getCurrentEditorDefaults } from '../../config/editors.js'
 import VariableHighlightInput from '../VariableHighlightInput.vue'
+import CustomDropdown from '../base/CustomDropdown.vue'
 import { getSnippetsByCategory, findSnippet } from '../../core/scripting/snippets.js'
 
 // Get the configured text editor (ACE)
@@ -382,6 +385,34 @@ const curlBeautified = ref(false)
 const isLoading = computed(() => props.controller.state.isLoading)
 
 const httpMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
+
+const authTypes = [
+  { value: 'none', label: 'No Auth' },
+  { value: 'bearer', label: 'Bearer Token' },
+  { value: 'basic', label: 'Basic Auth' },
+  { value: 'apikey', label: 'API Key' }
+]
+
+const scriptTypeOptions = [
+  { value: 'test', label: 'Post-Request Script' },
+  { value: 'prerequest', label: 'Pre-Request Script' }
+]
+
+const snippetOptions = computed(() => {
+  const options = [{ value: '', label: 'Insert Snippet...' }]
+
+  // Flatten snippets by category into a single list
+  Object.entries(snippetsByCategory).forEach(([category, snippets]) => {
+    snippets.forEach(snippet => {
+      options.push({
+        value: snippet.name,
+        label: `${category}: ${snippet.name}`
+      })
+    })
+  })
+
+  return options
+})
 
 const bodyModes = [
   { value: 'none', label: 'None' },
@@ -504,10 +535,10 @@ function save() {
   emit('save')
 }
 
-function insertSnippet() {
-  if (!selectedSnippet.value) return
+function insertSnippet(snippetName) {
+  if (!snippetName) return
 
-  const snippet = findSnippet(selectedSnippet.value)
+  const snippet = findSnippet(snippetName)
   if (snippet) {
     // Insert the snippet code into the current script
     const currentScript = script.value.postRequest || ''
@@ -515,7 +546,7 @@ function insertSnippet() {
     script.value.postRequest = currentScript + separator + snippet.code
   }
 
-  // Reset the dropdown
+  // Reset the dropdown to placeholder
   selectedSnippet.value = ''
 }
 
@@ -711,14 +742,14 @@ function minifyCurl(curl) {
 }
 
 .method-select {
-  padding: 8px 12px;
-  font-size: 13px;
-  font-weight: 600;
-  background: var(--color-bg-primary);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  cursor: pointer;
   min-width: 100px;
+  width: 110px;
+  flex-shrink: 0;
+}
+
+.method-select :deep(.custom-dropdown-value) {
+  font-weight: 600;
+  color: v-bind(methodColor);
 }
 
 .url-input {
@@ -878,13 +909,8 @@ input.kv-input {
 }
 
 .raw-type-select {
-  padding: 4px 8px;
-  font-size: 12px;
-  background: var(--color-bg-primary);
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  color: var(--color-text-primary);
   margin-left: auto;
+  width: 120px;
 }
 
 .body-raw-editor {
@@ -996,17 +1022,12 @@ input.kv-input {
   font-size: 12px;
   font-weight: 500;
   color: var(--color-text-secondary);
-  min-width: 60px;
+  flex-shrink: 0;
 }
 
 .auth-select {
-  padding: 6px 10px;
-  font-size: 12px;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  color: var(--color-text-primary);
-  min-width: 140px;
+  flex: 1;
+  min-width: 0;
 }
 
 .auth-fields {
@@ -1128,13 +1149,7 @@ input.auth-input::placeholder {
 }
 
 .script-type-select {
-  padding: 6px 10px;
-  font-size: 12px;
-  background: var(--color-bg-primary);
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  color: var(--color-text-primary);
-  min-width: 160px;
+  min-width: 180px;
 }
 
 .prerequest-warning {
@@ -1155,17 +1170,7 @@ input.auth-input::placeholder {
 }
 
 .snippet-select {
-  padding: 6px 10px;
-  font-size: 12px;
-  background: var(--color-bg-primary);
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  color: var(--color-text-primary);
-  min-width: 160px;
-}
-
-.snippet-select option {
-  padding: 4px 8px;
+  min-width: 200px;
 }
 
 .script-editor-container {

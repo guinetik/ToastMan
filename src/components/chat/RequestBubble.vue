@@ -424,4 +424,13 @@ function copyCurl() {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .message-bubble.request {
+    width: 100%;
+    max-width: 100%;
+    margin-left: 0;
+  }
+}
 </style>

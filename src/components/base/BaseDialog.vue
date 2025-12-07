@@ -51,8 +51,7 @@ onUnmounted(() => {
       class="dialog-container"
       :style="{
         width: props.width,
-        height: props.height === 'auto' ? 'auto' : props.height,
-        maxHeight: props.height === 'auto' ? '90vh' : props.height
+        height: props.height === 'auto' ? 'auto' : props.height
       }"
     >
       <!-- Dialog Header -->
@@ -118,6 +117,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   max-width: 90vw;
+  max-height: 90vh;
   overflow: hidden;
   animation: dialogAppear 0.25s ease-out;
 }
@@ -183,5 +183,73 @@ onUnmounted(() => {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .dialog-container {
+    width: 95vw !important;
+    max-width: 95vw;
+    max-height: 95vh !important;
+    margin: 0;
+  }
+
+  .dialog-header {
+    padding: 16px;
+  }
+
+  .dialog-title {
+    font-size: 16px;
+  }
+
+  .dialog-content {
+    padding: 16px;
+  }
+
+  .dialog-footer {
+    padding: 12px 16px;
+  }
+}
+
+/* Very small screens - even more compact */
+@media (max-width: 768px) and (max-height: 750px) {
+  .dialog-container {
+    max-height: 98vh !important;
+  }
+
+  .dialog-header {
+    padding: 12px 16px;
+  }
+
+  .dialog-title {
+    font-size: 15px;
+  }
+
+  .dialog-content {
+    padding: 12px 16px;
+  }
+
+  .dialog-footer {
+    padding: 10px 16px;
+  }
+}
+
+/* Short height devices (landscape tablets/nest hub) */
+@media (max-height: 750px) {
+  .dialog-container {
+    max-height: 95vh !important;
+  }
+
+  .dialog-header {
+    padding: 12px 20px;
+  }
+
+  .dialog-content {
+    padding: 12px 20px;
+  }
+
+  .dialog-footer {
+    padding: 10px 20px;
+  }
 }
 </style>

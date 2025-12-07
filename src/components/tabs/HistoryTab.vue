@@ -1,9 +1,13 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { HistoryController } from '../../controllers/HistoryController.js'
+import { useMobileView } from '../../composables/useMobileView.js'
 
 // Create controller instance
 const controller = new HistoryController()
+
+// Mobile view composable
+const { showComposer, isMobile } = useMobileView()
 
 // Get sessions as a computed property
 const sessions = computed(() => {
@@ -12,7 +16,13 @@ const sessions = computed(() => {
 
 // Component methods that delegate to controller
 const clearHistory = () => controller.clearHistory()
-const openSession = (sessionId) => controller.openSession(sessionId)
+const openSession = (sessionId) => {
+  controller.openSession(sessionId)
+  // Switch to composer view on mobile when opening a session
+  if (isMobile()) {
+    showComposer()
+  }
+}
 const removeSession = (sessionId) => controller.removeSession(sessionId)
 
 // Utility methods

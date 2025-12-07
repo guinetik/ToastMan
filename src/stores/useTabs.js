@@ -8,6 +8,7 @@
 import { computed, watch, nextTick } from 'vue'
 import { useTabsStorage } from '../composables/useStorage.js'
 import { useCollections } from './useCollections.js'
+import { useMobileView } from '../composables/useMobileView.js'
 import { createTab, generateId } from '../models/types.js'
 import { createLogger } from '../core/logger.js'
 
@@ -25,6 +26,7 @@ function createTabsStore() {
   const logger = createLogger('tabs')
   const { data: tabs } = useTabsStorage()
   const collections = useCollections()
+  const { showComposer, isMobile } = useMobileView()
 
   // Computed getters
   const allTabs = computed(() => tabs.value || [])
@@ -86,6 +88,10 @@ function createTabsStore() {
 
     if (existingTab) {
       setActiveTab(existingTab.id)
+      // Switch to composer view on mobile when opening a request
+      if (isMobile()) {
+        showComposer()
+      }
       return existingTab
     }
 
@@ -96,6 +102,11 @@ function createTabsStore() {
       name: request.name || 'Unnamed Request',
       method: request.request?.method || request.method || 'GET'
     })
+
+    // Switch to composer view on mobile when opening a request
+    if (isMobile()) {
+      showComposer()
+    }
 
     return tab
   }

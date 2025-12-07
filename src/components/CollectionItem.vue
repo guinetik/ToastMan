@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue'
+import { useLongPress } from '../composables/useLongPress.js'
 
 const props = defineProps({
   item: {
@@ -24,6 +25,15 @@ const emit = defineEmits(['open-request', 'show-context-menu', 'show-folder-cont
 
 // Track folder expansion state
 const isExpanded = ref(false)
+
+// Long-press handlers for touch devices
+const { isLongPressing: isFolderLongPressing, longPressHandlers: folderLongPressHandlers } = useLongPress((event) => {
+  handleContextMenu(event)
+})
+
+const { isLongPressing: isRequestLongPressing, longPressHandlers: requestLongPressHandlers } = useLongPress((event) => {
+  handleContextMenu(event)
+})
 
 // Determine if this is a folder or request
 const isFolder = computed(() => {
@@ -102,9 +112,11 @@ const getMethodColor = (method) => {
     <div v-if="isFolder" class="folder-container">
       <div
         class="folder-item"
+        :class="{ 'long-pressing': isFolderLongPressing }"
         :style="{ paddingLeft: `${depth * 20}px` }"
         @click="handleClick"
         @contextmenu="handleContextMenu"
+        v-bind="folderLongPressHandlers"
       >
         <span class="expand-icon">
           {{ isExpanded ? '📂' : '📁' }}
@@ -133,9 +145,11 @@ const getMethodColor = (method) => {
     <div
       v-else-if="isRequest"
       class="request-item"
+      :class="{ 'long-pressing': isRequestLongPressing }"
       :style="{ paddingLeft: `${(depth + 1) * 20}px` }"
       @click="handleClick"
       @contextmenu="handleContextMenu"
+      v-bind="requestLongPressHandlers"
     >
       <span
         class="method-badge"
@@ -228,5 +242,13 @@ const getMethodColor = (method) => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Long-press visual feedback */
+.folder-item.long-pressing,
+.request-item.long-pressing {
+  background-color: var(--color-bg-active) !important;
+  box-shadow: inset 0 0 0 2px var(--color-border-dark);
+  transform: scale(0.98);
 }
 </style>

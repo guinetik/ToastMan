@@ -684,4 +684,13 @@ function downloadResponse() {
   color: var(--color-text-primary);
   border-color: var(--color-text-secondary);
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .message-bubble.response {
+    width: 100%;
+    max-width: 100%;
+    margin-right: 0;
+  }
+}
 </style>

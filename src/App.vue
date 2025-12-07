@@ -11,6 +11,7 @@ import { useEnvironments } from './stores/useEnvironments.js'
 import { useTabs } from './stores/useTabs.js'
 import { useAlert } from './composables/useAlert.js'
 import { useAnalytics } from './composables/useAnalytics.js'
+import { useMobileView } from './composables/useMobileView.js'
 import { UI_EVENTS } from './lib/analytics/AnalyticsEvents.js'
 import { createLogger } from './core/logger.js'
 
@@ -19,6 +20,7 @@ const environmentsStore = useEnvironments()
 const tabsStore = useTabs()
 const { alertState, handleConfirm, handleCancel, closeAlert } = useAlert()
 const { trackUI } = useAnalytics()
+const { mobileView, toggleMobileView, showComposer, isMobile } = useMobileView()
 
 // Chat tabs ref
 const chatTabsRef = ref(null)
@@ -110,6 +112,11 @@ const createNewRequest = () => {
   }
   logger.info('Created new request')
   trackUI(UI_EVENTS.NEW_REQUEST)
+
+  // Switch to composer view on mobile
+  if (isMobile()) {
+    showComposer()
+  }
 }
 
 const handleResize = (event) => {
@@ -174,26 +181,38 @@ onMounted(() => {
       </div>
 
       <div class="header-actions">
+        <!-- Mobile Toggle Button (icon-only) -->
+        <button
+          class="mobile-toggle-button"
+          @click="toggleMobileView"
+          :title="mobileView === 'sidebar' ? 'Show Composer' : 'Show Sidebar'"
+        >
+          {{ mobileView === 'composer' ? '📁' : '💬' }}
+        </button>
+
         <button
           class="create-request-button"
           @click="createNewRequest"
           title="Create New Request"
         >
-          ➕ New Request
+          <span class="btn-icon">➕</span>
+          <span class="btn-text">New Request</span>
         </button>
         <button
           class="curl-tutorial-button"
           @click="openCurlTutorial"
           title="cURL Tutorial"
         >
-          📖 cURL Tutorial
+          <span class="btn-icon">📖</span>
+          <span class="btn-text">cURL Tutorial</span>
         </button>
         <button
           class="cors-button"
           @click="openCorsModal"
           title="CORS Information"
         >
-          ⚠️ CORS
+          <span class="btn-icon">⚠️</span>
+          <span class="btn-text">CORS</span>
         </button>
         <button
           class="settings-button"
@@ -207,7 +226,8 @@ onMounted(() => {
 
     <!-- Main Layout -->
     <div class="app-main">
-      <Splitpanes class="default-theme" @resize="handleResize">
+      <!-- Desktop: Splitpanes layout -->
+      <Splitpanes class="default-theme desktop-layout" @resize="handleResize">
         <!-- Left Sidebar -->
         <Pane :size="sidebarWidth" min-size="20" max-size="40">
           <Sidebar />
@@ -218,6 +238,16 @@ onMounted(() => {
           <ChatTabs ref="chatTabsRef" />
         </Pane>
       </Splitpanes>
+
+      <!-- Mobile: Toggle between sidebar and composer -->
+      <div class="mobile-layout">
+        <div class="mobile-view" :class="{ active: mobileView === 'sidebar' }">
+          <Sidebar />
+        </div>
+        <div class="mobile-view" :class="{ active: mobileView === 'composer' }">
+          <ChatTabs ref="chatTabsRef" />
+        </div>
+      </div>
     </div>
 
     <!-- Settings Dialog -->
@@ -783,5 +813,174 @@ onMounted(() => {
 
 .cors-got-it-btn:hover {
   background: var(--color-button-bg-hover);
+}
+
+/* Mobile Toggle Button */
+.mobile-toggle-button {
+  display: none;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 36px;
+  min-height: 36px;
+}
+
+.mobile-toggle-button:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-dark);
+}
+
+/* Mobile Layout (hidden by default) */
+.mobile-layout {
+  display: none;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.mobile-view {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.mobile-view.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Desktop Layout (visible by default) */
+.desktop-layout {
+  display: flex;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  /* Show mobile toggle button */
+  .mobile-toggle-button {
+    display: flex;
+  }
+
+  /* Hide desktop layout, show mobile layout */
+  .desktop-layout {
+    display: none !important;
+  }
+
+  .mobile-layout {
+    display: block;
+  }
+
+  /* Header adjustments */
+  .app-header {
+    padding: 8px 12px;
+    min-height: auto;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .logo-section {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .app-title {
+    font-size: 18px;
+  }
+
+  .app-subtitle {
+    display: none;
+  }
+
+  .environment-indicator {
+    order: 3;
+    flex: 1 1 100%;
+    width: 100%;
+    justify-content: flex-start;
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+
+  .header-actions {
+    gap: 6px;
+    flex-wrap: nowrap;
+  }
+
+  /* Make buttons icon-only on mobile */
+  .create-request-button .btn-text,
+  .curl-tutorial-button .btn-text,
+  .cors-button .btn-text {
+    display: none;
+  }
+
+  .create-request-button,
+  .curl-tutorial-button,
+  .cors-button {
+    padding: 8px;
+    min-width: 36px;
+  }
+
+  .btn-icon {
+    font-size: 16px;
+  }
+
+  .settings-button,
+  .mobile-toggle-button {
+    padding: 8px;
+    min-width: 36px;
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 480px) {
+  .app-header {
+    padding: 6px 8px;
+  }
+
+  .app-title {
+    font-size: 16px;
+  }
+
+  .logo-section {
+    gap: 6px;
+  }
+
+  .environment-indicator {
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+
+  .header-actions {
+    gap: 4px;
+  }
+
+  .create-request-button,
+  .curl-tutorial-button,
+  .cors-button,
+  .settings-button,
+  .mobile-toggle-button {
+    padding: 6px;
+    min-width: 32px;
+    font-size: 14px;
+  }
+}
+
+/* Narrow screens - compact environment indicator */
+@media (max-width: 600px) {
+  .env-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 </style>

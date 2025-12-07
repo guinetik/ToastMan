@@ -1,6 +1,7 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import BaseDialog from '../base/BaseDialog.vue'
+import CustomDropdown from '../base/CustomDropdown.vue'
 import { EnvironmentVariable } from '../../models/Environment.js'
 import { Logger } from '../../core/logger.js'
 
@@ -26,6 +27,9 @@ const newVariable = ref({
   enabled: true
 })
 
+// Refs to track input fields for auto-focus
+const keyInputRefs = ref([])
+
 // Initialize variables from environment
 onMounted(() => {
   // Ensure values array exists and copy variables
@@ -49,7 +53,8 @@ const enabledVariablesCount = computed(() => {
   return variables.value.filter(v => v.enabled && v.key).length
 })
 
-const addEmptyVariable = () => {
+const addEmptyVariable = async () => {
+  const newIndex = variables.value.length
   variables.value.push({
     id: `temp_${Date.now()}`,
     key: '',
@@ -58,6 +63,16 @@ const addEmptyVariable = () => {
     description: '',
     enabled: true
   })
+
+  // Wait for DOM to update, then scroll and focus the new input
+  await nextTick()
+  const inputElement = keyInputRefs.value[newIndex]
+  if (inputElement) {
+    // Scroll into view with smooth behavior
+    inputElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    // Focus the input field
+    inputElement.focus()
+  }
 }
 
 const removeVariable = (index) => {
@@ -67,7 +82,7 @@ const removeVariable = (index) => {
   }
 }
 
-const duplicateVariable = (index) => {
+const duplicateVariable = async (index) => {
   const original = variables.value[index]
   const duplicate = {
     ...original,
@@ -76,6 +91,17 @@ const duplicateVariable = (index) => {
     enabled: true
   }
   variables.value.splice(index + 1, 0, duplicate)
+
+  // Wait for DOM to update, then scroll and focus the duplicated input
+  await nextTick()
+  const inputElement = keyInputRefs.value[index + 1]
+  if (inputElement) {
+    // Scroll into view with smooth behavior
+    inputElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    // Focus the input field and select the text for easy editing
+    inputElement.focus()
+    inputElement.select()
+  }
 }
 
 const validateVariable = (variable) => {
@@ -159,13 +185,29 @@ const saveChanges = () => {
   emit('close')
 }
 
-const handleKeyInput = (index, event) => {
+const handleKeyInput = async (index, event) => {
   const variable = variables.value[index]
   variable.key = event.target.value
 
   // Auto-add new row if this is the last row and user typed something
   if (index === variables.value.length - 1 && variable.key.trim() !== '') {
-    addEmptyVariable()
+    const newIndex = variables.value.length
+    variables.value.push({
+      id: `temp_${Date.now()}`,
+      key: '',
+      value: '',
+      type: 'default',
+      description: '',
+      enabled: true
+    })
+
+    // Wait for DOM to update, then ensure new row is visible
+    await nextTick()
+    const inputElement = keyInputRefs.value[newIndex]
+    if (inputElement) {
+      // Scroll into view to show the new empty row
+      inputElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
   }
 }
 
@@ -208,6 +250,7 @@ const formatPlaceholder = (type) => {
           >
             <!-- Enabled checkbox -->
             <div class="col-checkbox">
+              <label class="mobile-label">Enabled</label>
               <input
                 type="checkbox"
                 v-model="variable.enabled"
@@ -217,6 +260,7 @@ const formatPlaceholder = (type) => {
 
             <!-- Key input -->
             <div class="col-key">
+              <label class="mobile-label">Variable Name</label>
               <input
                 type="text"
                 v-model="variable.key"
@@ -224,6 +268,7 @@ const formatPlaceholder = (type) => {
                 placeholder="Variable name..."
                 class="input-field"
                 :class="{ error: getVariableError(index) }"
+                :ref="(el) => { if (el) keyInputRefs[index] = el }"
               >
               <div
                 v-if="getVariableError(index)"
@@ -235,23 +280,18 @@ const formatPlaceholder = (type) => {
 
             <!-- Type select -->
             <div class="col-type">
-              <select
+              <label class="mobile-label">Type</label>
+              <CustomDropdown
                 v-model="variable.type"
-                class="input-field"
+                :options="variableTypes"
                 :disabled="!variable.key"
-              >
-                <option
-                  v-for="type in variableTypes"
-                  :key="type.value"
-                  :value="type.value"
-                >
-                  {{ type.label }}
-                </option>
-              </select>
+                class="input-field"
+              />
             </div>
 
             <!-- Value input -->
             <div class="col-value">
+              <label class="mobile-label">Initial Value</label>
               <input
                 v-if="variable.type !== 'json'"
                 :type="variable.type === 'secret' ? 'password' : 'text'"
@@ -272,22 +312,25 @@ const formatPlaceholder = (type) => {
 
             <!-- Actions -->
             <div class="col-actions">
-              <button
-                v-if="variable.key"
-                @click="duplicateVariable(index)"
-                class="action-btn duplicate-btn"
-                title="Duplicate variable"
-              >
-                📋
-              </button>
-              <button
-                v-if="variables.length > 1"
-                @click="removeVariable(index)"
-                class="action-btn delete-btn"
-                title="Delete variable"
-              >
-                🗑️
-              </button>
+              <label class="mobile-label">Actions</label>
+              <div class="action-buttons">
+                <button
+                  v-if="variable.key"
+                  @click="duplicateVariable(index)"
+                  class="action-btn duplicate-btn"
+                  title="Duplicate variable"
+                >
+                  📋
+                </button>
+                <button
+                  v-if="variables.length > 1"
+                  @click="removeVariable(index)"
+                  class="action-btn delete-btn"
+                  title="Delete variable"
+                >
+                  🗑️
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -518,5 +561,126 @@ const formatPlaceholder = (type) => {
   background: var(--color-bg-hover);
   border-color: var(--color-primary-light);
   transform: translateY(-1px);
+}
+
+/* Mobile labels - hidden on desktop */
+.mobile-label {
+  display: none;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  /* Hide table header on mobile */
+  .table-header {
+    display: none;
+  }
+
+  /* Convert rows to vertical cards */
+  .variable-row {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-md);
+    margin-bottom: 12px;
+    border-bottom: none;
+  }
+
+  .variable-row:hover {
+    background: var(--color-bg-tertiary);
+  }
+
+  /* Show mobile labels */
+  .mobile-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+
+  /* Make columns full-width */
+  .col-checkbox,
+  .col-key,
+  .col-type,
+  .col-value,
+  .col-actions {
+    width: 100%;
+  }
+
+  .col-checkbox {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .col-checkbox .mobile-label {
+    margin-bottom: 0;
+    flex: 1;
+  }
+
+  /* Make input fields larger on mobile */
+  .input-field {
+    padding: 10px 12px;
+    font-size: 16px; /* Prevents iOS zoom on focus */
+  }
+
+  .textarea-field {
+    min-height: 60px;
+  }
+
+  /* Make action buttons larger and full-width */
+  .action-buttons {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .action-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+  }
+
+  /* Adjust summary for mobile */
+  .variables-summary {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .btn-secondary {
+    width: 100%;
+    padding: 12px 16px;
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 480px) {
+  .variable-row {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .mobile-label {
+    font-size: 10px;
+  }
+
+  .input-field {
+    padding: 8px 10px;
+  }
+
+  .action-btn {
+    width: 36px;
+    height: 36px;
+  }
 }
 </style>

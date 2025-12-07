@@ -31,18 +31,24 @@ onUnmounted(() => {
       <button
         :class="['tab', { active: state.activeTab === 'collections' }]"
         @click="switchTab('collections')"
+        data-icon="📁"
+        title="Collections"
       >
         📁 Collections
       </button>
       <button
         :class="['tab', { active: state.activeTab === 'environments' }]"
         @click="switchTab('environments')"
+        data-icon="🌍"
+        title="Environments"
       >
         🌍 Environments
       </button>
       <button
         :class="['tab', { active: state.activeTab === 'history' }]"
         @click="switchTab('history')"
+        data-icon="📜"
+        title="History"
       >
         📜 History
       </button>
@@ -111,5 +117,41 @@ onUnmounted(() => {
   overflow-y: auto;
   background: var(--color-bg-secondary);
   border-top: 1px solid var(--color-border);
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .tab {
+    font-size: 12px;
+    padding: 8px 8px;
+    white-space: nowrap;
+  }
+}
+
+/* Very narrow screens - icon only */
+@media (max-width: 350px) {
+  .tab {
+    font-size: 16px;
+    padding: 8px 6px;
+    min-width: 0;
+  }
+
+  /* Hide text, keep emoji only */
+  .tab::after {
+    content: attr(data-icon);
+  }
+
+  .tab {
+    text-indent: -9999px;
+    position: relative;
+  }
+
+  .tab::after {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    text-indent: 0;
+  }
 }
 </style>
