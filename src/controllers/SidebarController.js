@@ -1,4 +1,6 @@
 import { BaseController } from './BaseController.js'
+import { useAnalytics } from '../composables/useAnalytics.js'
+import { NAV_EVENTS } from '../lib/analytics/AnalyticsEvents.js'
 
 /**
  * Controller for Sidebar component - handles only tab switching
@@ -27,5 +29,9 @@ export class SidebarController extends BaseController {
 
     this.state.activeTab = tabName
     this.logger.debug(`Switched to tab: ${tabName}`)
+
+    // Track tab switch
+    const { trackNavigation } = useAnalytics()
+    trackNavigation(NAV_EVENTS.TAB_SWITCH, { tab_name: tabName })
   }
 }

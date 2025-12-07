@@ -10,12 +10,15 @@ import CurlTutorialDialog from './components/dialogs/CurlTutorialDialog.vue'
 import { useEnvironments } from './stores/useEnvironments.js'
 import { useTabs } from './stores/useTabs.js'
 import { useAlert } from './composables/useAlert.js'
+import { useAnalytics } from './composables/useAnalytics.js'
+import { UI_EVENTS } from './lib/analytics/AnalyticsEvents.js'
 import { createLogger } from './core/logger.js'
 
 const logger = createLogger('app')
 const environmentsStore = useEnvironments()
 const tabsStore = useTabs()
 const { alertState, handleConfirm, handleCancel, closeAlert } = useAlert()
+const { trackUI } = useAnalytics()
 
 // Chat tabs ref
 const chatTabsRef = ref(null)
@@ -38,11 +41,22 @@ const showSettings = ref(false)
 const openSettings = () => {
   logger.debug('Opening settings dialog')
   showSettings.value = true
+  trackUI(UI_EVENTS.SETTINGS_OPEN)
 }
 
 const closeSettings = () => {
   logger.debug('Closing settings dialog')
   showSettings.value = false
+}
+
+const openCorsModal = () => {
+  showCorsModal.value = true
+  trackUI(UI_EVENTS.CORS_MODAL_OPEN)
+}
+
+const openCurlTutorial = () => {
+  showCurlTutorial.value = true
+  trackUI(UI_EVENTS.CURL_TUTORIAL_OPEN)
 }
 
 /**
@@ -95,6 +109,7 @@ const createNewRequest = () => {
     })
   }
   logger.info('Created new request')
+  trackUI(UI_EVENTS.NEW_REQUEST)
 }
 
 const handleResize = (event) => {
@@ -168,14 +183,14 @@ onMounted(() => {
         </button>
         <button
           class="curl-tutorial-button"
-          @click="showCurlTutorial = true"
+          @click="openCurlTutorial"
           title="cURL Tutorial"
         >
           📖 cURL Tutorial
         </button>
         <button
           class="cors-button"
-          @click="showCorsModal = true"
+          @click="openCorsModal"
           title="CORS Information"
         >
           ⚠️ CORS
