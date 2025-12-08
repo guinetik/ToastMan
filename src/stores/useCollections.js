@@ -28,7 +28,8 @@ export function useCollections() {
 
 function createCollectionsStore() {
   const logger = createLogger('collections')
-  const { data: collections } = useCollectionsStorage()
+  const collectionsStorage = useCollectionsStorage()
+  const collections = collectionsStorage.data
 
   // Computed getters
   const allCollections = computed(() => {
@@ -61,6 +62,9 @@ function createCollectionsStore() {
     logger.info('Collections array after push - length:', collections.value.length)
     logger.debug('Full collections array:', collections.value)
 
+    // Force save to localStorage
+    collectionsStorage.save()
+
     return collection
   }
 
@@ -72,6 +76,7 @@ function createCollectionsStore() {
     const collection = getCollection(id)
     if (collection) {
       Object.assign(collection.info, updates)
+      collectionsStorage.save()
     }
     return collection
   }
@@ -80,6 +85,7 @@ function createCollectionsStore() {
     const index = collections.value.findIndex(c => c.info.id === id)
     if (index > -1) {
       collections.value.splice(index, 1)
+      collectionsStorage.save()
       return true
     }
     return false
@@ -99,22 +105,72 @@ function createCollectionsStore() {
       }))
 
       collections.value.push(duplicate)
+      collectionsStorage.save()
       return duplicate
     }
     return null
   }
 
   // Request/Item operations
-  const addRequestToCollection = (collectionId, request = null) => {
+  /**
+   * Add a request to a collection or folder
+   * @param {string} collectionId - The collection ID
+   * @param {Object} itemData - Item data: { name, request, event? } OR just a request object (legacy)
+   * @param {string} folderId - Optional folder ID to add the request to
+   * @returns {Object|null} The created item
+   */
+  const addRequestToCollection = (collectionId, itemData = null, folderId = null) => {
+    // Handle both formats: { name, request, event } or just request object (legacy)
+    let itemToCreate
+    if (itemData && typeof itemData === 'object') {
+      // Check if this is the full item format with name/request/event
+      if (itemData.name !== undefined || itemData.request !== undefined || itemData.event !== undefined) {
+        itemToCreate = {
+          ...createItem({
+            name: itemData.name || 'New Request',
+            request: itemData.request || createRequest()
+          }),
+          // Preserve event (scripts) if provided
+          event: itemData.event
+        }
+      } else {
+        // Legacy format: just a request object
+        itemToCreate = createItem({
+          name: 'New Request',
+          request: itemData
+        })
+      }
+    } else {
+      // No data provided, create empty request
+      itemToCreate = createItem({
+        name: 'New Request',
+        request: createRequest()
+      })
+    }
+
+    // If folderId is provided, add to folder
+    if (folderId) {
+      const folderResult = findItemInCollection(collectionId, folderId)
+      if (folderResult && folderResult.item.item) {
+        folderResult.item.item.push(itemToCreate)
+        logger.debug('Added request to folder:', folderId)
+        collectionsStorage.save()
+        return itemToCreate
+      } else {
+        logger.warn('Folder not found:', folderId, '- adding to root instead')
+      }
+    }
+
+    // Otherwise add to collection root
     const collection = getCollection(collectionId)
     if (collection) {
-      const item = createItem({
-        name: 'New Request',
-        request: request || createRequest()
-      })
-      collection.item.push(item)
-      return item
+      collection.item.push(itemToCreate)
+      logger.debug('Added request to collection:', collectionId)
+      collectionsStorage.save()
+      return itemToCreate
     }
+
+    logger.error('Collection not found:', collectionId)
     return null
   }
 
@@ -151,6 +207,12 @@ function createCollectionsStore() {
         // Deep merge request object to preserve nested properties
         deepMerge(request.request, updates.request)
       }
+      if (updates.event !== undefined) {
+        // Update event array (scripts)
+        request.event = updates.event
+      }
+      logger.debug('Updated request:', requestId)
+      collectionsStorage.save()
     }
     return request
   }
@@ -433,6 +495,7 @@ function createCollectionsStore() {
       // Add to collections
       collections.value.push(imported)
       logger.info('Successfully imported collection:', imported.info.name)
+      collectionsStorage.save()
 
       // Return the result with warnings for UI to display
       return {

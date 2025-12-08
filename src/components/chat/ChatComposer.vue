@@ -163,8 +163,24 @@ const canSend = computed(() => {
 })
 
 const canSave = computed(() => {
-  return props.controller.state.currentRequestId &&
-         props.controller.state.currentCollectionId
+  // Allow saving if either:
+  // 1. Linked to an existing collection request (for updating)
+  // 2. Has a valid URL or cURL input (for saving as new request)
+  const hasExisting = props.controller.state.currentRequestId && props.controller.state.currentCollectionId
+  const hasCurlContent = mode.value === 'curl' && curlInput.value.trim().length > 0
+  const hasUrlContent = mode.value !== 'curl' && url.value.trim().length > 0
+
+  const result = hasExisting || hasCurlContent || hasUrlContent
+
+  console.log('[ChatComposer] canSave:', {
+    mode: mode.value,
+    hasExisting,
+    hasCurlContent,
+    hasUrlContent,
+    result
+  })
+
+  return result
 })
 
 const hasScript = computed(() => {

@@ -36,8 +36,11 @@ function createConversationsStore() {
   const logger = createLogger('conversations')
 
   // State - persisted to localStorage via useStorage
-  const { data: conversations } = useConversationsStorage()
+  const conversationsStorage = useConversationsStorage()
+  const conversations = conversationsStorage.data
   const activeConversationId = ref(null)
+
+  console.log('[useConversations] Store created, initial conversations:', conversations.value)
 
   // Computed
   const activeConversation = computed(() => {
@@ -83,6 +86,13 @@ function createConversationsStore() {
     activeConversationId.value = conversation.id
 
     logger.debug('Conversation created:', conversation.id)
+
+    // Force Vue reactivity by reassigning the array
+    console.log('CREATE CONVERSATION - Before reassign, count:', conversations.value.length)
+    conversations.value = [...conversations.value]
+    console.log('CREATE CONVERSATION - After reassign, calling save...')
+    conversationsStorage.save()
+
     return conversation
   }
 
@@ -139,10 +149,24 @@ function createConversationsStore() {
       return null
     }
 
+    logger.debug('Before adding message - conversation ID:', conversation.id, 'messages count:', conversation.messages.length)
+
     const message = createRequestMessage(request, curlString)
     addMessageToConversation(conversation, message)
 
+    logger.debug('After adding message - messages count:', conversation.messages.length)
     logger.debug('Request message added:', message.id)
+
+    // Force Vue reactivity by reassigning the array - this WILL trigger the watcher
+    console.log('BEFORE REASSIGN - conversations count:', conversations.value.length)
+    console.log('BEFORE REASSIGN - conversation messages:', conversation.messages.length)
+    conversations.value = [...conversations.value]
+    console.log('AFTER REASSIGN - conversations.value:', conversations.value)
+
+    // Manually save to ensure persistence
+    console.log('Calling conversationsStorage.save() manually...')
+    conversationsStorage.save()
+
     return message
   }
 
@@ -162,6 +186,12 @@ function createConversationsStore() {
     addMessageToConversation(conversation, message)
 
     logger.debug('Response message added:', message.id)
+
+    // Force Vue reactivity by reassigning the array
+    console.log('ADD RESPONSE - calling save...')
+    conversations.value = [...conversations.value]
+    conversationsStorage.save()
+
     return message
   }
 
@@ -268,6 +298,11 @@ function createConversationsStore() {
       conversation.messages = []
       conversation.updatedAt = new Date().toISOString()
       logger.info('Conversation cleared:', conversation.id)
+
+      // Force Vue reactivity by reassigning the array
+      console.log('CLEAR CONVERSATION - calling save...')
+      conversations.value = [...conversations.value]
+      conversationsStorage.save()
     }
   }
 
@@ -286,6 +321,11 @@ function createConversationsStore() {
       }
 
       logger.info('Conversation deleted:', conversationId)
+
+      // Force Vue reactivity by reassigning the array
+      console.log('DELETE CONVERSATION - calling save...')
+      conversations.value = [...conversations.value]
+      conversationsStorage.save()
     }
   }
 
@@ -311,6 +351,35 @@ function createConversationsStore() {
     if (conversation) {
       conversation.name = name
       conversation.updatedAt = new Date().toISOString()
+      logger.debug('Conversation name updated:', conversationId, name)
+
+      // Force Vue reactivity by reassigning the array
+      console.log('UPDATE CONVERSATION NAME - calling save...')
+      conversations.value = [...conversations.value]
+      conversationsStorage.save()
+    }
+  }
+
+  /**
+   * Update conversation metadata (requestId, collectionId, folderId)
+   * @param {string} conversationId - The conversation ID
+   * @param {object} updates - Object with fields to update
+   */
+  const updateConversation = (conversationId, updates) => {
+    const conversation = conversations.value.find(c => c.id === conversationId)
+    if (conversation) {
+      if ('requestId' in updates) conversation.requestId = updates.requestId
+      if ('collectionId' in updates) conversation.collectionId = updates.collectionId
+      if ('folderId' in updates) conversation.folderId = updates.folderId
+      if ('name' in updates) conversation.name = updates.name
+      conversation.updatedAt = new Date().toISOString()
+      logger.debug('Conversation updated:', conversationId, updates)
+
+      // Force Vue reactivity by reassigning the array
+      console.log('UPDATE CONVERSATION - updates:', updates)
+      console.log('UPDATE CONVERSATION - calling save...')
+      conversations.value = [...conversations.value]
+      conversationsStorage.save()
     }
   }
 
@@ -348,6 +417,12 @@ function createConversationsStore() {
     addMessageToConversation(conversation, message)
 
     logger.debug('AI user message added:', message.id)
+
+    // Force Vue reactivity by reassigning the array
+    console.log('ADD AI USER MESSAGE - calling save...')
+    conversations.value = [...conversations.value]
+    conversationsStorage.save()
+
     return message
   }
 
@@ -370,6 +445,12 @@ function createConversationsStore() {
     addMessageToConversation(conversation, message)
 
     logger.debug('AI assistant message added:', message.id)
+
+    // Force Vue reactivity by reassigning the array
+    console.log('ADD AI ASSISTANT MESSAGE - calling save...')
+    conversations.value = [...conversations.value]
+    conversationsStorage.save()
+
     return message
   }
 
@@ -400,6 +481,7 @@ function createConversationsStore() {
     deleteConversation,
     getConversationByRequest,
     updateConversationName,
+    updateConversation,
     getSortedConversations,
     closeActiveConversation
   }

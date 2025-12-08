@@ -150,16 +150,6 @@ onMounted(async () => {
   webgpuChecked.value = aiController.state.webgpuChecked
   webgpuMessage.value = aiController.state.webgpuMessage
 
-  // Auto-load model if configured
-  if (getAiSettings().autoLoadModel && selectedModel.value && webgpuAvailable.value) {
-    // Initialize model in background
-    aiController.initModel(selectedModel.value, (progress) => {
-      // Silent background load - no UI updates for auto-load
-    }).catch(error => {
-      console.error('Failed to auto-load model:', error)
-    })
-  }
-
   // Listen to controller events
   aiController.on('model-loading-progress', (progress) => {
     loadingProgress.value = progress.progress || 0

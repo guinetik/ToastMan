@@ -342,23 +342,15 @@ export class ChatController extends BaseController {
     // Generate cURL
     this.syncVisualToCurl()
 
-    // Always create a NEW conversation when opening from collections
-    // This ensures users start with a fresh conversation each time
-    // Old conversations are accessible via History sidebar
-    const existingConvo = this.conversationsStore.getConversationByRequest(requestId, collectionId)
-    if (existingConvo) {
-      // Clear the existing conversation's messages to start fresh
-      existingConvo.messages = []
-      existingConvo.updatedAt = new Date().toISOString()
-      this.conversationsStore.setActiveConversation(existingConvo.id)
-    } else {
-      this.conversationsStore.createNewConversation({
-        name: requestItem.name || 'Request',
-        requestId,
-        collectionId,
-        folderId
-      })
-    }
+    // Always create a NEW conversation when opening a request
+    // Each time a user opens a request, they get a fresh conversation
+    // All previous conversations are preserved and accessible via History sidebar
+    this.conversationsStore.createNewConversation({
+      name: requestItem.name || 'Request',
+      requestId,
+      collectionId,
+      folderId
+    })
 
     this.logger.info('Loaded request:', requestItem.name)
   }
@@ -569,6 +561,12 @@ export class ChatController extends BaseController {
       if (this.state.currentRequestId && this.state.currentCollectionId) {
         this.saveToCollection()
       }
+
+      // Auto-name the request if it's still called "New Request"
+      // This happens in the background and doesn't block the UI
+      this.autoNameRequest(curlString).catch(err => {
+        // Errors are already logged in autoNameRequest, no need to log again
+      })
 
       this.logger.info('Request completed:', response.status)
 
@@ -873,6 +871,49 @@ export class ChatController extends BaseController {
       // Session exists but no requests yet - just activate it
       this.clearComposer()
       this.logger.info('Loaded empty session:', conversation.name)
+    }
+  }
+
+  /**
+   * Automatically generate and update conversation name using AI
+   * Only runs if:
+   * - Current conversation name is "New Request"
+   * - AI model is loaded
+   * @param {string} curlCommand - The cURL command to generate name from
+   */
+  async autoNameRequest(curlCommand) {
+    try {
+      const activeConversation = this.conversationsStore.activeConversation.value
+
+      // Only auto-name if conversation is still called "New Request"
+      if (!activeConversation || activeConversation.name !== 'New Request') {
+        return
+      }
+
+      // Dynamically import aiController to avoid circular dependencies
+      const { default: aiController } = await import('./AiController.js')
+
+      // Only generate name if AI model is loaded
+      if (!aiController.isModelLoaded()) {
+        this.logger.debug('Skipping auto-name: No AI model loaded')
+        return
+      }
+
+      this.logger.debug('Auto-naming request from cURL command')
+
+      // Generate name using AI
+      const result = await aiController.generateRequestName(curlCommand)
+
+      if (result.success && result.name) {
+        // Update conversation name
+        this.conversationsStore.updateConversationName(activeConversation.id, result.name)
+        this.logger.info(`Auto-named request: ${result.name}`)
+      } else {
+        this.logger.debug('Auto-naming failed:', result.error)
+      }
+    } catch (error) {
+      // Silently fail - auto-naming is a nice-to-have feature
+      this.logger.debug('Auto-naming error:', error)
     }
   }
 

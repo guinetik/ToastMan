@@ -250,6 +250,72 @@ export class AiController extends BaseController {
   }
 
   /**
+   * Generate a short name for a request based on its cURL command
+   * @param {string} curlCommand - The cURL command to analyze
+   * @param {string} modelKey - Model to use (defaults to current)
+   * @returns {Promise<{success: boolean, name?: string, error?: string}>}
+   */
+  async generateRequestName(curlCommand, modelKey = null) {
+    if (!this.state.webgpuAvailable) {
+      return { success: false, error: 'WebGPU not available' }
+    }
+
+    if (!curlCommand || typeof curlCommand !== 'string') {
+      return { success: false, error: 'Invalid cURL command' }
+    }
+
+    // Don't generate if model isn't loaded
+    if (!this.isModelLoaded()) {
+      return { success: false, error: 'No model loaded' }
+    }
+
+    // Get the actual loaded model from aiService (state may be stale after reset)
+    const model = modelKey || aiService.getCurrentModel()
+
+    if (!model) {
+      return { success: false, error: 'No model available' }
+    }
+
+    this.logger.debug('Generating request name from cURL command using model:', model)
+
+    const prompt = `Generate a very short name (2-4 words max) for this API request. Reply with ONLY the name, no explanations or extra text:
+
+${curlCommand}
+
+Name:`
+
+    const result = await this.executeAsync(
+      async () => {
+        // Use the AI service to generate response
+        const rawResponse = await aiService.generate(prompt, model)
+
+        // Clean up the response - take first line, trim, remove quotes
+        const name = rawResponse
+          .split('\n')[0]
+          .trim()
+          .replace(/^["']|["']$/g, '') // Remove surrounding quotes
+          .substring(0, 50) // Max 50 characters
+
+        return { name }
+      },
+      'Failed to generate request name'
+    )
+
+    if (result.success && result.data.name) {
+      this.logger.info(`Generated request name: ${result.data.name}`)
+      return {
+        success: true,
+        name: result.data.name
+      }
+    } else {
+      return {
+        success: false,
+        error: result.error?.message || 'Name generation failed'
+      }
+    }
+  }
+
+  /**
    * Get current model info
    * @returns {object|null}
    */
@@ -294,6 +360,22 @@ export class AiController extends BaseController {
    */
   clearError() {
     this.state.lastError = null
+  }
+
+  /**
+   * Reset controller state (useful after clearing app data)
+   * Syncs currentModel from aiService to avoid state desync
+   */
+  resetState() {
+    this.logger.debug('Resetting AI controller state')
+    // Keep the model in sync with aiService (don't clear if model is still loaded)
+    this.state.currentModel = aiService.getCurrentModel()
+    this.state.isModelLoading = false
+    this.state.isGenerating = false
+    this.state.loadingProgress = 0
+    this.state.loadingText = ''
+    this.state.lastError = null
+    this.state.lastInferenceTime = 0
   }
 
   /**

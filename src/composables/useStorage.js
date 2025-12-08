@@ -68,22 +68,28 @@ export function useStorage(key, defaultValue = null, options = {}) {
   let saveTimeout = null
   const save = () => {
     // Skip save if this change came from a storage event (prevents circular updates)
-    if (isUpdatingFromEvent) return
+    if (isUpdatingFromEvent) {
+      console.log(`[useStorage] Skipping save for ${key} - isUpdatingFromEvent=true`)
+      return
+    }
 
+    console.log(`[useStorage] Save triggered for ${key}`)
     clearTimeout(saveTimeout)
     saveTimeout = setTimeout(() => {
+      console.log(`[useStorage] Executing save for ${key} after ${debounce}ms debounce`)
+      console.log(`[useStorage] Data to save:`, data.value)
       const stringified = safeJsonStringify(data.value)
       if (stringified !== null) {
-        logger.debug(`Saving to ${key}`, data.value)
+        console.log(`[useStorage] Stringified length: ${stringified.length}`)
         localStorage.setItem(key, stringified)
-        logger.info(`Saved to localStorage - key=${key}, size=${stringified.length}`)
+        console.log(`[useStorage] ✅ SAVED to localStorage - key=${key}`)
 
         // Emit storage change event
         storageEvents.dispatchEvent(new CustomEvent('storage-change', {
           detail: { key, value: data.value }
         }))
       } else {
-        logger.error(`Failed to stringify data for ${key}`)
+        console.error(`[useStorage] ❌ Failed to stringify data for ${key}`)
       }
     }, debounce)
   }
@@ -259,6 +265,17 @@ export function useConversationsStorage() {
 export function clearAllData() {
   Object.values(STORAGE_KEYS).forEach(key => {
     localStorage.removeItem(key)
+  })
+
+  // Reset aiController singleton state to prevent stale loading flags
+  // Use dynamic import to avoid circular dependencies
+  import('../controllers/AiController.js').then(module => {
+    const aiController = module.default
+    if (aiController && aiController.resetState) {
+      aiController.resetState()
+    }
+  }).catch(err => {
+    console.warn('Failed to reset AI controller:', err)
   })
 
   // Emit clear event

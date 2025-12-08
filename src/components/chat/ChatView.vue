@@ -34,6 +34,14 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- Save to Collection Dialog -->
+    <CollectionPickerDialog
+      v-if="showSaveDialog"
+      :request-name="pendingRequestName"
+      @close="closeSaveDialog"
+      @save="handleSaveToNewCollection"
+    />
   </div>
 </template>
 
@@ -43,10 +51,14 @@ import { Splitpanes, Pane } from 'splitpanes'
 import ConversationThread from './ConversationThread.vue'
 import ChatComposer from './ChatComposer.vue'
 import ResponseBubble from './ResponseBubble.vue'
+import CollectionPickerDialog from '../dialogs/CollectionPickerDialog.vue'
 import { ChatController } from '../../controllers/ChatController.js'
 import { useConversations } from '../../stores/useConversations.js'
+import { useCollections } from '../../stores/useCollections.js'
+import { useTabs } from '../../stores/useTabs.js'
 import { useAlert } from '../../composables/useAlert.js'
 import aiController from '../../controllers/AiController.js'
+import { requestToCurl } from '../../utils/curlGenerator.js'
 
 const props = defineProps({
   requestId: {
@@ -73,10 +85,16 @@ const props = defineProps({
 
 const emit = defineEmits(['request-loaded'])
 
-// Initialize controller
+// Initialize controller and stores
 const controller = new ChatController()
 const conversationsStore = useConversations()
+const collectionsStore = useCollections()
+const tabsStore = useTabs()
 const { alertSuccess } = useAlert()
+
+// Save dialog state
+const showSaveDialog = ref(false)
+const pendingRequestName = ref('')
 
 // Pane sizes - adjusts based on composer mode
 const composerMode = ref('curl')
@@ -110,6 +128,9 @@ watch(
 
 // Handle initialization based on what props are provided
 onMounted(() => {
+  // Reset aiController state to prevent stale loading flags from previous operations
+  aiController.resetState()
+
   if (props.conversationId) {
     // Opening from history - load existing session
     controller.loadSession(props.conversationId)
@@ -127,7 +148,103 @@ function handleSend() {
 }
 
 function handleSave() {
-  controller.saveToCollection()
+  console.log('SAVE BUTTON CLICKED')
+  console.log('currentRequestId:', controller.state.currentRequestId)
+  console.log('currentCollectionId:', controller.state.currentCollectionId)
+  console.log('activeConversation:', activeConversation.value)
+
+  // If already linked to a collection, directly save
+  if (controller.state.currentRequestId && controller.state.currentCollectionId) {
+    console.log('Updating existing request in collection')
+    controller.saveToCollection()
+    alertSuccess('Request updated in collection')
+  } else {
+    // Show dialog to choose collection
+    // Generate a default name from the URL or active conversation name
+    const defaultName = activeConversation.value?.name || 'New Request'
+    console.log('Showing save dialog with default name:', defaultName)
+    pendingRequestName.value = defaultName
+    showSaveDialog.value = true
+  }
+}
+
+function closeSaveDialog() {
+  showSaveDialog.value = false
+  pendingRequestName.value = ''
+}
+
+function handleSaveToNewCollection(data) {
+  console.log('SAVING TO COLLECTION - data:', data)
+  console.log('SAVING TO COLLECTION - requestName:', data.requestName)
+
+  const requestName = data.requestName || 'New Request'
+
+  // Build request object from current state
+  const request = controller.buildRequestFromVisual()
+
+  // Build event array for scripts (Postman format)
+  const event = []
+
+  if (controller.state.script.preRequest?.trim()) {
+    event.push({
+      listen: 'prerequest',
+      script: {
+        type: 'text/javascript',
+        exec: controller.state.script.preRequest.split('\n')
+      }
+    })
+  }
+
+  if (controller.state.script.postRequest?.trim()) {
+    event.push({
+      listen: 'test',
+      script: {
+        type: 'text/javascript',
+        exec: controller.state.script.postRequest.split('\n')
+      }
+    })
+  }
+
+  // Add request to collection
+  const savedRequest = collectionsStore.addRequest(
+    data.collectionId,
+    {
+      name: requestName,
+      request,
+      event: event.length > 0 ? event : undefined
+    },
+    data.folderId
+  )
+
+  // Link the current view to the saved request
+  controller.state.currentRequestId = savedRequest.id
+  controller.state.currentCollectionId = data.collectionId
+  controller.state.currentFolderId = data.folderId || null
+
+  // Update conversation with collection info AND name
+  if (activeConversation.value) {
+    conversationsStore.updateConversation(activeConversation.value.id, {
+      name: requestName, // Use the requestName from save dialog
+      requestId: savedRequest.id,
+      collectionId: data.collectionId,
+      folderId: data.folderId
+    })
+  }
+
+  // Update the active tab with the new name and link it to the saved request
+  const activeTab = tabsStore.activeTab
+  if (activeTab) {
+    tabsStore.updateTab(activeTab.id, {
+      name: requestName,
+      itemId: savedRequest.id,
+      collectionId: data.collectionId,
+      method: request.method || 'GET'
+    })
+    tabsStore.markTabAsSaved(activeTab.id)
+  }
+
+  closeSaveDialog()
+  alertSuccess(`Request saved to ${collectionsStore.getCollection(data.collectionId)?.name || 'collection'}`)
 }
 
 function handleEditRequest(message) {

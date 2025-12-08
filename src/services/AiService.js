@@ -56,35 +56,48 @@ I can only help with generating cURL commands. Try asking for an HTTP request!
 
 DO NOT WRITE POEMS. DO NOT ANSWER QUESTIONS. DO NOT HELP WITH ANYTHING EXCEPT CURL COMMANDS.
 
-You are a cURL command generator. Convert natural language requests into valid cURL commands.
+CRITICAL RULES (FOLLOW EXACTLY):
 
-Environment Variables:
-- Use {{variableName}} syntax for environment variables
-- Common variables: {{baseUrl}}, {{apiKey}}, {{token}}, {{username}}, {{password}}
-- When a FULL URL is provided (e.g., "https://api.example.com/users" or "guinetik.com/api/graphql"), use it EXACTLY as given
-- Only use {{baseUrl}} when the user provides a RELATIVE path (e.g., "/users", "/api/endpoint")
-- When auth token not specified, use {{token}} or {{apiKey}}
-- {{variable}} syntax is VALID and should be used when appropriate
+1. URLs - PRESERVE WHAT THE USER GIVES YOU:
+   - Full URL provided (has domain) → USE IT EXACTLY: https://api.example.com/users
+   - Relative path only (/users, /api/endpoint) → Prepend {{baseUrl}}: {{baseUrl}}/users
+   - NEVER replace a user-provided domain with {{baseUrl}}
 
-GraphQL Rules:
-- GraphQL APIs ALWAYS use POST, never PATCH/PUT/DELETE
-- Wrap mutations in "mutation { ... }", queries in "query { ... }"
-- Don't include # comments inside the JSON query string
-- For simple requests, use inline arguments instead of variables
+2. AUTHENTICATION - ONLY IF EXPLICITLY REQUESTED:
+   - User says "with auth/token/bearer/authentication" → Add auth header
+   - User does NOT mention auth → DO NOT add any Authorization header
+   - NEVER assume authentication is needed
+   - NEVER hallucinate tokens or credentials
 
-Output Format:
-- Put the cURL command in a \`\`\`bash code block
-- Add any guidance or notes as plain text AFTER the code block
-- Only include guidance if the request is ambiguous or needs clarification
-- For clear requests, just output the code block
+3. GraphQL:
+   - ALWAYS use POST method for all GraphQL operations
+   - Content-Type: application/json
+   - QUERY vs MUTATION (THIS IS IMPORTANT):
+     * "query { ... }" = FETCHING/READING data (get, list, fetch, show, find)
+     * "mutation { ... }" = CHANGING data (create, update, delete, add, remove)
+   - If user says "get launches" or "fetch users" → use query { ... }
+   - If user says "update user" or "create post" → use mutation { ... }
+   - Use inline arguments: getUser(id: "999")
+   - Escape quotes properly in JSON: \\"value\\"
+   - NO comments inside the query string
 
-Rules for the command:
-- Use proper flags: -X for method, -H for headers, -d for data, -u for basic auth
-- Use single quotes for JSON data
-- Include Content-Type header for POST/PUT with JSON
-- Format nicely with backslashes for readability
+4. Environment Variables {{variable}}:
+   - ONLY use when user provides relative paths or explicitly mentions variables
+   - Common: {{baseUrl}}, {{apiKey}}, {{token}}
+   - This syntax is valid in ToastMan
 
-Examples:
+OUTPUT FORMAT:
+- cURL command in \`\`\`bash code block
+- Guidance as plain text AFTER the code block (only if needed)
+- Keep it concise
+
+COMMAND FORMATTING:
+- -X for method, -H for headers, -d for data
+- Single quotes for JSON data
+- Backslashes for multi-line readability
+- Include Content-Type for POST/PUT/PATCH with body
+
+EXAMPLES:
 
 Input: "GET request to https://api.example.com/users"
 Output:
@@ -92,13 +105,7 @@ Output:
 curl -X GET https://api.example.com/users
 \`\`\`
 
-Input: "GET request to /users"
-Output:
-\`\`\`bash
-curl -X GET {{baseUrl}}/users
-\`\`\`
-
-Input: "POST user data with name John"
+Input: "POST to /users with name John"
 Output:
 \`\`\`bash
 curl -X POST {{baseUrl}}/users \\
@@ -106,28 +113,28 @@ curl -X POST {{baseUrl}}/users \\
   -d '{"name":"John"}'
 \`\`\`
 
-Input: "GET with authentication to /profile"
+Input: "GET /profile with bearer token"
 Output:
 \`\`\`bash
 curl -X GET {{baseUrl}}/profile \\
   -H 'Authorization: Bearer {{token}}'
 \`\`\`
 
-Input: "basic auth request"
+Input: "get all launches from https://api.spacex.land/graphql"
 Output:
 \`\`\`bash
-curl -u '{{username}}:{{password}}' {{baseUrl}}/endpoint
+curl -X POST https://api.spacex.land/graphql \\
+  -H 'Content-Type: application/json' \\
+  -d '{"query":"query { launches { mission_name launch_date_local } }"}'
 \`\`\`
 
-Input: "How to update user 999 on guinetik.com/api/graphql set the email as guinetik@gmail.com using the UpdateUser mutation"
+Input: "update user 123 email to test@mail.com on https://api.site.com/graphql"
 Output:
 \`\`\`bash
-curl -X POST https://guinetik.com/api/graphql \\
+curl -X POST https://api.site.com/graphql \\
   -H 'Content-Type: application/json' \\
-  -H 'Authorization: Bearer {{token}}' \\
-  -d '{"query":"mutation { updateUser(id: \\"999\\", email: \\"guinetik@gmail.com\\") { id email } }"}'
-\`\`\`
-Set your environment variables for username, password, baseUrl, and token.`
+  -d '{"query":"mutation { updateUser(id: \\"123\\", email: \\"test@mail.com\\") { id email } }"}'
+\`\`\``
 
 /**
  * AI Service class for managing WebLLM inference
@@ -218,6 +225,40 @@ export class AiService {
   }
 
   /**
+   * Generate text from a custom prompt (generic inference)
+   * @param {string} userPrompt - Custom prompt
+   * @param {string} modelKey - Model to use
+   * @param {Function} onProgress - Progress callback for model loading
+   * @returns {Promise<string>} Raw AI response
+   */
+  async generate(userPrompt, modelKey = 'phi-3.5-mini', onProgress = null) {
+    if (!userPrompt || typeof userPrompt !== 'string') {
+      throw new Error('Invalid prompt')
+    }
+
+    // Ensure engine is initialized
+    if (!this.engine || this.currentModel !== modelKey) {
+      await this.initModel(modelKey, onProgress)
+    }
+
+    try {
+      const messages = [
+        { role: 'user', content: userPrompt }
+      ]
+
+      const reply = await this.engine.chat.completions.create({
+        messages,
+        temperature: 0.3,
+        max_tokens: 64  // Short responses for naming
+      })
+
+      return reply.choices[0].message.content.trim()
+    } catch (error) {
+      throw new Error(`Inference failed: ${error.message}`)
+    }
+  }
+
+  /**
    * Parse AI response to extract cURL command and guidance
    * @param {string} rawResponse - Raw AI output
    * @returns {{command: string, guidance: string|null}}
@@ -282,6 +323,14 @@ export class AiService {
       return null
     }
     return WEBLLM_MODELS[this.currentModel]
+  }
+
+  /**
+   * Get current model key
+   * @returns {string|null} Model key (e.g. 'phi-3.5-mini')
+   */
+  getCurrentModel() {
+    return this.currentModel
   }
 
   /**
