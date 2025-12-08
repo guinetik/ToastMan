@@ -17,7 +17,9 @@ export const MESSAGE_TYPES = {
   VALIDATION: 'validation',
   SCRIPT_RESULTS: 'script_results',
   CONSOLE_LOG: 'console_log',
-  ENV_CHANGE: 'env_change'
+  ENV_CHANGE: 'env_change',
+  AI_USER_QUERY: 'ai_user_query',
+  AI_ASSISTANT_RESPONSE: 'ai_assistant_response'
 }
 
 /**
@@ -143,6 +145,40 @@ export function createEnvChangeMessage(changes, environmentName = '', hasActiveE
 }
 
 /**
+ * Create an AI user query message
+ * @param {string} query - The user's natural language query
+ * @returns {object}
+ */
+export function createAiUserMessage(query) {
+  return createConversationMessage({
+    type: MESSAGE_TYPES.AI_USER_QUERY,
+    data: {
+      query
+    }
+  })
+}
+
+/**
+ * Create an AI assistant response message
+ * @param {string} command - Generated cURL command
+ * @param {string|null} guidance - Optional guidance/explanation text
+ * @param {string} model - Model used for generation
+ * @param {number} inferenceTime - Time taken for inference in ms
+ * @returns {object}
+ */
+export function createAiAssistantMessage(command, guidance = null, model = 'phi-3.5-mini', inferenceTime = 0) {
+  return createConversationMessage({
+    type: MESSAGE_TYPES.AI_ASSISTANT_RESPONSE,
+    data: {
+      command,
+      guidance,
+      model,
+      inferenceTime
+    }
+  })
+}
+
+/**
  * Create a new conversation
  * @param {object} options - Conversation options
  * @param {string} options.name - Display name
@@ -234,6 +270,8 @@ export default {
   createScriptResultsMessage,
   createConsoleLogMessage,
   createEnvChangeMessage,
+  createAiUserMessage,
+  createAiAssistantMessage,
   addMessageToConversation,
   getLastRequestMessage,
   getLastResponseMessage,

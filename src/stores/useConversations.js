@@ -14,6 +14,8 @@ import {
   createScriptResultsMessage,
   createConsoleLogMessage,
   createEnvChangeMessage,
+  createAiUserMessage,
+  createAiAssistantMessage,
   addMessageToConversation,
   MESSAGE_TYPES
 } from '../models/Conversation.js'
@@ -330,6 +332,47 @@ function createConversationsStore() {
     logger.debug('Active conversation closed')
   }
 
+  /**
+   * Add an AI user query message to the active conversation
+   * @param {string} query - The user's natural language query
+   * @returns {object|null} The created message
+   */
+  const addAiUserMessage = (query) => {
+    const conversation = activeConversation.value
+    if (!conversation) {
+      logger.warn('No active conversation to add AI user message to')
+      return null
+    }
+
+    const message = createAiUserMessage(query)
+    addMessageToConversation(conversation, message)
+
+    logger.debug('AI user message added:', message.id)
+    return message
+  }
+
+  /**
+   * Add an AI assistant response message to the active conversation
+   * @param {string} command - The generated cURL command
+   * @param {string} guidance - Optional guidance text
+   * @param {string} model - The model used for generation
+   * @param {number} inferenceTime - Time taken to generate (ms)
+   * @returns {object|null} The created message
+   */
+  const addAiAssistantMessage = (command, guidance = '', model = '', inferenceTime = 0) => {
+    const conversation = activeConversation.value
+    if (!conversation) {
+      logger.warn('No active conversation to add AI assistant message to')
+      return null
+    }
+
+    const message = createAiAssistantMessage(command, guidance, model, inferenceTime)
+    addMessageToConversation(conversation, message)
+
+    logger.debug('AI assistant message added:', message.id)
+    return message
+  }
+
   return {
     // State (reactive)
     conversations,
@@ -351,6 +394,8 @@ function createConversationsStore() {
     addScriptResults,
     addConsoleLogs,
     addEnvChanges,
+    addAiUserMessage,
+    addAiAssistantMessage,
     clearActiveConversation,
     deleteConversation,
     getConversationByRequest,

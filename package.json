@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",
+    "@mlc-ai/web-llm": "^0.2.80",
     "highlight.js": "^11.9.0",
     "splitpanes": "^4.0.4",
     "vue": "^3.5.21",

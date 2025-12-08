@@ -24,6 +24,13 @@
         Script
         <span v-if="hasScript" class="script-dot"></span>
       </button>
+      <button
+        class="tab-btn"
+        :class="{ active: mode === 'ai' }"
+        @click="setMode('ai')"
+      >
+        ✨ AI Chat
+      </button>
     </div>
 
     <!-- cURL Mode -->
@@ -311,8 +318,13 @@
       </div>
     </div>
 
-    <!-- Action Buttons -->
-    <div class="composer-actions">
+    <!-- AI Chat Mode -->
+    <div v-else-if="mode === 'ai'" class="ai-chat-container">
+      <AiChatView />
+    </div>
+
+    <!-- Action Buttons (hide in AI mode) -->
+    <div v-if="mode !== 'ai'" class="composer-actions">
       <button
         v-if="canSave"
         class="save-btn"
@@ -338,6 +350,7 @@ import { ref, computed, watch } from 'vue'
 import { getCurrentEditor, getCurrentEditorDefaults } from '../../config/editors.js'
 import VariableHighlightInput from '../VariableHighlightInput.vue'
 import CustomDropdown from '../base/CustomDropdown.vue'
+import AiChatView from './AiChatView.vue'
 import { getSnippetsByCategory, findSnippet } from '../../core/scripting/snippets.js'
 
 // Get the configured text editor (ACE)
@@ -1232,5 +1245,14 @@ input.auth-input::placeholder {
   font-family: 'Monaco', 'Menlo', monospace;
   font-size: 11px;
   color: #a78bfa;
+}
+
+/* AI Chat Mode Styles */
+.ai-chat-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 </style>

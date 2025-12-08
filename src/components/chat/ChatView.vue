@@ -5,10 +5,11 @@
         <ConversationThread
           :conversation="activeConversation"
           :messages="messages"
-          :is-loading="controller.state.isLoading"
+          :is-loading="isLoading"
           @edit-request="handleEditRequest"
           @clear="handleClear"
           @maximize-response="handleMaximizeResponse"
+          @send-to-composer="handleSendToComposer"
         />
       </Pane>
       <Pane :size="composerSize" min-size="15" max-size="70">
@@ -44,6 +45,8 @@ import ChatComposer from './ChatComposer.vue'
 import ResponseBubble from './ResponseBubble.vue'
 import { ChatController } from '../../controllers/ChatController.js'
 import { useConversations } from '../../stores/useConversations.js'
+import { useAlert } from '../../composables/useAlert.js'
+import aiController from '../../controllers/AiController.js'
 
 const props = defineProps({
   requestId: {
@@ -73,6 +76,7 @@ const emit = defineEmits(['request-loaded'])
 // Initialize controller
 const controller = new ChatController()
 const conversationsStore = useConversations()
+const { alertSuccess } = useAlert()
 
 // Pane sizes - adjusts based on composer mode
 const composerMode = ref('curl')
@@ -84,6 +88,9 @@ const maximizedResponse = ref(null)
 
 const activeConversation = computed(() => conversationsStore.activeConversation.value)
 const messages = computed(() => conversationsStore.activeMessages.value)
+
+// Combined loading state - HTTP request OR AI generation
+const isLoading = computed(() => controller.state.isLoading || aiController.state.isGenerating || aiController.state.isModelLoading)
 
 // Watch for request changes and load
 watch(
@@ -143,6 +150,18 @@ function handleMaximizeResponse(message) {
 
 function closeMaximized() {
   maximizedResponse.value = null
+}
+
+function handleSendToComposer(curlCommand) {
+  // Load the AI-generated cURL command into the composer
+  controller.setCurlInput(curlCommand)
+
+  // Switch to cURL mode
+  composerMode.value = 'curl'
+  controller.setComposerMode('curl')
+
+  // Show success notification
+  alertSuccess('cURL command loaded into composer')
 }
 
 // Expose controller for parent component access

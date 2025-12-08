@@ -97,7 +97,7 @@ export class ChatController extends BaseController {
       () => this.state.composerMode,
       (newMode, oldMode) => {
         // Sync between curl and visual modes
-        // Script mode is independent and doesn't require syncing
+        // Script mode and AI mode are independent and don't require syncing
         if (oldMode === 'curl' && newMode === 'visual') {
           this.syncCurlToVisual()
         } else if (oldMode === 'visual' && newMode === 'curl') {
@@ -107,7 +107,13 @@ export class ChatController extends BaseController {
           this.syncVisualToCurl()
         } else if (oldMode === 'script' && newMode === 'visual') {
           // Visual form already has current state, no sync needed
+        } else if (oldMode === 'ai' && newMode === 'visual') {
+          // When leaving AI mode to visual, sync from curl if we have curl input
+          if (this.state.curlInput.trim()) {
+            this.syncCurlToVisual()
+          }
         }
+        // Note: ai → curl doesn't need syncing as curlInput is set directly
       }
     )
   }
@@ -130,7 +136,7 @@ export class ChatController extends BaseController {
    * Set composer mode
    */
   setComposerMode(mode) {
-    if (mode === 'curl' || mode === 'visual' || mode === 'script') {
+    if (mode === 'curl' || mode === 'visual' || mode === 'script' || mode === 'ai') {
       this.state.composerMode = mode
     }
   }

@@ -1,6 +1,7 @@
 import { BaseModel } from './BaseModel.js'
 import { Proxy } from './Proxy.js'
 import { Certificate } from './Certificate.js'
+import { AiSettings } from './AiSettings.js'
 
 /**
  * Request settings configuration
@@ -76,6 +77,7 @@ export class Settings extends BaseModel {
     general: { type: GeneralSettings, default: () => new GeneralSettings() },
     request: { type: RequestSettings, default: () => new RequestSettings() },
     ui: { type: UISettings, default: () => new UISettings() },
+    ai: { type: AiSettings, default: () => new AiSettings() },
     proxy: { type: Proxy, default: () => new Proxy() },
     certificates: { type: 'array', default: [] },
     keyBindings: { type: 'array', default: () => Settings.getDefaultKeyBindings() },
@@ -112,6 +114,10 @@ export class Settings extends BaseModel {
 
     if (data.ui && !(data.ui instanceof UISettings)) {
       data.ui = new UISettings(data.ui)
+    }
+
+    if (data.ai && !(data.ai instanceof AiSettings)) {
+      data.ai = new AiSettings(data.ai)
     }
 
     if (data.proxy && !(data.proxy instanceof Proxy)) {

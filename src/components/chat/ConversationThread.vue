@@ -56,6 +56,15 @@
             v-else-if="message.type === 'env_change'"
             :message="message"
           />
+          <AiUserBubble
+            v-else-if="message.type === 'ai_user_query'"
+            :message="message"
+          />
+          <AiAssistantBubble
+            v-else-if="message.type === 'ai_assistant_response'"
+            :message="message"
+            @send-to-composer="handleSendToComposer"
+          />
         </template>
       </TransitionGroup>
 
@@ -80,6 +89,8 @@ import ValidationBubble from './ValidationBubble.vue'
 import ScriptMessage from './ScriptMessage.vue'
 import ConsoleMessage from './ConsoleMessage.vue'
 import EnvChangeMessage from './EnvChangeMessage.vue'
+import AiUserBubble from './AiUserBubble.vue'
+import AiAssistantBubble from './AiAssistantBubble.vue'
 
 const props = defineProps({
   conversation: {
@@ -96,7 +107,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['edit-request', 'clear', 'maximize-response'])
+const emit = defineEmits(['edit-request', 'clear', 'maximize-response', 'send-to-composer'])
 
 const messagesContainer = ref(null)
 const showTests = ref(true)
@@ -147,6 +158,10 @@ function clearConversation() {
 
 function handleMaximize(message) {
   emit('maximize-response', message)
+}
+
+function handleSendToComposer(curlCommand) {
+  emit('send-to-composer', curlCommand)
 }
 </script>
 

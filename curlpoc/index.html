@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>cURL AI Generator POC</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      padding: 40px;
+      max-width: 900px;
+      margin: 0 auto;
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+    h1 {
+      margin-bottom: 30px;
+      color: #38bdf8;
+    }
+    .status {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+    .status.checking { background: #1e293b; color: #94a3b8; }
+    .status.ready { background: #064e3b; color: #6ee7b7; }
+    .status.error { background: #7f1d1d; color: #fca5a5; }
+
+    .input-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      color: #cbd5e1;
+    }
+    textarea, input, select {
+      width: 100%;
+      padding: 12px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      color: #e2e8f0;
+      font-family: inherit;
+      font-size: 14px;
+    }
+    textarea {
+      min-height: 80px;
+      resize: vertical;
+      font-family: monospace;
+    }
+    button {
+      padding: 12px 24px;
+      background: #0ea5e9;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button:hover { background: #0284c7; }
+    button:disabled {
+      background: #334155;
+      cursor: not-allowed;
+    }
+
+    .output {
+      margin-top: 30px;
+      padding: 20px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+    }
+    .output h3 {
+      margin-bottom: 12px;
+      color: #38bdf8;
+    }
+    pre {
+      background: #0f172a;
+      padding: 16px;
+      border-radius: 6px;
+      overflow-x: auto;
+      color: #6ee7b7;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .examples {
+      margin: 20px 0;
+      padding: 16px;
+      background: #1e293b;
+      border-radius: 6px;
+    }
+    .examples h4 {
+      margin-bottom: 12px;
+      color: #94a3b8;
+      font-size: 13px;
+    }
+    .example-btn {
+      padding: 6px 12px;
+      margin: 4px;
+      background: #334155;
+      border: 1px solid #475569;
+      color: #cbd5e1;
+      font-size: 12px;
+    }
+    .example-btn:hover {
+      background: #475569;
+    }
+    .loading {
+      color: #94a3b8;
+      font-style: italic;
+    }
+    .guidance {
+      margin-top: 16px;
+      padding: 12px 16px;
+      background: rgba(251, 191, 36, 0.1);
+      border-left: 3px solid #fbbf24;
+      border-radius: 4px;
+      color: #fbbf24;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .guidance::before {
+      content: '💡 ';
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🤖 cURL AI Generator</h1>
+
+  <div id="status" class="status checking">⏳ Checking browser capabilities...</div>
+
+  <div class="input-group">
+    <label>AI Model (runs locally in your browser)</label>
+    <select id="model">
+      <option value="phi-3.5-mini">Phi-3.5 Mini (3.8B) - Fast & Efficient - ~2.3GB</option>
+      <option value="qwen2.5-3b">Qwen 2.5 (3B) - High Quality - ~1.9GB</option>
+      <option value="llama-3.2-3b">Llama 3.2 (3B) - Balanced - ~1.9GB</option>
+      <option value="gemma-2-2b">Gemma 2 (2B) - Ultra Fast - ~1.4GB</option>
+    </select>
+  </div>
+
+  <div class="examples">
+    <h4>Try these examples:</h4>
+    <button class="example-btn" data-example="GET request to https://api.github.com/users/octocat">Get GitHub user</button>
+    <button class="example-btn" data-example="POST JSON data {name: 'John', email: 'john@example.com'} to https://api.example.com/users">Create user</button>
+    <button class="example-btn" data-example="Send a file upload with form-data to /api/upload">File upload</button>
+    <button class="example-btn" data-example="GET request with authentication header Bearer token123">Auth request</button>
+  </div>
+
+  <div class="input-group">
+    <label>What cURL command do you want?</label>
+    <textarea id="prompt" placeholder="e.g., 'POST request to create a new user with name and email fields'"></textarea>
+  </div>
+
+  <button id="generate">✨ Generate cURL Command</button>
+
+  <div id="output" class="output" style="display: none;">
+    <h3>Generated cURL Command:</h3>
+    <pre id="curlOutput"></pre>
+    <p id="guidance" class="guidance" style="display: none;"></p>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
