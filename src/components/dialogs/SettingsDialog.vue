@@ -9,12 +9,25 @@ import RequestSettings from '../settings/RequestSettings.vue'
 import UISettings from '../settings/UISettings.vue'
 import ProxySettings from '../settings/ProxySettings.vue'
 import CertificatesSettings from '../settings/CertificatesSettings.vue'
+import AiSettings from '../settings/AiSettings.vue'
+
+const props = defineProps({
+  initialTab: {
+    type: String,
+    default: 'general'
+  }
+})
 
 const emit = defineEmits(['close'])
 
 // Create controller instance and initialize immediately
 const controller = new SettingsDialogController()
 controller.init()
+
+// Set initial tab if provided
+if (props.initialTab) {
+  controller.switchTab(props.initialTab)
+}
 
 // Access reactive state from controller
 const {
@@ -61,6 +74,10 @@ const updateProxySettings = (newSettings) => {
 
 const updateCertificatesSettings = (newCertificates) => {
   controller.updateCertificatesSettings(newCertificates)
+}
+
+const updateAiSettings = (newSettings) => {
+  controller.updateAiSettings(newSettings)
 }
 
 // Keyboard shortcuts
@@ -137,6 +154,15 @@ onUnmounted(() => {
           <span class="tab-icon">🔒</span>
           <span class="tab-text">Certificates</span>
         </button>
+        <button
+          :class="['settings-tab', { active: activeTab === 'ai' }]"
+          @click="switchTab('ai')"
+          data-icon="✨"
+          title="AI Assistant"
+        >
+          <span class="tab-icon">✨</span>
+          <span class="tab-text">AI</span>
+        </button>
       </div>
 
       <!-- Settings Content -->
@@ -169,6 +195,12 @@ onUnmounted(() => {
           v-if="activeTab === 'certificates' && formData?.certificates"
           :certificates="formData.certificates"
           @update:certificates="updateCertificatesSettings"
+        />
+
+        <AiSettings
+          v-if="activeTab === 'ai' && formData?.ai"
+          :settings="formData.ai"
+          @update:settings="updateAiSettings"
         />
       </div>
 

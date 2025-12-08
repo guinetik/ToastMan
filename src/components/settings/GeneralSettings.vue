@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { GeneralSettingsController } from '../../controllers/settings/GeneralSettingsController.js'
+import { useAlert } from '../../composables/useAlert.js'
 
 const props = defineProps({
   settings: {
@@ -10,6 +11,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:settings'])
+const { showConfirm, alertError } = useAlert()
 
 // Create controller instance
 const controller = new GeneralSettingsController()
@@ -43,6 +45,49 @@ const maxHistoryItems = computed({
   get: () => props.settings.maxHistoryItems,
   set: (value) => controller.updateSettings({ maxHistoryItems: parseInt(value) })
 })
+
+// Delete all data handler
+async function deleteAllData() {
+  // First confirmation
+  const confirmed = await showConfirm({
+    title: '⚠️ Delete All Data',
+    message: 'This will permanently delete ALL your data including:\n\n' +
+             '• Collections and requests\n' +
+             '• Environments and variables\n' +
+             '• Conversation history\n' +
+             '• All settings\n' +
+             '• AI model cache\n\n' +
+             'This action CANNOT be undone!\n\n' +
+             'Are you sure you want to continue?',
+    type: 'error',
+    confirmText: 'Continue',
+    cancelText: 'Cancel'
+  })
+
+  if (!confirmed) return
+
+  // Double confirmation for safety
+  const doubleConfirmed = await showConfirm({
+    title: '🚨 FINAL WARNING',
+    message: 'You are about to DELETE EVERYTHING.\n\n' +
+             'Click "Delete All" to proceed with deletion, or "Cancel" to keep your data.',
+    type: 'error',
+    confirmText: 'Delete All',
+    cancelText: 'Cancel'
+  })
+
+  if (!doubleConfirmed) return
+
+  try {
+    // Clear all localStorage
+    localStorage.clear()
+
+    // Reload the page to reset app state
+    window.location.reload()
+  } catch (error) {
+    alertError(`Failed to clear data: ${error.message}`)
+  }
+}
 </script>
 
 <template>
@@ -102,6 +147,26 @@ const maxHistoryItems = computed({
       <div v-if="errors.maxHistoryItems" class="error-text">{{ errors.maxHistoryItems }}</div>
       <div class="setting-description">
         Maximum number of requests to keep in history (0-1000)
+      </div>
+    </div>
+
+    <!-- Danger Zone -->
+    <div class="danger-zone">
+      <div class="danger-zone-header">
+        <h3 class="danger-zone-title">⚠️ Danger Zone</h3>
+      </div>
+      <div class="setting-group">
+        <label class="setting-label">Delete All Data</label>
+        <div class="setting-description">
+          Permanently delete all collections, requests, environments, conversations, settings, and AI model cache.
+          This action cannot be undone.
+        </div>
+        <button
+          @click="deleteAllData"
+          class="btn-danger"
+        >
+          🗑️ Delete All Data
+        </button>
       </div>
     </div>
   </div>
@@ -167,5 +232,60 @@ const maxHistoryItems = computed({
   color: var(--color-error);
   font-size: 12px;
   margin-top: 4px;
+}
+
+/* Danger Zone */
+.danger-zone {
+  margin-top: 32px;
+  padding: 20px;
+  border: 2px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-md);
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.danger-zone-header {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.danger-zone-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #ef4444;
+  margin: 0;
+}
+
+.danger-zone .setting-group {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.btn-danger {
+  margin-top: 12px;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  background: #ef4444;
+  border: none;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+.btn-danger:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
 }
 </style>

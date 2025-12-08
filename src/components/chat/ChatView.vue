@@ -80,7 +80,11 @@ const { alertSuccess } = useAlert()
 
 // Pane sizes - adjusts based on composer mode
 const composerMode = ref('curl')
-const composerSize = computed(() => composerMode.value === 'visual' ? 50 : 30)
+const composerSize = computed(() => {
+  if (composerMode.value === 'visual') return 50
+  if (composerMode.value === 'ai') return 40  // 30% larger than default 30%
+  return 30  // curl, script
+})
 const threadSize = computed(() => 100 - composerSize.value)
 
 // Maximized response state

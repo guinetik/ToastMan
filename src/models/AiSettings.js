@@ -12,8 +12,8 @@ export class AiSettings extends BaseModel {
     },
     selectedModel: {
       type: 'string',
-      enum: ['phi-3.5-mini', 'qwen2.5-3b', 'llama-3.2-3b', 'gemma-2-2b'],
-      default: 'phi-3.5-mini',
+      enum: ['phi-3.5-mini', 'qwen2.5-3b', 'llama-3.2-3b', 'gemma-2-2b', ''],
+      default: '',
       description: 'Selected WebLLM model for inference'
     },
     showGuidance: {
@@ -25,6 +25,11 @@ export class AiSettings extends BaseModel {
       type: 'boolean',
       default: false,
       description: 'Automatically load generated commands to composer'
+    },
+    autoLoadModel: {
+      type: 'boolean',
+      default: false,
+      description: 'Automatically load the AI model when opening Chat tab'
     },
     temperature: {
       type: 'number',

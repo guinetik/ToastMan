@@ -190,7 +190,7 @@ export class SettingsDialogController extends BaseDialogController {
    * Switch settings tab
    */
   switchTab(tab) {
-    const validTabs = ['general', 'request', 'ui', 'proxy', 'certificates', 'shortcuts']
+    const validTabs = ['general', 'request', 'ui', 'proxy', 'certificates', 'ai', 'shortcuts']
     if (!validTabs.includes(tab)) {
       this.logger.warn(`Invalid settings tab: ${tab}`)
       return
@@ -438,6 +438,15 @@ export class SettingsDialogController extends BaseDialogController {
     this.state.formData.certificates = certificates
     this.clearFieldError('certificates')
     this.logger.debug('Updated certificates settings')
+  }
+
+  /**
+   * Update AI settings
+   */
+  updateAiSettings(updates) {
+    Object.assign(this.state.formData.ai, updates)
+    this.clearFieldError('ai')
+    this.logger.debug('Updated AI settings')
   }
 
   /**

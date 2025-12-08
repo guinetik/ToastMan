@@ -343,13 +343,22 @@ export class ChatController extends BaseController {
     this.syncVisualToCurl()
 
     // Always create a NEW conversation when opening from collections
-    // (History uses loadSession which properly restores existing conversations)
-    this.conversationsStore.createNewConversation({
-      name: requestItem.name || 'Request',
-      requestId,
-      collectionId,
-      folderId
-    })
+    // This ensures users start with a fresh conversation each time
+    // Old conversations are accessible via History sidebar
+    const existingConvo = this.conversationsStore.getConversationByRequest(requestId, collectionId)
+    if (existingConvo) {
+      // Clear the existing conversation's messages to start fresh
+      existingConvo.messages = []
+      existingConvo.updatedAt = new Date().toISOString()
+      this.conversationsStore.setActiveConversation(existingConvo.id)
+    } else {
+      this.conversationsStore.createNewConversation({
+        name: requestItem.name || 'Request',
+        requestId,
+        collectionId,
+        folderId
+      })
+    }
 
     this.logger.info('Loaded request:', requestItem.name)
   }
@@ -760,15 +769,19 @@ export class ChatController extends BaseController {
     this.state.currentCollectionId = null
     this.state.currentFolderId = null
 
-    // Create a new conversation
+    // Create a new empty conversation
     this.conversationsStore.createNewConversation({
       name: 'New Request'
     })
+
+    this.logger.info('Created new request with fresh conversation')
   }
 
   /**
    * Load a session from history
-   * Restores the conversation and loads the last request state into composer
+   * Restores the conversation WITH its messages and loads the last request state into composer
+   * Note: This is the ONLY place where old conversations with messages are shown,
+   * because the user explicitly clicked on history. All other entry points start fresh.
    */
   loadSession(sessionId) {
     const conversation = this.conversationsStore.conversations.value
@@ -780,6 +793,7 @@ export class ChatController extends BaseController {
     }
 
     // Set this conversation as active (may already be set by caller)
+    // This will show all the old messages in the conversation
     this.conversationsStore.setActiveConversation(sessionId)
 
     // Restore context from conversation

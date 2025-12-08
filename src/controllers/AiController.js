@@ -297,6 +297,15 @@ export class AiController extends BaseController {
   }
 
   /**
+   * Destroy current model engine and free GPU memory
+   */
+  async destroyModel() {
+    this.logger.debug('Destroying AI model to free GPU memory')
+    await aiService.destroyEngine()
+    this.state.currentModel = null
+  }
+
+  /**
    * Dispose controller and cleanup resources
    */
   dispose() {

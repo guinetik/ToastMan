@@ -39,9 +39,11 @@ const activeEnvironment = computed(() => {
 
 const sidebarWidth = ref(25) // 25% initial width
 const showSettings = ref(false)
+const settingsTab = ref('general')
 
-const openSettings = () => {
-  logger.debug('Opening settings dialog')
+const openSettings = (tab = 'general') => {
+  logger.debug('Opening settings dialog', { tab })
+  settingsTab.value = tab
   showSettings.value = true
   trackUI(UI_EVENTS.SETTINGS_OPEN)
 }
@@ -144,6 +146,16 @@ onMounted(() => {
 
   // Log initial state for debugging
   logger.debug('Initial sidebar width:', sidebarWidth.value)
+
+  // Listen for global settings events
+  window.addEventListener('toastman:open-settings', (event) => {
+    const { tab } = event.detail || {}
+    openSettings(tab)
+  })
+
+  window.addEventListener('toastman:close-settings', () => {
+    closeSettings()
+  })
 
   // Expose additional debugging helpers
   if (typeof window !== 'undefined') {
@@ -253,6 +265,7 @@ onMounted(() => {
     <!-- Settings Dialog -->
     <SettingsDialog
       v-if="showSettings"
+      :initialTab="settingsTab"
       @close="closeSettings"
     />
 

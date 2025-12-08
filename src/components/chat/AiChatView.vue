@@ -11,30 +11,28 @@
 
     <!-- Main Chat Interface -->
     <div v-else class="chat-interface">
-      <!-- Model Selector -->
-      <div class="model-selector-section">
-        <label class="selector-label">AI Model</label>
-        <CustomDropdown
-          v-model="selectedModel"
-          :options="modelOptions"
-          :disabled="isLoading"
-          placeholder="Select AI model"
-        />
-      </div>
-
-      <!-- Example Prompts -->
-      <div v-if="showExamples && !isLoading" class="examples-section">
-        <div class="examples-label">Quick Examples:</div>
-        <div class="examples-grid">
+      <!-- Model Info & Examples Row -->
+      <div class="info-row">
+        <div class="model-info">
+          <span class="model-label">Model:</span>
           <button
-            v-for="(example, index) in examples"
-            :key="index"
-            class="example-btn"
-            @click="useExample(example)"
+            class="model-link"
+            @click="openAiSettings"
+            :title="`Click to configure AI model in Settings`"
           >
-            {{ example }}
+            {{ selectedModelInfo?.name || 'Not configured' }}
           </button>
         </div>
+
+        <!-- Example Prompts Dropdown -->
+        <CustomDropdown
+          v-model="selectedExample"
+          :options="exampleOptions"
+          placeholder="Quick Examples..."
+          @update:modelValue="useExample"
+          class="examples-dropdown"
+          :disabled="isLoading"
+        />
       </div>
 
       <!-- Query Input -->
@@ -50,15 +48,18 @@
         ></textarea>
       </div>
 
-      <!-- Generate Button -->
+      <!-- Send Button -->
       <div class="actions-section">
         <button
-          class="primary large"
+          class="send-btn"
           :disabled="!canGenerate"
           @click="generate"
         >
-          <span v-if="!isLoading">✨ Generate cURL Command</span>
-          <span v-else>⏳ {{ loadingText }}</span>
+          <span v-if="!isLoading">Send</span>
+          <span v-else class="loading-content">
+            <span class="loading-spinner"></span>
+            {{ loadingText }}
+          </span>
         </button>
       </div>
 
@@ -79,40 +80,54 @@ import aiController from '../../controllers/AiController.js'
 import { WEBLLM_MODELS } from '../../services/AiService.js'
 import { useConversations } from '../../stores/useConversations.js'
 import CustomDropdown from '../base/CustomDropdown.vue'
+import { openSettings as openSettingsDialog } from '../../utils/settingsUtils.js'
 
 const conversationsStore = useConversations()
 
-const selectedModel = ref('phi-3.5-mini')
+const selectedModel = ref('')
 const query = ref('')
 const isLoading = ref(false)
 const loadingText = ref('Generating...')
 const loadingProgress = ref(0)
 const progressText = ref('')
+const selectedExample = ref('')
 
 const webgpuAvailable = ref(false)
 const webgpuChecked = ref(false)
 const webgpuMessage = ref('')
 
-const models = WEBLLM_MODELS
-const showExamples = ref(true)
-
-// Convert models object to dropdown options
-const modelOptions = computed(() => {
-  return Object.entries(WEBLLM_MODELS).map(([key, model]) => ({
-    value: key,
-    label: `${model.name} (${model.params}) - ${model.size}`
-  }))
-})
-
+// Example prompts list
 const examples = [
   'GET request to https://api.github.com/users/octocat',
   'POST JSON data to create a new user',
   'GET with bearer token authentication to /profile',
-  'GraphQL mutation to update user email'
+  'GraphQL mutation to update user email',
+  'DELETE request with confirmation header',
+  'PUT request to update product details',
+  'POST multipart form data to upload a file',
+  'GET request with query parameters for pagination'
 ]
 
+// Convert examples to dropdown options
+const exampleOptions = computed(() => {
+  const options = [{ value: '', label: 'Quick Examples...' }]
+  examples.forEach((example, index) => {
+    options.push({
+      value: String(index),
+      label: example
+    })
+  })
+  return options
+})
+
+// Selected model info
+const selectedModelInfo = computed(() => {
+  if (!selectedModel.value) return null
+  return WEBLLM_MODELS[selectedModel.value]
+})
+
 const canGenerate = computed(() => {
-  return query.value.trim().length > 0 && !isLoading.value && webgpuAvailable.value
+  return query.value.trim().length > 0 && !isLoading.value && webgpuAvailable.value && selectedModel.value
 })
 
 const showProgress = computed(() => {
@@ -124,6 +139,9 @@ const progressPercent = computed(() => {
 })
 
 onMounted(async () => {
+  // Load AI settings from localStorage
+  loadAiSettings()
+
   // Initialize AI controller
   await aiController.init()
 
@@ -131,6 +149,16 @@ onMounted(async () => {
   webgpuAvailable.value = aiController.state.webgpuAvailable
   webgpuChecked.value = aiController.state.webgpuChecked
   webgpuMessage.value = aiController.state.webgpuMessage
+
+  // Auto-load model if configured
+  if (getAiSettings().autoLoadModel && selectedModel.value && webgpuAvailable.value) {
+    // Initialize model in background
+    aiController.initModel(selectedModel.value, (progress) => {
+      // Silent background load - no UI updates for auto-load
+    }).catch(error => {
+      console.error('Failed to auto-load model:', error)
+    })
+  }
 
   // Listen to controller events
   aiController.on('model-loading-progress', (progress) => {
@@ -152,27 +180,55 @@ onMounted(async () => {
     isLoading.value = false
     loadingText.value = 'Generate cURL Command'
   })
+
+  // Listen for settings changes
+  window.addEventListener('storage', handleStorageChange)
 })
 
-// Watch for model changes in controller state
-watch(() => aiController.state.isModelLoading, (newVal) => {
-  if (newVal) {
-    isLoading.value = true
-    loadingText.value = 'Loading model...'
+// Load AI settings from localStorage
+function loadAiSettings() {
+  const settings = getAiSettings()
+  if (settings && 'selectedModel' in settings) {
+    selectedModel.value = settings.selectedModel
   }
-})
+}
 
-watch(() => aiController.state.isGenerating, (newVal) => {
-  if (newVal) {
-    isLoading.value = true
-    loadingText.value = 'Generating...'
-  } else {
-    isLoading.value = false
+// Get AI settings from localStorage
+function getAiSettings() {
+  try {
+    const saved = localStorage.getItem('toastman_settings')
+    if (saved) {
+      const settings = JSON.parse(saved)
+      return settings.ai || {}
+    }
+  } catch (error) {
+    console.error('Failed to load AI settings:', error)
   }
-})
+  return {}
+}
 
-function useExample(example) {
-  query.value = example
+// Handle storage changes (when settings are updated)
+function handleStorageChange(event) {
+  if (event.key === 'toastman_settings') {
+    loadAiSettings()
+  }
+}
+
+function openAiSettings() {
+  // Open settings dialog on AI tab
+  openSettingsDialog('ai')
+}
+
+function useExample(exampleIndex) {
+  if (!exampleIndex) return
+
+  const index = parseInt(exampleIndex)
+  if (index >= 0 && index < examples.length) {
+    query.value = examples[index]
+  }
+
+  // Reset dropdown
+  selectedExample.value = ''
 }
 
 async function generate() {
@@ -212,7 +268,7 @@ function handleKeydown(event) {
   flex-direction: column;
   height: 100%;
   padding: 16px;
-  background: var(--color-bg-primary);
+  background: transparent;
 }
 
 .webgpu-warning {
@@ -253,54 +309,46 @@ function handleKeydown(event) {
   gap: 16px;
 }
 
-.model-selector-section {
+.info-row {
   display: flex;
-  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.model-info {
+  display: flex;
+  align-items: center;
   gap: 6px;
+  font-size: 13px;
 }
 
-.selector-label {
-  font-size: 12px;
-  font-weight: 600;
+.model-label {
   color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  font-weight: 500;
 }
 
-.examples-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.examples-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-}
-
-.examples-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 8px;
-}
-
-.example-btn {
-  padding: 8px 12px;
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  color: var(--color-text-secondary);
-  font-size: 12px;
+.model-link {
+  background: none;
+  border: none;
+  color: #3b82f6;
+  text-decoration: underline;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
-  text-align: left;
+  padding: 0;
   transition: all 0.2s ease;
 }
 
-.example-btn:hover {
-  background: var(--color-bg-hover);
-  color: var(--color-text-primary);
-  border-color: var(--color-text-secondary);
+.model-link:hover {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.examples-dropdown {
+  min-width: 180px;
+  max-width: 220px;
 }
 
 .input-section {
@@ -347,6 +395,52 @@ function handleKeydown(event) {
   justify-content: flex-end;
 }
 
+.send-btn {
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--color-text-primary);
+  color: var(--color-bg-primary);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 100px;
+  justify-content: center;
+}
+
+.send-btn:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.loading-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.loading-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .progress-section {
   display: flex;
   flex-direction: column;
@@ -376,8 +470,32 @@ function handleKeydown(event) {
 
 /* Mobile Responsive Styles */
 @media (max-width: 768px) {
-  .examples-grid {
-    grid-template-columns: 1fr;
+  .ai-chat-view {
+    padding: 12px;
+  }
+
+  .info-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .model-info {
+    justify-content: center;
+  }
+
+  .examples-dropdown {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .send-btn {
+    width: 100%;
+  }
+
+  .query-input {
+    font-size: 16px; /* Prevent zoom on iOS */
   }
 }
 </style>
