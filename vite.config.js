@@ -25,4 +25,8 @@ export default defineConfig({
   plugins: [vue(), downloadFilePlugin()],
   // Custom domain - no subdirectory needed
   base: '/',
+  server: {
+    port: 9998,
+    strictPort: true
+  },
 })
