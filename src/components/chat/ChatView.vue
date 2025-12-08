@@ -1,7 +1,7 @@
 <template>
   <div class="chat-view">
     <Splitpanes class="default-theme" horizontal>
-      <Pane :size="threadSize" min-size="20">
+      <Pane v-if="viewMode !== 'composer'" :size="threadSize" min-size="20">
         <ConversationThread
           :conversation="activeConversation"
           :messages="messages"
@@ -12,9 +12,9 @@
           @send-to-composer="handleSendToComposer"
         />
       </Pane>
-      <Pane :size="composerSize" min-size="15" max-size="70">
+      <Pane v-if="viewMode !== 'conversation'" :size="composerSize" :min-size="15" :max-size="viewMode === 'composer' ? 100 : 70">
         <ChatComposer
-          :controller="controller"
+          :controller="chatController"
           @send="handleSend"
           @save="handleSave"
           @mode-change="handleModeChange"
@@ -46,19 +46,33 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+/**
+ * ChatView Component
+ *
+ * Main request/response view with split pane layout.
+ * Presentation layer for chat interface - delegates all business logic
+ * to ChatViewController following the MVC pattern.
+ *
+ * Responsibilities:
+ * - Render UI components (thread, composer, dialogs)
+ * - Handle user interactions and delegate to controller
+ * - Manage component lifecycle
+ * - React to controller state changes
+ */
+import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
 import { Splitpanes, Pane } from 'splitpanes'
 import ConversationThread from './ConversationThread.vue'
 import ChatComposer from './ChatComposer.vue'
 import ResponseBubble from './ResponseBubble.vue'
 import CollectionPickerDialog from '../dialogs/CollectionPickerDialog.vue'
-import { ChatController } from '../../controllers/ChatController.js'
+import { ChatViewController } from '../../controllers/ChatViewController.js'
 import { useConversations } from '../../stores/useConversations.js'
-import { useCollections } from '../../stores/useCollections.js'
-import { useTabs } from '../../stores/useTabs.js'
 import { useAlert } from '../../composables/useAlert.js'
 import aiController from '../../controllers/AiController.js'
-import { requestToCurl } from '../../utils/curlGenerator.js'
+import { createLogger } from '../../core/logger.js'
+
+// Initialize logger
+const logger = createLogger('ChatView')
 
 const props = defineProps({
   requestId: {
@@ -85,215 +99,177 @@ const props = defineProps({
 
 const emit = defineEmits(['request-loaded'])
 
-// Initialize controller and stores
-const controller = new ChatController()
+// Initialize view controller (which wraps ChatController)
+const viewController = new ChatViewController()
+
+// Get the underlying chat controller for composer
+const chatController = viewController.getChatController()
+
+// Stores
 const conversationsStore = useConversations()
-const collectionsStore = useCollections()
-const tabsStore = useTabs()
-const { alertSuccess } = useAlert()
+const { alertSuccess, alertError } = useAlert()
 
-// Save dialog state
-const showSaveDialog = ref(false)
-const pendingRequestName = ref('')
+// Computed refs to controller state (reactive)
+const showSaveDialog = computed(() => viewController.state.showSaveDialog)
+const pendingRequestName = computed(() => viewController.state.pendingRequestName)
+const viewMode = computed(() => viewController.state.viewMode)
+const maximizedResponse = computed(() => viewController.state.maximizedResponse)
 
-// Pane sizes - adjusts based on composer mode
-const composerMode = ref('curl')
+// Pane sizes - adjusts based on composer mode and view mode
+const composerMode = computed(() => viewController.state.composerMode)
 const composerSize = computed(() => {
+  // View mode overrides
+  if (viewMode.value === 'conversation') return 0
+  if (viewMode.value === 'composer') return 100
+
+  // Split mode - adjust based on composer mode
   if (composerMode.value === 'visual') return 50
-  if (composerMode.value === 'ai') return 40  // 30% larger than default 30%
-  return 30  // curl, script
+  if (composerMode.value === 'ai') return 35
+  return 25  // curl, script
 })
 const threadSize = computed(() => 100 - composerSize.value)
 
-// Maximized response state
-const maximizedResponse = ref(null)
-
+// Conversation data
 const activeConversation = computed(() => conversationsStore.activeConversation.value)
 const messages = computed(() => conversationsStore.activeMessages.value)
 
 // Combined loading state - HTTP request OR AI generation
-const isLoading = computed(() => controller.state.isLoading || aiController.state.isGenerating || aiController.state.isModelLoading)
+const isLoading = computed(() => chatController.state.isLoading || aiController.state.isGenerating || aiController.state.isModelLoading)
 
 // Watch for request changes and load
 watch(
   () => [props.requestId, props.collectionId],
   ([requestId, collectionId]) => {
     if (requestId && collectionId) {
-      controller.loadRequest(collectionId, requestId, props.folderId)
+      logger.debug('Loading request from props', { requestId, collectionId })
+      viewController.loadRequest(collectionId, requestId, props.folderId)
       emit('request-loaded')
     }
   },
   { immediate: true }
 )
 
-// Handle initialization based on what props are provided
+/**
+ * Component initialization
+ */
 onMounted(() => {
-  // Reset aiController state to prevent stale loading flags from previous operations
+  logger.debug('ChatView mounted')
+
+  // Initialize view mode from active tab
+  viewController.initializeViewMode()
+
+  // Reset aiController state to prevent stale loading flags
   aiController.resetState()
 
+  // Load request/conversation based on props
   if (props.conversationId) {
     // Opening from history - load existing session
-    controller.loadSession(props.conversationId)
+    logger.info('Loading conversation from history', { conversationId: props.conversationId })
+    viewController.loadSession(props.conversationId)
   } else if (!props.requestId && !props.collectionId) {
     // New request with no context
-    controller.newRequest()
+    logger.debug('Initializing new request')
+    viewController.newRequest()
   }
+
+  // Set up controller event listeners
+  setupControllerListeners()
 })
 
+/**
+ * Component cleanup
+ */
+onUnmounted(() => {
+  logger.debug('ChatView unmounted')
+  viewController.dispose()
+})
+
+/**
+ * Set up event listeners for controller events
+ */
+function setupControllerListeners() {
+  // Listen for save success
+  viewController.on('saveSuccess', ({ message }) => {
+    alertSuccess(message)
+  })
+
+  // Listen for errors
+  viewController.on('error', ({ message, error }) => {
+    logger.error(message, error)
+    alertError?.(message) || alertSuccess(message)  // Fallback to alertSuccess if alertError not available
+  })
+}
+
+// ============================================================================
+// Event Handlers - Delegate to Controller
+// ============================================================================
+
 function handleSend() {
-  controller.sendRequest()
-  // Reset composer to curl mode (smaller size) after sending
-  composerMode.value = 'curl'
-  controller.setComposerMode('curl')
+  viewController.handleSend()
 }
 
 function handleSave() {
-  console.log('SAVE BUTTON CLICKED')
-  console.log('currentRequestId:', controller.state.currentRequestId)
-  console.log('currentCollectionId:', controller.state.currentCollectionId)
-  console.log('activeConversation:', activeConversation.value)
-
-  // If already linked to a collection, directly save
-  if (controller.state.currentRequestId && controller.state.currentCollectionId) {
-    console.log('Updating existing request in collection')
-    controller.saveToCollection()
-    alertSuccess('Request updated in collection')
-  } else {
-    // Show dialog to choose collection
-    // Generate a default name from the URL or active conversation name
-    const defaultName = activeConversation.value?.name || 'New Request'
-    console.log('Showing save dialog with default name:', defaultName)
-    pendingRequestName.value = defaultName
-    showSaveDialog.value = true
-  }
+  viewController.handleSave()
 }
 
 function closeSaveDialog() {
-  showSaveDialog.value = false
-  pendingRequestName.value = ''
+  viewController.closeSaveDialog()
 }
 
 function handleSaveToNewCollection(data) {
-  console.log('SAVING TO COLLECTION - data:', data)
-  console.log('SAVING TO COLLECTION - requestName:', data.requestName)
-
-  const requestName = data.requestName || 'New Request'
-
-  // Build request object from current state
-  const request = controller.buildRequestFromVisual()
-
-  // Build event array for scripts (Postman format)
-  const event = []
-
-  if (controller.state.script.preRequest?.trim()) {
-    event.push({
-      listen: 'prerequest',
-      script: {
-        type: 'text/javascript',
-        exec: controller.state.script.preRequest.split('\n')
-      }
-    })
-  }
-
-  if (controller.state.script.postRequest?.trim()) {
-    event.push({
-      listen: 'test',
-      script: {
-        type: 'text/javascript',
-        exec: controller.state.script.postRequest.split('\n')
-      }
-    })
-  }
-
-  // Add request to collection
-  const savedRequest = collectionsStore.addRequest(
-    data.collectionId,
-    {
-      name: requestName,
-      request,
-      event: event.length > 0 ? event : undefined
-    },
-    data.folderId
-  )
-
-  // Link the current view to the saved request
-  controller.state.currentRequestId = savedRequest.id
-  controller.state.currentCollectionId = data.collectionId
-  controller.state.currentFolderId = data.folderId || null
-
-  // Update conversation with collection info AND name
-  if (activeConversation.value) {
-    conversationsStore.updateConversation(activeConversation.value.id, {
-      name: requestName, // Use the requestName from save dialog
-      requestId: savedRequest.id,
-      collectionId: data.collectionId,
-      folderId: data.folderId
-    })
-  }
-
-  // Update the active tab with the new name and link it to the saved request
-  const activeTab = tabsStore.activeTab
-  if (activeTab) {
-    tabsStore.updateTab(activeTab.id, {
-      name: requestName,
-      itemId: savedRequest.id,
-      collectionId: data.collectionId,
-      method: request.method || 'GET'
-    })
-    tabsStore.markTabAsSaved(activeTab.id)
-  }
-
-  closeSaveDialog()
-  alertSuccess(`Request saved to ${collectionsStore.getCollection(data.collectionId)?.name || 'collection'}`)
+  viewController.handleSaveToCollection(data)
 }
 
 function handleEditRequest(message) {
-  // Load the request from the message back into the composer
-  if (message.data?.request) {
-    controller.state.method = message.data.request.method || 'GET'
-    controller.state.url = message.data.request.url?.raw || ''
-    controller.state.headers = [...(message.data.request.header || [])]
-    controller.syncVisualToCurl()
-  }
+  viewController.handleEditRequest(message)
 }
 
 function handleClear() {
-  conversationsStore.clearActiveConversation()
+  viewController.handleClear()
 }
 
 function handleModeChange(mode) {
-  composerMode.value = mode
+  viewController.setComposerMode(mode)
+}
+
+function handleViewModeToggle() {
+  viewController.toggleViewMode()
 }
 
 function handleMaximizeResponse(message) {
-  maximizedResponse.value = message
+  viewController.handleMaximizeResponse(message)
 }
 
 function closeMaximized() {
-  maximizedResponse.value = null
+  viewController.closeMaximized()
 }
 
 function handleSendToComposer(curlCommand) {
-  // Load the AI-generated cURL command into the composer
-  controller.setCurlInput(curlCommand)
-
-  // Switch to cURL mode
-  composerMode.value = 'curl'
-  controller.setComposerMode('curl')
-
-  // Show success notification
+  viewController.handleSendToComposer(curlCommand)
   alertSuccess('cURL command loaded into composer')
 }
 
-// Expose controller for parent component access
+// ============================================================================
+// Exposed API
+// ============================================================================
+
+/**
+ * Expose controller methods and state for parent component access
+ */
 defineExpose({
-  controller,
-  loadRequest: (collectionId, requestId, folderId) => {
-    controller.loadRequest(collectionId, requestId, folderId)
-  },
-  newRequest: () => {
-    controller.newRequest()
-  }
+  // View controller instance
+  viewController,
+
+  // Chat controller instance (for backward compatibility)
+  controller: chatController,
+
+  // View state
+  viewMode,
+
+  // Methods
+  toggleViewMode: handleViewModeToggle,
+  loadRequest: (collectionId, requestId, folderId) => viewController.loadRequest(collectionId, requestId, folderId),
+  newRequest: () => viewController.newRequest()
 })
 </script>
 
