@@ -26,7 +26,7 @@ export default defineConfig({
   // Custom domain - no subdirectory needed
   base: '/',
   server: {
-    port: 9998,
+    port: 9994,
     strictPort: true
   },
 })
