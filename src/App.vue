@@ -1,7 +1,5 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { Splitpanes, Pane } from 'splitpanes'
-import 'splitpanes/dist/splitpanes.css'
 import './App.css'
 import Sidebar from './components/Sidebar.vue'
 import ChatTabs from './components/chat/ChatTabs.vue'
@@ -21,18 +19,19 @@ const environmentsStore = useEnvironments()
 const tabsStore = useTabs()
 const { alertState, handleConfirm, handleCancel, closeAlert } = useAlert()
 const { trackUI } = useAnalytics()
-const { mobileView, toggleMobileView, showComposer, isMobile } = useMobileView()
+const {
+  sidebarOpen,
+  toggleSidebar,
+  closeSidebar,
+  canDockSidebar
+} = useMobileView()
 
-// Chat tabs refs (separate for desktop and mobile to avoid double mounting)
+// Single ChatTabs instance — never forked by viewport
 const chatTabsRef = ref(null)
-const mobileTabsRef = ref(null)
 
 // Modal states
 const showCorsModal = ref(false)
 const showCurlTutorial = ref(false)
-
-// Reactive mobile check
-const isOnMobile = computed(() => isMobile())
 
 // Global environment indicator
 const activeEnvironment = computed(() => {
@@ -42,8 +41,7 @@ const activeEnvironment = computed(() => {
   return resolved && resolved.name ? resolved : null
 })
 
-const sidebarWidth = ref(25) // 25% initial width
-const showSidebar = ref(true) // Desktop sidebar visibility
+const sidebarWidth = ref(25) // 25% initial width when docked
 const showSettings = ref(false)
 const settingsTab = ref('general')
 
@@ -109,71 +107,72 @@ const downloadChromeShortcut = async () => {
 }
 
 /**
- * Toggle sidebar visibility on desktop
+ * Header sidebar toggle — docks on wide screens, overlays on laptop/phone
  */
-const toggleSidebar = () => {
-  showSidebar.value = !showSidebar.value
-  logger.debug('Sidebar toggled', { visible: showSidebar.value })
+const handleToggleButton = () => {
+  toggleSidebar()
+  logger.debug('Sidebar toggled', { visible: sidebarOpen.value })
 }
 
 /**
- * Handle toggle button click - different behavior for mobile vs desktop
+ * Cycle composer → conversation → split
  */
-const handleToggleButton = () => {
-  if (isMobile()) {
-    // Mobile: toggle between sidebar and composer views
-    toggleMobileView()
-  } else {
-    // Desktop: toggle sidebar visibility
-    toggleSidebar()
-  }
-}
-
 const toggleViewMode = () => {
-  // Use the correct ref based on mobile/desktop
-  const chatTabs = isMobile() ? mobileTabsRef.value : chatTabsRef.value
-  const chatView = chatTabs?.chatViewRef
+  const chatView = chatTabsRef.value?.chatViewRef
   if (chatView?.toggleViewMode) {
     chatView.toggleViewMode()
   }
 }
 
+/**
+ * Open the conversation sheet over the composer
+ */
+const openConversationSheet = () => {
+  const chatView = chatTabsRef.value?.chatViewRef
+  if (chatView?.openConversationSheet) {
+    chatView.openConversationSheet()
+  }
+}
+
 const createNewRequest = () => {
   logger.debug('Creating new request')
-  const chatTabs = isMobile() ? mobileTabsRef.value : chatTabsRef.value
-  if (chatTabs) {
-    chatTabs.addNewTab()
+  if (chatTabsRef.value) {
+    chatTabsRef.value.addNewTab()
   } else {
     tabsStore.createTab({
       name: 'New Request',
       method: 'GET'
     })
   }
+  closeSidebar()
   logger.info('Created new request')
   trackUI(UI_EVENTS.NEW_REQUEST)
-
-  // Switch to composer view on mobile
-  if (isMobile()) {
-    showComposer()
-  }
 }
 
-const handleResize = (event) => {
-  try {
-    // Handle different possible event formats from splitpanes
-    if (Array.isArray(event) && event.length > 0 && event[0] && typeof event[0].size === 'number') {
-      sidebarWidth.value = event[0].size
-    } else if (event && typeof event.size === 'number') {
-      sidebarWidth.value = event.size
-    } else if (Array.isArray(event) && event.length > 0 && typeof event[0] === 'number') {
-      sidebarWidth.value = event[0]
-    } else {
-      // Log the event structure to help debug
-      logger.warn('Unexpected resize event format:', event)
-    }
-  } catch (error) {
-    logger.error('Error handling resize:', error)
+/**
+ * Drag-resize the docked sidebar without remounting ChatTabs
+ * @param {MouseEvent} event
+ */
+const startSidebarResize = (event) => {
+  const shell = event.currentTarget.closest('.app-shell')
+  if (!shell) return
+
+  const startX = event.clientX
+  const startWidth = sidebarWidth.value
+  const shellWidth = shell.getBoundingClientRect().width
+
+  const onMove = (moveEvent) => {
+    const deltaPct = ((moveEvent.clientX - startX) / shellWidth) * 100
+    sidebarWidth.value = Math.min(40, Math.max(16, startWidth + deltaPct))
   }
+
+  const onUp = () => {
+    window.removeEventListener('mousemove', onMove)
+    window.removeEventListener('mouseup', onUp)
+  }
+
+  window.addEventListener('mousemove', onMove)
+  window.addEventListener('mouseup', onUp)
 }
 
 // Initialize logging and expose global API
@@ -234,16 +233,9 @@ onMounted(() => {
         <button
           class="toggle-sidebar-button"
           @click="handleToggleButton"
-          :title="isOnMobile
-            ? (mobileView === 'sidebar' ? 'Show Composer' : 'Show Sidebar')
-            : (showSidebar ? 'Hide Sidebar' : 'Show Sidebar')"
+          :title="sidebarOpen ? 'Hide sidebar' : 'Show sidebar'"
         >
-          <template v-if="isOnMobile">
-            {{ mobileView === 'composer' ? '📁' : '💬' }}
-          </template>
-          <template v-else>
-            {{ showSidebar ? '◀️' : '▶️' }}
-          </template>
+          {{ sidebarOpen ? '◀️' : '☰' }}
         </button>
 
         <button
@@ -257,8 +249,16 @@ onMounted(() => {
         <button
           v-if="tabsStore.activeTab.value"
           class="view-mode-toggle-button"
+          @click="openConversationSheet"
+          title="Show conversation"
+        >
+          💬
+        </button>
+        <button
+          v-if="tabsStore.activeTab.value"
+          class="view-mode-toggle-button"
           @click="toggleViewMode"
-          title="Toggle view mode"
+          title="Cycle view: composer, conversation, split"
         >
           ⬆️⬇️
         </button>
@@ -288,28 +288,32 @@ onMounted(() => {
       </div>
     </header>
 
-    <!-- Main Layout -->
+    <!-- Main Layout: one ChatTabs tree; sidebar docks or overlays -->
     <div class="app-main">
-      <!-- Desktop: Splitpanes layout -->
-      <Splitpanes v-if="!isOnMobile" class="default-theme desktop-layout" @resize="handleResize">
-        <!-- Left Sidebar (conditionally rendered) -->
-        <Pane v-if="showSidebar" :size="sidebarWidth" min-size="20" max-size="40">
+      <div
+        class="app-shell"
+        :class="{ 'is-docked': canDockSidebar && sidebarOpen }"
+      >
+        <aside
+          v-show="sidebarOpen"
+          class="shell-sidebar"
+          :class="{ overlay: !canDockSidebar }"
+          :style="canDockSidebar ? { width: sidebarWidth + '%' } : undefined"
+        >
           <Sidebar />
-        </Pane>
-
-        <!-- Right Panel - Chat Tabs -->
-        <Pane>
+          <div
+            v-if="canDockSidebar"
+            class="sidebar-resize-handle"
+            @mousedown.prevent="startSidebarResize"
+          />
+        </aside>
+        <div
+          v-if="!canDockSidebar && sidebarOpen"
+          class="sidebar-backdrop"
+          @click="closeSidebar"
+        />
+        <div class="shell-main">
           <ChatTabs ref="chatTabsRef" />
-        </Pane>
-      </Splitpanes>
-
-      <!-- Mobile: Toggle between sidebar and composer -->
-      <div v-if="isOnMobile" class="mobile-layout">
-        <div class="mobile-view" :class="{ active: mobileView === 'sidebar' }">
-          <Sidebar />
-        </div>
-        <div class="mobile-view" :class="{ active: mobileView === 'composer' }">
-          <ChatTabs ref="mobileTabsRef" />
         </div>
       </div>
     </div>
