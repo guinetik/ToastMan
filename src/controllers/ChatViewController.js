@@ -3,7 +3,8 @@ import { ChatController } from './ChatController.js'
 import { useConversations } from '../stores/useConversations.js'
 import { useCollections } from '../stores/useCollections.js'
 import { useTabs } from '../stores/useTabs.js'
-import { nextStateAfterSend, nextViewMode } from './viewMode.js'
+import { nextStateAfterSend, nextViewMode, resolveInitialViewMode } from './viewMode.js'
+import { useViewport } from '../composables/useViewport.js'
 
 /**
  * ChatViewController
@@ -78,15 +79,20 @@ export class ChatViewController extends BaseController {
    */
   initializeViewMode() {
     const activeTab = this.tabsStore.activeTab?.value || this.tabsStore.activeTab
-    if (activeTab?.viewMode) {
-      this.state.viewMode = activeTab.viewMode
-      this.logger.debug('Initialized view mode from tab', { viewMode: activeTab.viewMode })
-    } else if (activeTab) {
-      // Tab doesn't have viewMode set yet, initialize it with composer-first default
-      this.state.viewMode = 'composer'
+    const { canSplitComfortably } = useViewport()
+    const storedMode = activeTab?.viewMode
+    const mode = resolveInitialViewMode(storedMode, canSplitComfortably.value)
+    this.state.viewMode = mode
+
+    if (activeTab && !storedMode) {
       this.tabsStore.updateTab(activeTab.id, { viewMode: 'composer' })
-      this.logger.debug('Initialized tab with default view mode')
     }
+
+    this.logger.debug('Initialized view mode from tab', {
+      storedMode,
+      appliedMode: mode,
+      canSplitComfortably: canSplitComfortably.value
+    })
   }
 
   /**

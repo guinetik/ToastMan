@@ -397,6 +397,15 @@ defineExpose({
   animation: sheetSlideUp 0.2s ease-out;
 }
 
+.conversation-sheet:not(.is-full) .sheet-panel {
+  margin-top: 36px;
+  height: calc(100% - 36px);
+  flex: none;
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
 .conversation-sheet.is-full .sheet-backdrop {
   display: none;
 }

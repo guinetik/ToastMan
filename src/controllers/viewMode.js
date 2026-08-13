@@ -31,3 +31,17 @@ export function nextViewMode(currentMode) {
   if (currentMode === 'conversation') return 'split'
   return 'composer'
 }
+
+/**
+ * Resolve the view mode to apply when a tab opens.
+ * Persisted split is kept on wide/tall screens and deferred to composer
+ * when the viewport cannot split comfortably. The stored value is not rewritten.
+ * @param {string|null|undefined} storedMode
+ * @param {boolean} canSplitComfortably
+ * @returns {'composer'|'conversation'|'split'}
+ */
+export function resolveInitialViewMode(storedMode, canSplitComfortably) {
+  if (!storedMode) return 'composer'
+  if (storedMode === 'split' && !canSplitComfortably) return 'composer'
+  return storedMode
+}

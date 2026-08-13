@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { nextStateAfterSend, nextViewMode } from '../viewMode.js'
+import { nextStateAfterSend, nextViewMode, resolveInitialViewMode } from '../viewMode.js'
 
 describe('nextStateAfterSend', () => {
   it('opens the sheet and stays on composer', () => {
@@ -23,5 +23,25 @@ describe('nextViewMode', () => {
     expect(nextViewMode('composer')).toBe('conversation')
     expect(nextViewMode('conversation')).toBe('split')
     expect(nextViewMode('split')).toBe('composer')
+  })
+})
+
+describe('resolveInitialViewMode', () => {
+  it('defaults missing mode to composer', () => {
+    expect(resolveInitialViewMode(null, false)).toBe('composer')
+    expect(resolveInitialViewMode(undefined, true)).toBe('composer')
+  })
+
+  it('defers persisted split on a tight viewport without requiring a write-back', () => {
+    expect(resolveInitialViewMode('split', false)).toBe('composer')
+  })
+
+  it('keeps persisted split on a comfortable viewport', () => {
+    expect(resolveInitialViewMode('split', true)).toBe('split')
+  })
+
+  it('preserves conversation mode on every viewport', () => {
+    expect(resolveInitialViewMode('conversation', false)).toBe('conversation')
+    expect(resolveInitialViewMode('composer', false)).toBe('composer')
   })
 })

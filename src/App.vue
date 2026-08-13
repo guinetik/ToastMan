@@ -229,7 +229,7 @@ onMounted(() => {
       </div>
 
       <div class="header-actions">
-        <!-- Toggle Button (Mobile: switch views | Desktop: show/hide sidebar) -->
+        <!-- Toggle sidebar (docked on wide screens, overlay on laptop/phone) -->
         <button
           class="toggle-sidebar-button"
           @click="handleToggleButton"
