@@ -26,7 +26,7 @@ function createTabsStore() {
   const logger = createLogger('tabs')
   const { data: tabs } = useTabsStorage()
   const collections = useCollections()
-  const { showComposer, isMobile } = useMobileView()
+  const { closeSidebar } = useMobileView()
 
   // Computed getters
   const allTabs = computed(() => tabs.value || [])
@@ -88,10 +88,7 @@ function createTabsStore() {
 
     if (existingTab) {
       setActiveTab(existingTab.id)
-      // Switch to composer view on mobile when opening a request
-      if (isMobile()) {
-        showComposer()
-      }
+      closeSidebar()
       return existingTab
     }
 
@@ -103,10 +100,7 @@ function createTabsStore() {
       method: request.request?.method || request.method || 'GET'
     })
 
-    // Switch to composer view on mobile when opening a request
-    if (isMobile()) {
-      showComposer()
-    }
+    closeSidebar()
 
     return tab
   }

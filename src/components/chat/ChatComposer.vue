@@ -377,4 +377,21 @@ function save() {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+@media (max-height: 900px) {
+  .chat-composer {
+    gap: 8px;
+    padding: 8px 12px 8px;
+  }
+
+  .tab-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .save-btn,
+  .send-btn {
+    padding: 8px 16px;
+  }
+}
 </style>

@@ -7,7 +7,7 @@ import { useMobileView } from '../../composables/useMobileView.js'
 const controller = new HistoryController()
 
 // Mobile view composable
-const { showComposer, isMobile } = useMobileView()
+const { closeSidebar } = useMobileView()
 
 // Get sessions as a computed property
 const sessions = computed(() => {
@@ -18,10 +18,7 @@ const sessions = computed(() => {
 const clearHistory = () => controller.clearHistory()
 const openSession = (sessionId) => {
   controller.openSession(sessionId)
-  // Switch to composer view on mobile when opening a session
-  if (isMobile()) {
-    showComposer()
-  }
+  closeSidebar()
 }
 const removeSession = (sessionId) => controller.removeSession(sessionId)
 
