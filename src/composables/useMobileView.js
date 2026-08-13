@@ -1,43 +1,82 @@
 /**
- * Mobile View State Composable
+ * Shell view state composable
  *
- * Shared state for managing mobile view toggling between sidebar and composer
+ * Shared sidebar open/closed state plus viewport flags.
+ * Wide screens start with a docked sidebar; laptops and phones start closed.
+ * Existing mobileView / showComposer / showSidebar / isMobile facades stay
+ * so HistoryTab and useTabs keep compiling during the shell rewrite.
  */
 
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useViewport } from './useViewport.js'
 
-// Shared state (singleton pattern)
-const mobileView = ref('composer')
+const sidebarOpen = ref(false)
+let initialized = false
 
+/**
+ * Shared shell state: sidebar visibility and viewport flags.
+ * @returns {object} sidebar controls, viewport flags, and legacy facades
+ */
 export function useMobileView() {
-  const toggleMobileView = () => {
-    mobileView.value = mobileView.value === 'sidebar' ? 'composer' : 'sidebar'
+  const viewport = useViewport()
+
+  if (!initialized) {
+    initialized = true
+    // Wide screens start with a docked sidebar; laptops/phones start closed.
+    sidebarOpen.value = viewport.canDockSidebar.value
+    watch(viewport.canDockSidebar, (canDock) => {
+      if (!canDock) {
+        sidebarOpen.value = false
+      }
+    })
   }
 
+  const openSidebar = () => {
+    sidebarOpen.value = true
+  }
+
+  const closeSidebar = () => {
+    sidebarOpen.value = false
+  }
+
+  const toggleSidebar = () => {
+    sidebarOpen.value = !sidebarOpen.value
+  }
+
+  /**
+   * Restrict sidebar view to the two legacy values.
+   * @param {'sidebar'|'composer'} view
+   */
   const setMobileView = (view) => {
-    if (view === 'sidebar' || view === 'composer') {
-      mobileView.value = view
+    if (view === 'sidebar') {
+      openSidebar()
+    } else if (view === 'composer') {
+      closeSidebar()
     }
   }
 
-  const showComposer = () => {
-    mobileView.value = 'composer'
-  }
-
-  const showSidebar = () => {
-    mobileView.value = 'sidebar'
-  }
-
-  const isMobile = () => {
-    return window.innerWidth <= 768
-  }
+  // Facades — do not leave callers on a dead API
+  const mobileView = computed(() => (sidebarOpen.value ? 'sidebar' : 'composer'))
+  const showComposer = closeSidebar
+  const showSidebar = openSidebar
+  const isMobile = () => viewport.isCompact.value
+  const toggleMobileView = toggleSidebar
 
   return {
-    mobileView,
-    toggleMobileView,
+    sidebarOpen,
+    openSidebar,
+    closeSidebar,
+    toggleSidebar,
     setMobileView,
+    mobileView,
     showComposer,
     showSidebar,
-    isMobile
+    toggleMobileView,
+    isMobile,
+    width: viewport.width,
+    height: viewport.height,
+    isCompact: viewport.isCompact,
+    canDockSidebar: viewport.canDockSidebar,
+    canSplitComfortably: viewport.canSplitComfortably
   }
 }
