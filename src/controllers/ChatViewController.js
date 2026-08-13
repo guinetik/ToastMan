@@ -3,6 +3,7 @@ import { ChatController } from './ChatController.js'
 import { useConversations } from '../stores/useConversations.js'
 import { useCollections } from '../stores/useCollections.js'
 import { useTabs } from '../stores/useTabs.js'
+import { nextStateAfterSend, nextViewMode } from './viewMode.js'
 
 /**
  * ChatViewController
@@ -44,11 +45,14 @@ export class ChatViewController extends BaseController {
       showSaveDialog: false,
       pendingRequestName: '',
 
-      // View mode (split, conversation, composer)
-      viewMode: 'split',
+      // View mode (composer default, conversation, split)
+      viewMode: 'composer',
 
       // Composer mode (curl, visual, script, ai)
       composerMode: 'curl',
+
+      // Conversation sheet overlay (composer-first layout)
+      conversationSheetOpen: false,
 
       // Maximized response state
       maximizedResponse: null
@@ -78,9 +82,9 @@ export class ChatViewController extends BaseController {
       this.state.viewMode = activeTab.viewMode
       this.logger.debug('Initialized view mode from tab', { viewMode: activeTab.viewMode })
     } else if (activeTab) {
-      // Tab doesn't have viewMode set yet, initialize it with default
-      this.state.viewMode = 'split'
-      this.tabsStore.updateTab(activeTab.id, { viewMode: 'split' })
+      // Tab doesn't have viewMode set yet, initialize it with composer-first default
+      this.state.viewMode = 'composer'
+      this.tabsStore.updateTab(activeTab.id, { viewMode: 'composer' })
       this.logger.debug('Initialized tab with default view mode')
     }
   }
@@ -98,6 +102,13 @@ export class ChatViewController extends BaseController {
     const oldMode = this.state.viewMode
     this.state.viewMode = mode
 
+    if (mode === 'conversation') {
+      this.state.conversationSheetOpen = true
+    } else {
+      // Split shows both panes; composer is the canvas — neither keeps the sheet
+      this.state.conversationSheetOpen = false
+    }
+
     // Persist to active tab
     const activeTab = this.tabsStore.activeTab?.value || this.tabsStore.activeTab
     if (activeTab) {
@@ -109,17 +120,38 @@ export class ChatViewController extends BaseController {
   }
 
   /**
-   * Toggle view mode through the cycle: split -> conversation -> composer -> split
+   * Toggle view mode through the cycle: composer -> conversation -> split -> composer
    */
   toggleViewMode() {
-    const currentMode = this.state.viewMode
+    this.setViewMode(nextViewMode(this.state.viewMode))
+  }
 
-    if (currentMode === 'split') {
-      this.setViewMode('conversation')
-    } else if (currentMode === 'conversation') {
-      this.setViewMode('composer')
+  /**
+   * Open the conversation sheet over the composer
+   */
+  openConversationSheet() {
+    this.state.conversationSheetOpen = true
+    this.logger.debug('Conversation sheet opened')
+    this.emit('conversationSheetChanged', { open: true })
+  }
+
+  /**
+   * Dismiss the conversation sheet and return to the editor
+   */
+  closeConversationSheet() {
+    this.state.conversationSheetOpen = false
+    this.logger.debug('Conversation sheet closed')
+    this.emit('conversationSheetChanged', { open: false })
+  }
+
+  /**
+   * Toggle the conversation sheet
+   */
+  toggleConversationSheet() {
+    if (this.state.conversationSheetOpen) {
+      this.closeConversationSheet()
     } else {
-      this.setViewMode('split')
+      this.openConversationSheet()
     }
   }
 
@@ -144,11 +176,12 @@ export class ChatViewController extends BaseController {
       // Reset composer to curl mode (smaller size) after sending
       this.setComposerMode('curl')
 
-      // If we're in composer-only mode, switch to split view to see the response
-      if (this.state.viewMode === 'composer') {
-        this.logger.debug('Switching from composer-only to split view after sending')
-        this.setViewMode('split')
+      const next = nextStateAfterSend(this.state)
+      this.state.conversationSheetOpen = next.conversationSheetOpen
+      if (next.viewMode !== this.state.viewMode) {
+        this.setViewMode(next.viewMode)
       }
+      this.logger.debug('Applied post-send view state', next)
     } catch (error) {
       this.logger.error('Failed to send request', error)
       this.emit('error', { message: 'Failed to send request', error })

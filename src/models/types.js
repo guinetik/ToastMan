@@ -239,7 +239,7 @@ export function createTab({
   name = 'New Request',
   method = 'GET',
   saved = false,
-  viewMode = 'split'
+  viewMode = 'composer'
 } = {}) {
   return {
     id: generateId(),
@@ -251,7 +251,7 @@ export function createTab({
     saved,
     active: false,
     modified: false,
-    viewMode // View mode: 'split', 'conversation', 'composer'
+    viewMode // View mode: 'composer' (default), 'conversation', 'split'
   }
 }
 
