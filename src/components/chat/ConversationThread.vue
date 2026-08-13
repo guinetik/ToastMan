@@ -1,10 +1,11 @@
 <template>
   <div class="conversation-thread">
     <!-- Thread Header -->
-    <div v-if="conversation" class="thread-header">
-      <h3 class="thread-title">{{ conversation.name }}</h3>
+    <div v-if="conversation || showClose" class="thread-header">
+      <h3 class="thread-title">{{ conversation?.name || 'Conversation' }}</h3>
       <div class="thread-actions">
         <button
+          v-if="conversation"
           class="action-btn toggle-btn"
           :class="{ active: showTests }"
           @click="showTests = !showTests"
@@ -12,8 +13,21 @@
         >
           {{ showTests ? 'Hide Tests' : 'Show Tests' }}
         </button>
-        <button class="action-btn" @click="clearConversation" title="Clear conversation">
+        <button
+          v-if="conversation"
+          class="action-btn"
+          @click="clearConversation"
+          title="Clear conversation"
+        >
           Clear
+        </button>
+        <button
+          v-if="showClose"
+          class="action-btn"
+          @click="emit('close')"
+          title="Back to editor"
+        >
+          Close
         </button>
       </div>
     </div>
@@ -104,10 +118,14 @@ const props = defineProps({
   isLoading: {
     type: Boolean,
     default: false
+  },
+  showClose: {
+    type: Boolean,
+    default: false
   }
 })
 
-const emit = defineEmits(['edit-request', 'clear', 'maximize-response', 'send-to-composer'])
+const emit = defineEmits(['edit-request', 'clear', 'maximize-response', 'send-to-composer', 'close'])
 
 const messagesContainer = ref(null)
 const showTests = ref(true)

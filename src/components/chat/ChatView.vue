@@ -1,7 +1,8 @@
 <template>
   <div class="chat-view">
-    <Splitpanes class="default-theme" horizontal>
-      <Pane v-if="viewMode !== 'composer'" :size="threadSize" min-size="20">
+    <!-- Opt-in split: existing Splitpanes path -->
+    <Splitpanes v-if="viewMode === 'split'" class="default-theme" horizontal>
+      <Pane :size="threadSize" min-size="20">
         <ConversationThread
           :conversation="activeConversation"
           :messages="messages"
@@ -12,7 +13,7 @@
           @send-to-composer="handleSendToComposer"
         />
       </Pane>
-      <Pane v-if="viewMode !== 'conversation'" :size="composerSize" :min-size="15" :max-size="viewMode === 'composer' ? 100 : 70">
+      <Pane :size="composerSize" :min-size="15" :max-size="70">
         <ChatComposer
           :controller="chatController"
           @send="handleSend"
@@ -21,6 +22,45 @@
         />
       </Pane>
     </Splitpanes>
+
+    <!-- Default composer canvas + conversation sheet -->
+    <div v-else class="chat-stack">
+      <ChatComposer
+        v-show="viewMode !== 'conversation'"
+        class="composer-canvas"
+        :controller="chatController"
+        @send="handleSend"
+        @save="handleSave"
+        @mode-change="handleModeChange"
+      />
+
+      <div
+        v-if="sheetVisible"
+        class="conversation-sheet"
+        :class="{ 'is-full': viewMode === 'conversation' }"
+        role="dialog"
+        aria-label="Conversation"
+      >
+        <div
+          v-if="viewMode !== 'conversation'"
+          class="sheet-backdrop"
+          @click="closeSheet"
+        />
+        <div class="sheet-panel">
+          <ConversationThread
+            :conversation="activeConversation"
+            :messages="messages"
+            :is-loading="isLoading"
+            :show-close="viewMode !== 'conversation'"
+            @close="closeSheet"
+            @edit-request="handleEditRequest"
+            @clear="handleClear"
+            @maximize-response="handleMaximizeResponse"
+            @send-to-composer="handleSendToComposer"
+          />
+        </div>
+      </div>
+    </div>
 
     <!-- Maximized Response Overlay -->
     <Teleport to="body">
@@ -49,7 +89,8 @@
 /**
  * ChatView Component
  *
- * Main request/response view with split pane layout.
+ * Main request/response view. Composer is the default canvas;
+ * conversation is an overlay sheet; split is opt-in.
  * Presentation layer for chat interface - delegates all business logic
  * to ChatViewController following the MVC pattern.
  *
@@ -59,7 +100,7 @@
  * - Manage component lifecycle
  * - React to controller state changes
  */
-import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
+import { computed, onMounted, watch, onUnmounted } from 'vue'
 import { Splitpanes, Pane } from 'splitpanes'
 import ConversationThread from './ConversationThread.vue'
 import ChatComposer from './ChatComposer.vue'
@@ -114,6 +155,9 @@ const showSaveDialog = computed(() => viewController.state.showSaveDialog)
 const pendingRequestName = computed(() => viewController.state.pendingRequestName)
 const viewMode = computed(() => viewController.state.viewMode)
 const maximizedResponse = computed(() => viewController.state.maximizedResponse)
+const sheetVisible = computed(() =>
+  viewMode.value === 'conversation' || viewController.state.conversationSheetOpen
+)
 
 // Pane sizes - adjusts based on composer mode and view mode
 const composerMode = computed(() => viewController.state.composerMode)
@@ -163,9 +207,10 @@ onMounted(() => {
 
   // Load request/conversation based on props
   if (props.conversationId) {
-    // Opening from history - load existing session
+    // Opening from history - load existing session and show the thread
     logger.info('Loading conversation from history', { conversationId: props.conversationId })
     viewController.loadSession(props.conversationId)
+    viewController.openConversationSheet()
   } else if (!props.requestId && !props.collectionId) {
     // New request with no context
     logger.debug('Initializing new request')
@@ -174,6 +219,8 @@ onMounted(() => {
 
   // Set up controller event listeners
   setupControllerListeners()
+
+  window.addEventListener('keydown', handleSheetEscape)
 })
 
 /**
@@ -181,6 +228,7 @@ onMounted(() => {
  */
 onUnmounted(() => {
   logger.debug('ChatView unmounted')
+  window.removeEventListener('keydown', handleSheetEscape)
   viewController.dispose()
 })
 
@@ -236,6 +284,31 @@ function handleViewModeToggle() {
   viewController.toggleViewMode()
 }
 
+/**
+ * Dismiss the conversation sheet (composer-first overlay)
+ */
+function closeSheet() {
+  viewController.closeConversationSheet()
+}
+
+/**
+ * Open the conversation sheet over the editor
+ */
+function openSheet() {
+  viewController.openConversationSheet()
+}
+
+/**
+ * Close the overlay sheet on Escape, but leave conversation-only mode alone
+ * @param {KeyboardEvent} event
+ */
+function handleSheetEscape(event) {
+  if (event.key !== 'Escape') return
+  if (viewMode.value === 'conversation') return
+  if (!viewController.state.conversationSheetOpen) return
+  closeSheet()
+}
+
 function handleMaximizeResponse(message) {
   viewController.handleMaximizeResponse(message)
 }
@@ -246,6 +319,7 @@ function closeMaximized() {
 
 function handleSendToComposer(curlCommand) {
   viewController.handleSendToComposer(curlCommand)
+  viewController.closeConversationSheet()
   alertSuccess('cURL command loaded into composer')
 }
 
@@ -268,6 +342,8 @@ defineExpose({
 
   // Methods
   toggleViewMode: handleViewModeToggle,
+  openConversationSheet: openSheet,
+  closeConversationSheet: closeSheet,
   loadRequest: (collectionId, requestId, folderId) => viewController.loadRequest(collectionId, requestId, folderId),
   newRequest: () => viewController.newRequest()
 })
@@ -279,6 +355,67 @@ defineExpose({
   flex-direction: column;
   height: 100%;
   background: var(--color-bg-primary);
+  position: relative;
+}
+
+.chat-stack {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
+.composer-canvas {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
+.conversation-sheet {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+}
+
+.sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.sheet-panel {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: 0;
+  background: var(--color-bg-primary);
+  transform: translateY(0);
+  animation: sheetSlideUp 0.2s ease-out;
+}
+
+.conversation-sheet.is-full .sheet-backdrop {
+  display: none;
+}
+
+@keyframes sheetSlideUp {
+  from {
+    transform: translateY(12px);
+    opacity: 0.85;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-panel {
+    animation: none;
+  }
 }
 
 .chat-view :deep(.splitpanes) {
