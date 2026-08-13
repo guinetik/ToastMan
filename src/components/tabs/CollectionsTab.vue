@@ -225,7 +225,7 @@ const clearSearch = () => {
           <ul>
             <li>Collections help organize related requests</li>
             <li>Use environments to manage variables</li>
-            <li>Import from Postman collections</li>
+            <li>Import from Postman (.json) or Bruno OpenCollection (.zip)</li>
           </ul>
         </div>
       </div>

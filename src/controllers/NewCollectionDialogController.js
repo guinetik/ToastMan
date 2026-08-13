@@ -1,7 +1,10 @@
 import { BaseDialogController } from './BaseDialogController.js'
 import { useCollections } from '../stores/useCollections.js'
+import { useEnvironments } from '../stores/useEnvironments.js'
 import { useAlert } from '../composables/useAlert.js'
 import { PostmanAdapter } from '../adapters/PostmanAdapter.js'
+import { BrunoOpenCollectionAdapter } from '../adapters/BrunoOpenCollectionAdapter.js'
+import { readCollectionArchive } from '../adapters/collectionArchive.js'
 
 /**
  * Controller for New Collection dialog
@@ -11,6 +14,7 @@ export class NewCollectionDialogController extends BaseDialogController {
     super('new-collection')
 
     this.collectionsStore = useCollections()
+    this.environmentsStore = useEnvironments()
     this.alertService = useAlert()
   }
 
@@ -302,40 +306,88 @@ export class NewCollectionDialogController extends BaseDialogController {
   }
 
   /**
-   * Import collection from file
-   * Shows warnings if unsupported features are detected
+   * Import collection from a previously loaded Postman JSON or Bruno zip.
+   * Shows warnings if unsupported features are detected.
+   * @param {Object|string} importData
+   * @param {string} name
+   * @param {string} description
    */
-  async importCollection(fileData, name, description) {
-    let parsedData
+  async importCollection(importData, name, description) {
+    const payload = typeof importData === 'string'
+      ? { format: 'postman', postmanRaw: importData }
+      : importData
 
-    try {
-      parsedData = JSON.parse(fileData)
-    } catch (error) {
-      throw new Error('Invalid JSON file')
+    if (payload.format === 'bruno-opencollection') {
+      return this._persistBrunoImport(payload, name, description)
     }
 
+    return this._persistPostmanImport(payload.postmanRaw || payload, name, description)
+  }
+
+  /**
+   * @param {string|Object} raw
+   * @param {string} name
+   * @param {string} description
+   * @private
+   */
+  _persistPostmanImport(raw, name, description) {
+    const parsedData = typeof raw === 'string' ? JSON.parse(raw) : raw
     if (!parsedData.info) {
       throw new Error('Not a valid Postman collection')
     }
 
-    // Override name and description if provided
     if (name && name !== parsedData.info.name) {
       parsedData.info.name = name
     }
-
     if (description) {
       parsedData.info.description = description
     }
 
-    // Import using PostmanAdapter (returns { collection, warnings, errors })
     const result = this.collectionsStore.importCollection(parsedData, {
-      appendImportedSuffix: false // We already handle naming
+      appendImportedSuffix: false
     })
 
-    // Show warnings if any
     if (result.warnings && result.warnings.length > 0) {
-      const summary = PostmanAdapter.summarizeWarnings(result.warnings)
-      this._showImportWarnings(summary)
+      this._showImportWarnings(PostmanAdapter.summarizeWarnings(result.warnings))
+    }
+
+    return result.collection
+  }
+
+  /**
+   * @param {Object} payload
+   * @param {string} name
+   * @param {string} description
+   * @private
+   */
+  _persistBrunoImport(payload, name, description) {
+    const result = payload.result || BrunoOpenCollectionAdapter.import(payload.files || [])
+    if (!result.collection) {
+      const message = (result.errors || []).map(e => e.message).join('; ') || 'Bruno import failed'
+      throw new Error(message)
+    }
+
+    if (name) {
+      result.collection.info.name = name
+    }
+    if (description) {
+      result.collection.info.description = description
+    }
+
+    this.collectionsStore.addImportedCollection(result.collection, {
+      appendImportedSuffix: false
+    })
+
+    for (const environment of result.environments || []) {
+      try {
+        this.environmentsStore.importEnvironment(environment)
+      } catch (error) {
+        this.logger.warn('Failed to import Bruno environment', error)
+      }
+    }
+
+    if (result.warnings && result.warnings.length > 0) {
+      this._showImportWarnings(BrunoOpenCollectionAdapter.summarizeWarnings(result.warnings))
     }
 
     return result.collection
@@ -373,13 +425,18 @@ export class NewCollectionDialogController extends BaseDialogController {
   }
 
   /**
-   * Handle file selection for import
+   * Handle file selection for import (Postman JSON or Bruno zip)
+   * @param {File} file
    */
   async handleFileSelect(file) {
     if (!file) return
 
-    if (!file.name.endsWith('.json')) {
-      this.setFieldError('import', 'Please select a JSON file')
+    const lower = file.name.toLowerCase()
+    const isZip = lower.endsWith('.zip')
+    const isJson = lower.endsWith('.json')
+
+    if (!isZip && !isJson) {
+      this.setFieldError('import', 'Please select a Postman .json or Bruno .zip file')
       return
     }
 
@@ -389,34 +446,75 @@ export class NewCollectionDialogController extends BaseDialogController {
     }
 
     const result = await this.executeAsync(async () => {
-      const content = await this.readFile(file)
-
-      try {
-        const parsed = JSON.parse(content)
-        if (!parsed.info) {
-          throw new Error('Not a valid Postman collection')
-        }
-        return content
-      } catch (error) {
-        throw new Error('Invalid JSON or not a Postman collection')
+      if (isZip) {
+        return this._loadBrunoZip(file)
       }
+      return this._loadPostmanJson(file)
     }, 'Failed to read file')
 
     if (result.success) {
       this.state.formData.importData = result.data
-
-      const parsed = JSON.parse(result.data)
-      if (parsed.info?.name && !this.state.formData.name) {
-        this.state.formData.name = parsed.info.name
+      if (result.data.preview?.name && !this.state.formData.name) {
+        this.state.formData.name = result.data.preview.name
       }
-      if (parsed.info?.description && !this.state.formData.description) {
-        this.state.formData.description = parsed.info.description
+      if (result.data.preview?.description && !this.state.formData.description) {
+        this.state.formData.description = result.data.preview.description
       }
-
       this.clearFieldError('import')
       this.logger.info('File loaded successfully:', file.name)
     } else {
       this.setFieldError('import', result.error.message)
+    }
+  }
+
+  /**
+   * @param {File} file
+   * @returns {Promise<Object>}
+   * @private
+   */
+  async _loadPostmanJson(file) {
+    const content = await this.readFile(file)
+    const parsed = JSON.parse(content)
+    if (!parsed.info) {
+      throw new Error('Not a valid Postman collection')
+    }
+    return {
+      format: 'postman',
+      postmanRaw: content,
+      preview: {
+        name: parsed.info?.name || 'Unknown',
+        description: typeof parsed.info?.description === 'string' ? parsed.info.description : '',
+        requestCount: this.countRequests(parsed.item || []),
+        folderCount: this.countFolders(parsed.item || []),
+        environmentCount: 0,
+        formatLabel: 'Postman'
+      }
+    }
+  }
+
+  /**
+   * @param {File} file
+   * @returns {Promise<Object>}
+   * @private
+   */
+  async _loadBrunoZip(file) {
+    const archiveFiles = await readCollectionArchive(file)
+    const imported = BrunoOpenCollectionAdapter.import(archiveFiles)
+    if (!imported.collection) {
+      throw new Error((imported.errors || []).map(e => e.message).join('; ') || 'Not a Bruno OpenCollection zip')
+    }
+    return {
+      format: 'bruno-opencollection',
+      files: archiveFiles,
+      result: imported,
+      preview: {
+        name: imported.collection.info.name,
+        description: imported.collection.info.description || '',
+        requestCount: this.countRequests(imported.collection.item || []),
+        folderCount: this.countFolders(imported.collection.item || []),
+        environmentCount: imported.environments?.length || 0,
+        formatLabel: 'Bruno OpenCollection'
+      }
     }
   }
 
@@ -472,7 +570,7 @@ export class NewCollectionDialogController extends BaseDialogController {
       {
         id: 'import',
         name: 'Import from File',
-        description: 'Import an existing Postman collection',
+        description: 'Postman .json or Bruno OpenCollection .zip',
         icon: '📁'
       }
     ]
@@ -482,15 +580,21 @@ export class NewCollectionDialogController extends BaseDialogController {
    * Preview imported collection
    */
   getImportPreview() {
-    if (!this.state.formData.importData) return null
+    const data = this.state.formData.importData
+    if (!data) return null
+    if (typeof data === 'object' && data.preview) {
+      return data.preview
+    }
 
     try {
-      const parsed = JSON.parse(this.state.formData.importData)
+      const parsed = JSON.parse(data)
       return {
         name: parsed.info?.name || 'Unknown',
         description: parsed.info?.description || '',
         requestCount: this.countRequests(parsed.item || []),
-        folderCount: this.countFolders(parsed.item || [])
+        folderCount: this.countFolders(parsed.item || []),
+        environmentCount: 0,
+        formatLabel: 'Postman'
       }
     } catch {
       return null

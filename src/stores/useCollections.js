@@ -15,6 +15,7 @@ import {
 } from '../models/types.js'
 import { createLogger } from '../core/logger.js'
 import { PostmanAdapter } from '../adapters/PostmanAdapter.js'
+import { BrunoOpenCollectionAdapter } from '../adapters/BrunoOpenCollectionAdapter.js'
 
 // Global collections store
 let collectionsStore = null
@@ -510,6 +511,46 @@ function createCollectionsStore() {
   }
 
   /**
+   * Persist an already-normalized collection (used by Bruno/Postman adapters).
+   * @param {Object} collection
+   * @param {Object} options
+   * @param {boolean} [options.appendImportedSuffix=true]
+   * @returns {Object}
+   */
+  const addImportedCollection = (collection, options = {}) => {
+    const { appendImportedSuffix = true } = options
+    if (!collection?.info) {
+      throw new Error('Invalid collection')
+    }
+    if (appendImportedSuffix) {
+      collection.info.name = `${collection.info.name} (Imported)`
+    }
+    if (!collections.value) {
+      collections.value = []
+    }
+    collections.value.push(collection)
+    collectionsStorage.save()
+    logger.info('Persisted imported collection:', collection.info.name)
+    return collection
+  }
+
+  /**
+   * Import a Bruno OpenCollection file list
+   * @param {Array<{path: string, content: string}>} files
+   * @param {Object} [options]
+   * @returns {{ collection: Object, environments: Array, warnings: Array, errors: Array }}
+   */
+  const importBrunoOpenCollection = (files, options = {}) => {
+    logger.info('Importing collection using BrunoOpenCollectionAdapter')
+    const result = BrunoOpenCollectionAdapter.import(files)
+    if (result.errors.length > 0 && !result.collection) {
+      throw new Error(result.errors.map(e => e.message).join('; '))
+    }
+    addImportedCollection(result.collection, options)
+    return result
+  }
+
+  /**
    * Export a collection to Postman format
    * @param {string} id - Collection ID
    * @returns {Object} - Postman-formatted collection
@@ -577,6 +618,8 @@ function createCollectionsStore() {
     exportCollection,
     exportCollectionToPostman,
     importCollection,
+    importBrunoOpenCollection,
+    addImportedCollection,
 
     // Utilities
     initializeDefaultData

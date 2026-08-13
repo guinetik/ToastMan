@@ -16,11 +16,14 @@
     "@mdi/font": "^7.4.47",
     "@mlc-ai/web-llm": "^0.2.80",
     "highlight.js": "^11.9.0",
+    "js-yaml": "^5.2.3",
+    "jszip": "^3.10.1",
     "splitpanes": "^4.0.4",
     "vue": "^3.5.21",
     "vuetify": "^3.10.3"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@vitejs/plugin-vue": "^6.0.1",
     "@vue/test-utils": "^2.4.6",
     "jsdom": "^27.2.0",

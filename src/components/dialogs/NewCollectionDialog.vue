@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { NewCollectionDialogController } from '../../controllers/NewCollectionDialogController.js'
 import BaseDialog from '../base/BaseDialog.vue'
 
@@ -36,7 +36,7 @@ const handleFileSelect = (event) => {
 }
 
 const templates = controller.getTemplates()
-const importPreview = controller.getImportPreview()
+const importPreview = computed(() => controller.getImportPreview())
 
 // Focus the input when the dialog opens
 const nameInput = ref(null)
@@ -113,13 +113,13 @@ onUnmounted(() => {
         <div class="file-input-group">
           <input
             type="file"
-            accept=".json"
+            accept=".json,.zip,application/json,application/zip"
             @change="handleFileSelect"
             class="file-input"
             id="import-file"
           >
           <label for="import-file" class="file-input-label">
-            <span v-if="!state.formData.importData">Choose Postman Collection (.json)</span>
+            <span v-if="!state.formData.importData">Choose Postman (.json) or Bruno (.zip)</span>
             <span v-else>📄 File loaded</span>
           </label>
         </div>
@@ -128,6 +128,9 @@ onUnmounted(() => {
         <!-- Import Preview -->
         <div v-if="importPreview" class="import-preview">
           <h4>Import Preview</h4>
+          <div class="preview-item" v-if="importPreview.formatLabel">
+            <strong>Format:</strong> {{ importPreview.formatLabel }}
+          </div>
           <div class="preview-item">
             <strong>Name:</strong> {{ importPreview.name }}
           </div>
@@ -139,6 +142,9 @@ onUnmounted(() => {
           </div>
           <div class="preview-item">
             <strong>Folders:</strong> {{ importPreview.folderCount }}
+          </div>
+          <div class="preview-item" v-if="importPreview.environmentCount">
+            <strong>Environments:</strong> {{ importPreview.environmentCount }}
           </div>
         </div>
       </div>
