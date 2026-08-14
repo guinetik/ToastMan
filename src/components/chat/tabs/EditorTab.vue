@@ -1,20 +1,22 @@
 <template>
   <div class="editor-tab">
-    <div class="editor-bar">
-      <button
-        type="button"
-        class="curl-format-btn"
-        :class="{ active: curlBeautified }"
-        @click="toggleCurlFormat"
-        :title="curlBeautified ? 'Minify cURL (single line)' : 'Beautify cURL (multi-line)'"
-      >
-        {{ curlBeautified ? 'Minify' : 'Beautify' }}
-      </button>
-      <div class="editor-bar-actions">
+    <ComposerBar>
+      <template #start>
+        <button
+          type="button"
+          class="bar-btn"
+          :class="{ active: curlBeautified }"
+          @click="toggleCurlFormat"
+          :title="curlBeautified ? 'Minify cURL (single line)' : 'Beautify cURL (multi-line)'"
+        >
+          {{ curlBeautified ? 'Minify' : 'Beautify' }}
+        </button>
+      </template>
+      <template #end>
         <button
           v-if="canSave"
           type="button"
-          class="save-btn"
+          class="bar-btn"
           @click="$emit('save')"
           title="Save to collection"
         >
@@ -22,15 +24,15 @@
         </button>
         <button
           type="button"
-          class="send-btn"
+          class="bar-btn primary"
           :disabled="isLoading || !canSend"
           @click="$emit('send')"
         >
           <span v-if="isLoading" class="loading-spinner"></span>
           <span v-else>Send</span>
         </button>
-      </div>
-    </div>
+      </template>
+    </ComposerBar>
     <component
       :is="TextEditor"
       ref="curlInputRef"
@@ -48,6 +50,7 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { getCurrentEditor } from '../../../config/editors.js'
+import ComposerBar from '../ComposerBar.vue'
 
 const TextEditor = getCurrentEditor()
 
@@ -145,92 +148,9 @@ function minifyCurl(curl) {
   flex: 1;
   display: flex;
   flex-direction: column;
+  gap: 10px;
   min-height: 60px;
   max-height: 100%;
-}
-
-.editor-bar {
-  display: flex;
-  align-items: stretch;
-  justify-content: space-between;
-  gap: 10px;
-  flex-shrink: 0;
-  margin-bottom: 10px;
-}
-
-.editor-bar-actions {
-  display: flex;
-  align-items: stretch;
-  gap: 8px;
-}
-
-.curl-format-btn,
-.save-btn {
-  padding: 0 18px;
-  min-height: 48px;
-  font-size: 14px;
-  font-weight: 500;
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  cursor: pointer;
-  color: var(--color-text-primary);
-  transition:
-    background var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
-}
-
-.curl-format-btn:hover,
-.save-btn:hover {
-  background: var(--color-bg-hover);
-  border-color: var(--color-border-dark);
-}
-
-.curl-format-btn.active {
-  background: var(--color-bg-elevated);
-  border-color: var(--color-border-light);
-  box-shadow: var(--shadow-sm);
-}
-
-.send-btn {
-  padding: 0 28px;
-  min-height: 48px;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  background: var(--color-text-primary);
-  color: var(--color-bg-primary);
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.send-btn:hover:not(:disabled) {
-  opacity: 0.92;
-  transform: translateY(-1px);
-}
-
-.send-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.loading-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid transparent;
-  border-top-color: currentColor;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 .editor-tab :deep(.ace-text-editor),

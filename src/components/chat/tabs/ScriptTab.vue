@@ -1,36 +1,54 @@
 <template>
   <div class="script-tab">
-    <div class="script-header">
-      <div class="script-type-selector">
-        <CustomDropdown
+    <ComposerBar>
+      <template #start>
+        <SegmentedControl
           v-model="scriptType"
           :options="scriptTypeOptions"
-          class="script-type-select"
+          aria-label="Script type"
         />
         <span v-if="scriptType === 'prerequest'" class="prerequest-warning">
-          Pre-request scripts are stored but not executed
+          Stored, not executed
         </span>
-      </div>
-      <div class="script-actions">
+      </template>
+      <template #end>
         <CustomDropdown
           v-model="selectedSnippet"
           :options="snippetOptions"
-          placeholder="Insert Snippet..."
-          @update:modelValue="insertSnippet"
+          placeholder="Insert snippet"
           class="snippet-select"
+          @update:modelValue="insertSnippet"
         />
-      </div>
-    </div>
+        <button
+          v-if="canSave"
+          type="button"
+          class="bar-btn"
+          @click="$emit('save')"
+          title="Save to collection"
+        >
+          Save
+        </button>
+        <button
+          type="button"
+          class="bar-btn primary"
+          :disabled="isLoading || !canSend"
+          @click="$emit('send')"
+        >
+          <span v-if="isLoading" class="loading-spinner"></span>
+          <span v-else>Send</span>
+        </button>
+      </template>
+    </ComposerBar>
 
     <div class="script-editor-container">
       <component
         :is="TextEditor"
         ref="scriptEditorRef"
-        v-model="script.postRequest"
+        v-model="activeScript"
         language="javascript"
         :theme="editorDefaults.theme"
         height="100%"
-        placeholder="// Write your post-request script here&#10;// Example: pm.test('Status is 200', function() {&#10;//   pm.expect(pm.response.code).to.equal(200);&#10;// });"
+        :placeholder="scriptPlaceholder"
         :options="{ showGutter: true, wrap: true, fontSize: 12 }"
       />
     </div>
@@ -59,6 +77,8 @@
 import { ref, computed } from 'vue'
 import { getCurrentEditor, getCurrentEditorDefaults } from '../../../config/editors.js'
 import CustomDropdown from '../../base/CustomDropdown.vue'
+import SegmentedControl from '../../base/SegmentedControl.vue'
+import ComposerBar from '../ComposerBar.vue'
 import { getSnippetsByCategory, findSnippet } from '../../../core/scripting/snippets.js'
 
 const TextEditor = getCurrentEditor()
@@ -69,17 +89,48 @@ const props = defineProps({
   script: {
     type: Object,
     required: true
+  },
+  canSave: {
+    type: Boolean,
+    default: false
+  },
+  canSend: {
+    type: Boolean,
+    default: false
+  },
+  isLoading: {
+    type: Boolean,
+    default: false
   }
 })
+
+const emit = defineEmits(['send', 'save'])
 
 const scriptEditorRef = ref(null)
 const scriptType = ref('test')
 const selectedSnippet = ref('')
 
 const scriptTypeOptions = [
-  { value: 'test', label: 'Post-Request Script' },
-  { value: 'prerequest', label: 'Pre-Request Script' }
+  { value: 'test', label: 'Post-request' },
+  { value: 'prerequest', label: 'Pre-request' }
 ]
+
+const currentScriptKey = computed(() =>
+  scriptType.value === 'prerequest' ? 'preRequest' : 'postRequest'
+)
+
+const activeScript = computed({
+  get: () => props.script[currentScriptKey.value] || '',
+  set: (value) => {
+    props.script[currentScriptKey.value] = value
+  }
+})
+
+const scriptPlaceholder = computed(() =>
+  scriptType.value === 'prerequest'
+    ? '// Runs before the request is sent\n// Example: pm.environment.set("timestamp", Date.now());'
+    : '// Write your post-request script here\n// Example: pm.test("Status is 200", function() {\n//   pm.expect(pm.response.code).to.equal(200);\n// });'
+)
 
 const snippetOptions = computed(() => {
   const options = [{ value: '', label: 'Insert Snippet...' }]
@@ -101,9 +152,9 @@ function insertSnippet(snippetName) {
 
   const snippet = findSnippet(snippetName)
   if (snippet) {
-    const currentScript = props.script.postRequest || ''
+    const currentScript = props.script[currentScriptKey.value] || ''
     const separator = currentScript.trim() ? '\n\n' : ''
-    props.script.postRequest = currentScript + separator + snippet.code
+    props.script[currentScriptKey.value] = currentScript + separator + snippet.code
   }
 
   selectedSnippet.value = ''
@@ -114,58 +165,49 @@ function insertSnippet(snippetName) {
 .script-tab {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   flex: 1;
   min-height: 0;
   overflow: hidden;
 }
 
-.script-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
-}
-
-.script-type-selector {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.script-type-select {
-  min-width: 180px;
-}
-
 .prerequest-warning {
   display: inline-flex;
   align-items: center;
+  align-self: center;
   padding: 4px 10px;
   font-size: 11px;
-  background: rgba(245, 158, 11, 0.15);
-  color: var(--color-warning, #f59e0b);
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  border-radius: 4px;
-}
-
-.script-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  font-weight: 600;
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 8px;
+  white-space: nowrap;
 }
 
 .snippet-select {
-  min-width: 200px;
+  width: 220px;
+  align-self: center;
+}
+
+.snippet-select :deep(.custom-dropdown-trigger) {
+  min-height: 46px;
+  background: transparent;
+  border-color: transparent;
+}
+
+.snippet-select :deep(.custom-dropdown-trigger:hover:not(:disabled)) {
+  background: var(--color-bg-hover);
 }
 
 .script-editor-container {
   flex: 1;
   min-height: 150px;
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: 10px;
   overflow: hidden;
   background: var(--color-bg-primary);
+  box-shadow: var(--surface-highlight);
 }
 
 .script-editor-container :deep(.ace-text-editor) {
@@ -183,14 +225,15 @@ function insertSnippet(snippetName) {
 .script-help details {
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: 10px;
   overflow: hidden;
+  box-shadow: var(--surface-highlight);
 }
 
 .script-help summary {
-  padding: 8px 12px;
-  font-size: 12px;
-  font-weight: 500;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--color-text-secondary);
   cursor: pointer;
   user-select: none;

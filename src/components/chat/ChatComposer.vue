@@ -90,7 +90,14 @@
         role="tabpanel"
         class="tab-panel"
       >
-        <ScriptTab :script="script" />
+        <ScriptTab
+          :script="script"
+          :can-save="canSave"
+          :can-send="canSend"
+          :is-loading="isLoading"
+          @send="send"
+          @save="save"
+        />
       </div>
 
       <!-- Chat Tab (AI) -->
@@ -104,24 +111,7 @@
     </div>
 
     <!-- Action Buttons (hide in AI/Chat mode) -->
-    <div v-if="mode === 'script'" class="composer-actions">
-      <button
-        v-if="canSave"
-        class="save-btn"
-        @click="save"
-        title="Save to collection"
-      >
-        Save
-      </button>
-      <button
-        class="send-btn"
-        :disabled="isLoading || !canSend"
-        @click="send"
-      >
-        <span v-if="isLoading" class="loading-spinner"></span>
-        <span v-else>Send</span>
-      </button>
-    </div>
+    <!-- Save/Send live in each mode's own bar (Editor, Visual, Script) -->
   </div>
 </template>
 
