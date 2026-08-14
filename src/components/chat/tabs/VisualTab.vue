@@ -523,16 +523,8 @@ function removeUrlEncoded(index) {
 .method-select :deep(.custom-dropdown-trigger) {
   min-height: 34px;
   padding: 6px 10px;
-  background: transparent;
-  border-color: transparent;
-  box-shadow: none;
   font-size: 13px;
   font-weight: 700;
-}
-
-.method-select :deep(.custom-dropdown-trigger:hover:not(:disabled)) {
-  background: var(--color-bg-hover);
-  border-color: transparent;
 }
 
 .method-select :deep(.custom-dropdown-value) {

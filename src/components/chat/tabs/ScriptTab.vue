@@ -192,12 +192,6 @@ function insertSnippet(snippetName) {
 
 .snippet-select :deep(.custom-dropdown-trigger) {
   min-height: 46px;
-  background: transparent;
-  border-color: transparent;
-}
-
-.snippet-select :deep(.custom-dropdown-trigger:hover:not(:disabled)) {
-  background: var(--color-bg-hover);
 }
 
 .script-editor-container {

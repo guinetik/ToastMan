@@ -209,12 +209,13 @@ onUnmounted(() => {
   gap: 8px;
   padding: 8px 12px;
   min-height: 36px;
-  background: var(--color-bg-primary);
+  background: var(--color-bg-secondary);
   color: var(--color-text-primary);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
   font-size: 13px;
   cursor: pointer;
+  box-shadow: var(--surface-highlight);
   transition:
     border-color var(--duration-fast) var(--ease-out),
     box-shadow var(--duration-fast) var(--ease-out),
@@ -224,12 +225,18 @@ onUnmounted(() => {
 
 .custom-dropdown-trigger:hover:not(:disabled) {
   border-color: var(--color-border-dark);
+  background: var(--color-bg-hover);
+}
+
+.custom-dropdown.is-open .custom-dropdown-trigger {
+  border-color: var(--color-border-dark);
+  background: var(--color-bg-elevated);
 }
 
 .custom-dropdown-trigger:focus {
   outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+  border-color: var(--color-border-dark);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08);
 }
 
 .custom-dropdown-trigger:disabled {
