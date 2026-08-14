@@ -11,8 +11,7 @@
         >
           {{ curlBeautified ? 'Minify' : 'Beautify' }}
         </button>
-      </template>
-      <template #end>
+        <span class="bar-rule" aria-hidden="true"></span>
         <button
           v-if="canSave"
           type="button"
@@ -22,6 +21,8 @@
         >
           Save
         </button>
+      </template>
+      <template #end>
         <button
           type="button"
           class="bar-btn primary"

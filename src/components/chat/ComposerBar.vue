@@ -40,6 +40,18 @@
   min-width: 0;
 }
 
+.composer-bar :deep(.bar-rule) {
+  width: 1px;
+  margin: 8px 6px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--color-border-light) 15%,
+    var(--color-border-light) 85%,
+    transparent
+  );
+}
+
 .composer-bar :deep(.bar-btn) {
   padding: 0 16px;
   min-height: 46px;
