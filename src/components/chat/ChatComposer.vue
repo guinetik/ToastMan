@@ -255,7 +255,7 @@ function save() {
 }
 
 .tab-btn {
-  padding: 8px 20px;
+  padding: 10px 20px;
   font-size: 13px;
   font-weight: 500;
   background: transparent;
@@ -341,7 +341,8 @@ function save() {
 }
 
 .send-btn {
-  padding: 10px 24px;
+  padding: 10px 28px;
+  min-height: 40px;
   font-size: 14px;
   font-weight: 600;
   background: var(--color-text-primary);

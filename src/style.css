@@ -6,28 +6,29 @@
   --color-primary-dark: #e5e5e5;
   --color-primary-hover: #ffffff;
 
-  /* Button Colors - Dark buttons with light text */
-  --color-button-bg: #262626;
-  --color-button-bg-hover: #333333;
-  --color-button-text: #fafafa;
+  /* Button Colors */
+  --color-button-bg: #3a3a3a;
+  --color-button-bg-hover: #4a4a4a;
+  --color-button-text: #f4f4f5;
 
-  /* Background Colors - Pure Black */
-  --color-bg-primary: #000000;
-  --color-bg-secondary: #0a0a0a;
-  --color-bg-tertiary: #171717;
-  --color-bg-hover: #262626;
-  --color-bg-active: #404040;
+  /* Background Colors — charcoal stack, not crushed black */
+  --color-bg-primary: #111111;
+  --color-bg-secondary: #181818;
+  --color-bg-tertiary: #222222;
+  --color-bg-hover: #2c2c2c;
+  --color-bg-active: #3a3a3a;
+  --color-bg-elevated: #2a2a2a;
 
-  /* Text Colors - High Contrast */
-  --color-text-primary: #fafafa;
-  --color-text-secondary: #a3a3a3;
-  --color-text-muted: #737373;
-  --color-text-inverse: #000000;
+  /* Text Colors */
+  --color-text-primary: #f4f4f5;
+  --color-text-secondary: #c8c8c8;
+  --color-text-muted: #9a9a9a;
+  --color-text-inverse: #111111;
 
-  /* Border Colors - Very Subtle */
-  --color-border: #1a1a1a;
-  --color-border-light: #262626;
-  --color-border-dark: #333333;
+  /* Border Colors — readable against charcoal */
+  --color-border: #2f2f2f;
+  --color-border-light: #3d3d3d;
+  --color-border-dark: #525252;
 
   /* Status Colors */
   --color-success: #22c55e;
@@ -99,11 +100,17 @@
   --radius-lg: 8px;
   --radius-xl: 12px;
 
-  /* Shadows - Minimal */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 2px 4px 0 rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 4px 8px 0 rgba(0, 0, 0, 0.5);
-  --shadow-xl: 0 8px 16px 0 rgba(0, 0, 0, 0.6);
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 12px 0 rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 8px 24px 0 rgba(0, 0, 0, 0.4);
+  --shadow-xl: 0 16px 40px 0 rgba(0, 0, 0, 0.5);
+  --surface-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-fast: 140ms;
+  --duration-med: 220ms;
 }
 
 /* Light Mode Theme */
@@ -121,21 +128,22 @@
 
   /* Background Colors - Pure White Base */
   --color-bg-primary: #ffffff;
-  --color-bg-secondary: #fafafa;
-  --color-bg-tertiary: #f5f5f5;
-  --color-bg-hover: #e5e5e5;
-  --color-bg-active: #d4d4d4;
+  --color-bg-secondary: #f4f4f5;
+  --color-bg-tertiary: #eaeaec;
+  --color-bg-hover: #e4e4e7;
+  --color-bg-active: #d4d4d8;
+  --color-bg-elevated: #ffffff;
 
   /* Text Colors - High Contrast (black on white) */
   --color-text-primary: #171717;
-  --color-text-secondary: #525252;
-  --color-text-muted: #737373;
+  --color-text-secondary: #3f3f46;
+  --color-text-muted: #71717a;
   --color-text-inverse: #ffffff;
 
-  /* Border Colors - Subtle Gray */
-  --color-border: #e5e5e5;
-  --color-border-light: #d4d4d4;
-  --color-border-dark: #a3a3a3;
+  /* Border Colors */
+  --color-border: #d4d4d8;
+  --color-border-light: #c4c4c8;
+  --color-border-dark: #71717a;
 
   /* Status Colors - Slightly darker for light bg */
   --color-success: #16a34a;
@@ -173,11 +181,12 @@
   --chat-response-bg: var(--color-bg-secondary);
   --color-variable-unresolved-border: rgba(239, 68, 68, 0.3);
 
-  /* Shadows - Very subtle for white background */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 2px 4px 0 rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 4px 8px 0 rgba(0, 0, 0, 0.1);
-  --shadow-xl: 0 8px 16px 0 rgba(0, 0, 0, 0.15);
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px 0 rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 24px 0 rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 16px 40px 0 rgba(0, 0, 0, 0.12);
+  --surface-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 /* Reset and Base Styles */
@@ -224,20 +233,25 @@ a:hover {
 button {
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
-  padding: 6px 12px;
+  padding: 8px 14px;
   font-size: 13px;
   font-weight: 500;
   font-family: inherit;
   background-color: var(--color-bg-secondary);
   color: var(--color-text-primary);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   line-height: 1.2;
-  min-height: 32px;
+  min-height: 36px;
 }
 
 button:hover {
@@ -272,14 +286,16 @@ button.large {
 input, textarea, select {
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
-  padding: 6px 10px;
+  padding: 8px 12px;
   font-size: 13px;
   font-family: inherit;
   background-color: var(--color-bg-secondary);
   color: var(--color-text-primary);
-  transition: border-color 0.2s ease;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
   line-height: 1.2;
-  min-height: 32px;
+  min-height: 36px;
 }
 
 input:focus, textarea:focus, select:focus {
@@ -560,4 +576,14 @@ input:focus, textarea:focus, select:focus {
 
 .ace_tooltip .ace_warning {
   color: var(--color-warning) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

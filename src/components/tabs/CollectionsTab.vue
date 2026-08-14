@@ -537,12 +537,24 @@ const clearSearch = () => {
   font-style: normal;
   max-width: 300px;
   margin: 0 auto;
+  animation: welcomeIn var(--duration-med) var(--ease-out);
+}
+
+@keyframes welcomeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .welcome-icon {
-  font-size: 48px;
+  font-size: 52px;
   margin-bottom: 16px;
-  opacity: 0.8;
+  opacity: 0.9;
 }
 
 .welcome-state h3 {

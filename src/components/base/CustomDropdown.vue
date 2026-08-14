@@ -203,14 +203,18 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 6px 8px;
+  padding: 8px 12px;
+  min-height: 36px;
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-size: 13px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
   text-align: left;
 }
 

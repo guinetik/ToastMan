@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { RequestAuthEditorController } from '../../controllers/RequestAuthEditorController.js'
+import SegmentedControl from '../base/SegmentedControl.vue'
 
 const props = defineProps({
   modelValue: {
@@ -158,22 +159,12 @@ const getCurlHint = () => controller?.getCurlHint() || ''
         </div>
         <div class="form-group">
           <label class="form-label">Add to</label>
-          <div class="radio-group">
-            <label
-              v-for="loc in getApiKeyLocations()"
-              :key="loc.value"
-              class="radio-label"
-            >
-              <input
-                type="radio"
-                :value="loc.value"
-                :checked="state.apiKeyLocation === loc.value"
-                @change="updateApiKeyLocation(loc.value)"
-                name="apikey-location"
-              />
-              {{ loc.label }}
-            </label>
-          </div>
+          <SegmentedControl
+            :model-value="state.apiKeyLocation"
+            :options="getApiKeyLocations()"
+            aria-label="API key location"
+            @update:model-value="updateApiKeyLocation"
+          />
         </div>
         <div class="auth-hint">
           <span class="hint-label">cURL:</span>
@@ -286,21 +277,6 @@ const getCurlHint = () => controller?.getCurlHint() || ''
 
 .radio-group {
   display: flex;
-  gap: 20px;
-}
-
-.radio-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  color: var(--color-text-primary);
-}
-
-.radio-label input[type="radio"] {
-  cursor: pointer;
-  accent-color: var(--color-primary);
 }
 
 .auth-hint {

@@ -78,10 +78,11 @@
       <!-- Body Tab -->
       <div v-if="activeTab === 'body'" class="body-editor">
         <div class="body-mode-selector">
-          <label v-for="bm in bodyModes" :key="bm.value">
-            <input type="radio" v-model="body.mode" :value="bm.value" />
-            {{ bm.label }}
-          </label>
+          <SegmentedControl
+            v-model="body.mode"
+            :options="bodyModes"
+            aria-label="Body type"
+          />
           <CustomDropdown
             v-if="body.mode === 'raw'"
             v-model="rawType"
@@ -178,16 +179,11 @@
           </div>
           <div class="auth-field">
             <label class="auth-label">Add to</label>
-            <div class="auth-radio-group">
-              <label>
-                <input type="radio" v-model="auth.apikey.in" value="header" />
-                Header
-              </label>
-              <label>
-                <input type="radio" v-model="auth.apikey.in" value="query" />
-                Query Param
-              </label>
-            </div>
+            <SegmentedControl
+              v-model="auth.apikey.in"
+              :options="apiKeyLocations"
+              aria-label="API key location"
+            />
           </div>
           <div class="auth-hint">
             <code v-if="auth.apikey.in === 'header'">-H '{{ auth.apikey.key || 'X-API-Key' }}: &lt;value&gt;'</code>
@@ -209,6 +205,7 @@ import { ref, computed } from 'vue'
 import { getCurrentEditor, getCurrentEditorDefaults } from '../../../config/editors.js'
 import VariableHighlightInput from '../../VariableHighlightInput.vue'
 import CustomDropdown from '../../base/CustomDropdown.vue'
+import SegmentedControl from '../../base/SegmentedControl.vue'
 
 const TextEditor = getCurrentEditor()
 const editorDefaults = getCurrentEditorDefaults()
@@ -263,6 +260,11 @@ const bodyModes = [
   { value: 'raw', label: 'Raw' },
   { value: 'formdata', label: 'Form Data' },
   { value: 'urlencoded', label: 'URL Encoded' }
+]
+
+const apiKeyLocations = [
+  { value: 'header', label: 'Header' },
+  { value: 'query', label: 'Query Param' }
 ]
 
 const rawTypes = [
@@ -347,12 +349,12 @@ function removeUrlEncoded(index) {
 
 .url-input {
   flex: 1;
-  --input-padding: 8px 12px;
-  --input-font-size: 13px;
+  --input-padding: 10px 14px;
+  --input-font-size: 14px;
   --input-font-family: 'Monaco', 'Menlo', monospace;
-  --input-radius: 6px;
+  --input-radius: 8px;
   background: var(--color-bg-primary);
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 .url-input :deep(.variable-input:focus) {
@@ -366,8 +368,8 @@ function removeUrlEncoded(index) {
 }
 
 .visual-tab-btn {
-  padding: 4px 12px;
-  font-size: 12px;
+  padding: 8px 16px;
+  font-size: 13px;
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
@@ -375,7 +377,12 @@ function removeUrlEncoded(index) {
   color: var(--color-text-secondary);
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  min-height: 36px;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
 }
 
 .visual-tab-btn:hover {
@@ -409,10 +416,23 @@ function removeUrlEncoded(index) {
   overflow-y: auto;
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 12px;
+  border-radius: 10px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
+  box-shadow: var(--surface-highlight);
+  animation: panelIn var(--duration-med) var(--ease-out);
+}
+
+@keyframes panelIn {
+  from {
+    opacity: 0.72;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .kv-editor {
@@ -446,8 +466,8 @@ function removeUrlEncoded(index) {
 }
 
 input.kv-input {
-  padding: 6px 8px;
-  font-size: 12px;
+  padding: 8px 10px;
+  font-size: 13px;
   border: 1px solid var(--color-border);
   color: var(--color-text-primary);
 }
@@ -492,17 +512,9 @@ input.kv-input {
 .body-mode-selector {
   display: flex;
   align-items: center;
-  gap: 16px;
-  font-size: 12px;
+  gap: 12px;
   flex-shrink: 0;
-}
-
-.body-mode-selector label {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-  color: var(--color-text-secondary);
+  flex-wrap: wrap;
 }
 
 .raw-type-select {
@@ -558,11 +570,11 @@ input.kv-input {
 
 input.auth-input {
   flex: 1;
-  padding: 6px 10px;
-  font-size: 12px;
+  padding: 8px 12px;
+  font-size: 13px;
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
-  border-radius: 4px;
+  border-radius: 6px;
   color: var(--color-text-primary);
 }
 
@@ -578,20 +590,6 @@ input.auth-input::placeholder {
   --input-radius: 4px;
   background: var(--color-bg-secondary);
   border-radius: 4px;
-}
-
-.auth-radio-group {
-  display: flex;
-  gap: 16px;
-}
-
-.auth-radio-group label {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  cursor: pointer;
 }
 
 .auth-hint {
@@ -617,5 +615,15 @@ input.auth-input::placeholder {
   font-style: italic;
   font-size: 13px;
   margin: 0;
+  animation: panelIn var(--duration-med) var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .visual-panel,
+  .auth-empty p,
+  .visual-tab-btn {
+    animation: none;
+    transition: none;
+  }
 }
 </style>
