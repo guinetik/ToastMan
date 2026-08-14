@@ -1,5 +1,5 @@
 <template>
-  <div class="custom-dropdown" :class="{ 'is-open': isOpen, 'is-disabled': disabled }">
+  <div class="custom-dropdown" :class="{ 'is-open': isOpen, 'is-disabled': disabled, 'is-large': size === 'large' }">
     <button
       ref="triggerRef"
       type="button"
@@ -66,6 +66,10 @@ const props = defineProps({
   placeholder: {
     type: String,
     default: 'Select an option'
+  },
+  size: {
+    type: String,
+    default: 'md'
   }
 })
 
@@ -252,6 +256,19 @@ onUnmounted(() => {
 
 .custom-dropdown-chevron.is-open {
   transform: rotate(180deg);
+}
+
+.custom-dropdown.is-large .custom-dropdown-trigger {
+  min-height: 48px;
+  padding: 12px 14px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.custom-dropdown.is-large .custom-dropdown-chevron {
+  width: 16px;
+  height: 16px;
 }
 
 .custom-dropdown-menu {

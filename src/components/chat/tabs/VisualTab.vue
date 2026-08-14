@@ -5,6 +5,7 @@
         :modelValue="method"
         @update:modelValue="$emit('update:method', $event)"
         :options="httpMethods"
+        size="large"
         class="method-select"
       />
       <VariableHighlightInput
@@ -55,24 +56,40 @@
     <div class="visual-panel">
       <!-- Params Tab -->
       <div v-if="activeTab === 'params'" class="kv-editor">
-        <div v-for="(param, index) in params" :key="param.id" class="kv-row">
-          <input type="checkbox" v-model="param.enabled" />
-          <input v-model="param.key" placeholder="Key" class="kv-input" />
-          <VariableHighlightInput v-model="param.value" placeholder="Value" class="kv-input" />
-          <button class="remove-btn" @click="removeParam(index)">×</button>
+        <div v-if="params.length === 0" class="kv-empty">
+          <div class="kv-empty-mark">?</div>
+          <p class="kv-empty-title">No query params</p>
+          <p class="kv-empty-copy">Add key/value pairs to append to the URL as <code>?key=value</code>.</p>
+          <button class="add-btn add-btn-primary" @click="addParam">Add param</button>
         </div>
-        <button class="add-btn" @click="addParam">+ Add Param</button>
+        <template v-else>
+          <div v-for="(param, index) in params" :key="param.id" class="kv-row">
+            <input type="checkbox" v-model="param.enabled" />
+            <input v-model="param.key" placeholder="Key" class="kv-input" />
+            <VariableHighlightInput v-model="param.value" placeholder="Value" class="kv-input" />
+            <button class="remove-btn" @click="removeParam(index)">×</button>
+          </div>
+          <button class="add-btn" @click="addParam">+ Add Param</button>
+        </template>
       </div>
 
       <!-- Headers Tab -->
       <div v-if="activeTab === 'headers'" class="kv-editor">
-        <div v-for="(header, index) in headers" :key="header.id" class="kv-row">
-          <input type="checkbox" v-model="header.enabled" />
-          <input v-model="header.key" placeholder="Key" class="kv-input" />
-          <VariableHighlightInput v-model="header.value" placeholder="Value" class="kv-input" />
-          <button class="remove-btn" @click="removeHeader(index)">×</button>
+        <div v-if="headers.length === 0" class="kv-empty">
+          <div class="kv-empty-mark">H</div>
+          <p class="kv-empty-title">No headers</p>
+          <p class="kv-empty-copy">Add request headers like <code>Accept</code> or <code>Content-Type</code>.</p>
+          <button class="add-btn add-btn-primary" @click="addHeader">Add header</button>
         </div>
-        <button class="add-btn" @click="addHeader">+ Add Header</button>
+        <template v-else>
+          <div v-for="(header, index) in headers" :key="header.id" class="kv-row">
+            <input type="checkbox" v-model="header.enabled" />
+            <input v-model="header.key" placeholder="Key" class="kv-input" />
+            <VariableHighlightInput v-model="header.value" placeholder="Value" class="kv-input" />
+            <button class="remove-btn" @click="removeHeader(index)">×</button>
+          </div>
+          <button class="add-btn" @click="addHeader">+ Add Header</button>
+        </template>
       </div>
 
       <!-- Body Tab -->
@@ -103,24 +120,46 @@
           />
         </div>
 
+        <div v-else-if="body.mode === 'none'" class="kv-empty">
+          <div class="kv-empty-mark">∅</div>
+          <p class="kv-empty-title">No body</p>
+          <p class="kv-empty-copy">This request sends no payload. Typical for GET, HEAD, and DELETE.</p>
+        </div>
+
         <div v-else-if="body.mode === 'formdata'" class="kv-editor">
-          <div v-for="(field, index) in body.formData" :key="field.id" class="kv-row">
-            <input type="checkbox" v-model="field.enabled" />
-            <input v-model="field.key" placeholder="Key" class="kv-input" />
-            <VariableHighlightInput v-model="field.value" placeholder="Value" class="kv-input" />
-            <button class="remove-btn" @click="removeFormData(index)">×</button>
+          <div v-if="formDataFields.length === 0" class="kv-empty">
+            <div class="kv-empty-mark">≡</div>
+            <p class="kv-empty-title">No form fields</p>
+            <p class="kv-empty-copy">Add key/value pairs to send as <code>multipart/form-data</code>.</p>
+            <button class="add-btn add-btn-primary" @click="addFormData">Add field</button>
           </div>
-          <button class="add-btn" @click="addFormData">+ Add Field</button>
+          <template v-else>
+            <div v-for="(field, index) in formDataFields" :key="field.id" class="kv-row">
+              <input type="checkbox" v-model="field.enabled" />
+              <input v-model="field.key" placeholder="Key" class="kv-input" />
+              <VariableHighlightInput v-model="field.value" placeholder="Value" class="kv-input" />
+              <button class="remove-btn" @click="removeFormData(index)">×</button>
+            </div>
+            <button class="add-btn" @click="addFormData">+ Add Field</button>
+          </template>
         </div>
 
         <div v-else-if="body.mode === 'urlencoded'" class="kv-editor">
-          <div v-for="(field, index) in body.urlEncoded" :key="field.id" class="kv-row">
-            <input type="checkbox" v-model="field.enabled" />
-            <input v-model="field.key" placeholder="Key" class="kv-input" />
-            <VariableHighlightInput v-model="field.value" placeholder="Value" class="kv-input" />
-            <button class="remove-btn" @click="removeUrlEncoded(index)">×</button>
+          <div v-if="urlEncodedFields.length === 0" class="kv-empty">
+            <div class="kv-empty-mark">&</div>
+            <p class="kv-empty-title">No encoded fields</p>
+            <p class="kv-empty-copy">Add key/value pairs to send as <code>application/x-www-form-urlencoded</code>.</p>
+            <button class="add-btn add-btn-primary" @click="addUrlEncoded">Add field</button>
           </div>
-          <button class="add-btn" @click="addUrlEncoded">+ Add Field</button>
+          <template v-else>
+            <div v-for="(field, index) in urlEncodedFields" :key="field.id" class="kv-row">
+              <input type="checkbox" v-model="field.enabled" />
+              <input v-model="field.key" placeholder="Key" class="kv-input" />
+              <VariableHighlightInput v-model="field.value" placeholder="Value" class="kv-input" />
+              <button class="remove-btn" @click="removeUrlEncoded(index)">×</button>
+            </div>
+            <button class="add-btn" @click="addUrlEncoded">+ Add Field</button>
+          </template>
         </div>
       </div>
 
@@ -192,8 +231,10 @@
         </div>
 
         <!-- No Auth Message -->
-        <div v-if="auth.type === 'none'" class="auth-empty">
-          <p>This request does not use any authentication.</p>
+        <div v-if="auth.type === 'none'" class="kv-empty">
+          <div class="kv-empty-mark">*</div>
+          <p class="kv-empty-title">No authentication</p>
+          <p class="kv-empty-copy">This request goes out without credentials. Pick a type above to add Bearer, Basic, or an API key.</p>
         </div>
       </div>
     </div>
@@ -287,6 +328,9 @@ const enabledHeadersCount = computed(() =>
   props.headers.filter(h => h.enabled && h.key).length
 )
 
+const formDataFields = computed(() => props.body.formData || [])
+const urlEncodedFields = computed(() => props.body.urlEncoded || [])
+
 function addParam() {
   props.params.push({ key: '', value: '', enabled: true, id: Date.now() })
 }
@@ -304,6 +348,9 @@ function removeHeader(index) {
 }
 
 function addFormData() {
+  if (!Array.isArray(props.body.formData)) {
+    props.body.formData = []
+  }
   props.body.formData.push({ key: '', value: '', enabled: true, id: Date.now() })
 }
 
@@ -312,6 +359,9 @@ function removeFormData(index) {
 }
 
 function addUrlEncoded() {
+  if (!Array.isArray(props.body.urlEncoded)) {
+    props.body.urlEncoded = []
+  }
   props.body.urlEncoded.push({ key: '', value: '', enabled: true, id: Date.now() })
 }
 
@@ -324,7 +374,7 @@ function removeUrlEncoded(index) {
 .visual-tab {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
   flex: 1;
   min-height: 0;
   overflow: hidden;
@@ -332,29 +382,38 @@ function removeUrlEncoded(index) {
 
 .url-row {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   flex-shrink: 0;
+  align-items: stretch;
 }
 
 .method-select {
-  min-width: 100px;
-  width: 110px;
+  min-width: 132px;
+  width: 140px;
   flex-shrink: 0;
 }
 
 .method-select :deep(.custom-dropdown-value) {
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.06em;
   color: v-bind(methodColor);
 }
 
 .url-input {
   flex: 1;
-  --input-padding: 10px 14px;
-  --input-font-size: 14px;
+  --input-padding: 14px 16px;
+  --input-font-size: 16px;
   --input-font-family: 'Monaco', 'Menlo', monospace;
-  --input-radius: 8px;
+  --input-radius: 10px;
   background: var(--color-bg-primary);
-  border-radius: 8px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border-light);
+  box-shadow: var(--surface-highlight);
+}
+
+.url-input :deep(.variable-input),
+.url-input :deep(input) {
+  min-height: 48px;
 }
 
 .url-input :deep(.variable-input:focus) {
@@ -500,6 +559,74 @@ input.kv-input {
   color: var(--color-text-primary);
 }
 
+.add-btn-primary {
+  border-style: solid;
+  background: var(--color-button-bg);
+  color: var(--color-button-text);
+  border-color: var(--color-border-dark);
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.add-btn-primary:hover {
+  background: var(--color-button-bg-hover);
+  color: var(--color-button-text);
+}
+
+.kv-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 8px;
+  padding: 36px 20px;
+  min-height: 180px;
+  animation: panelIn var(--duration-med) var(--ease-out);
+}
+
+.kv-empty-mark {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border-light);
+  border-radius: 12px;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  font-size: 18px;
+  font-weight: 600;
+  font-family: 'Monaco', 'Menlo', monospace;
+  box-shadow: var(--surface-highlight);
+}
+
+.kv-empty-title {
+  margin: 8px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.kv-empty-copy {
+  margin: 0 0 8px;
+  max-width: 320px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.kv-empty-copy code {
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 12px;
+  color: var(--color-text-primary);
+  background: var(--color-bg-tertiary);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
 .body-editor {
   display: flex;
   flex-direction: column;
@@ -620,7 +747,7 @@ input.auth-input::placeholder {
 
 @media (prefers-reduced-motion: reduce) {
   .visual-panel,
-  .auth-empty p,
+  .kv-empty,
   .visual-tab-btn {
     animation: none;
     transition: none;
