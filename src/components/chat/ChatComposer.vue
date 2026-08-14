@@ -70,9 +70,13 @@
           :body="body"
           :auth="auth"
           :methodColor="methodColor"
+          :can-save="canSave"
+          :can-send="canSend"
+          :is-loading="isLoading"
           @update:method="method = $event"
           @update:url="url = $event"
           @send="send"
+          @save="save"
         />
       </div>
 
@@ -96,7 +100,7 @@
     </div>
 
     <!-- Action Buttons (hide in AI/Chat mode) -->
-    <div v-if="mode !== 'ai'" class="composer-actions">
+    <div v-if="mode !== 'ai' && mode !== 'visual'" class="composer-actions">
       <button
         v-if="canSave"
         class="save-btn"

@@ -1,13 +1,6 @@
 <template>
   <div class="visual-tab">
     <div class="url-row">
-      <CustomDropdown
-        :modelValue="method"
-        @update:modelValue="$emit('update:method', $event)"
-        :options="httpMethods"
-        size="large"
-        class="method-select"
-      />
       <VariableHighlightInput
         :modelValue="url"
         @update:modelValue="$emit('update:url', $event)"
@@ -15,53 +8,81 @@
         placeholder="https://api.example.com/endpoint"
         @keydown.enter="$emit('send')"
       />
+      <button
+        v-if="canSave"
+        type="button"
+        class="save-btn"
+        @click="$emit('save')"
+        title="Save to collection"
+      >
+        Save
+      </button>
+      <button
+        type="button"
+        class="send-btn"
+        :disabled="isLoading || !canSend"
+        @click="$emit('send')"
+      >
+        <span v-if="isLoading" class="loading-spinner"></span>
+        <span v-else>Send</span>
+      </button>
     </div>
 
-    <!-- Section rail — not the same language as Editor/Visual/Script/Chat -->
     <div class="section-rail" role="tablist" aria-label="Request sections">
-      <button
-        type="button"
-        role="tab"
-        class="section-rail-item"
-        :class="{ active: activeTab === 'params' }"
-        :aria-selected="activeTab === 'params'"
-        @click="activeTab = 'params'"
-      >
-        Params
-        <span v-if="enabledParamsCount > 0" class="badge">{{ enabledParamsCount }}</span>
-      </button>
-      <button
-        type="button"
-        role="tab"
-        class="section-rail-item"
-        :class="{ active: activeTab === 'headers' }"
-        :aria-selected="activeTab === 'headers'"
-        @click="activeTab = 'headers'"
-      >
-        Headers
-        <span v-if="enabledHeadersCount > 0" class="badge">{{ enabledHeadersCount }}</span>
-      </button>
-      <button
-        type="button"
-        role="tab"
-        class="section-rail-item"
-        :class="{ active: activeTab === 'body' }"
-        :aria-selected="activeTab === 'body'"
-        @click="activeTab = 'body'"
-      >
-        Body
-      </button>
-      <button
-        type="button"
-        role="tab"
-        class="section-rail-item"
-        :class="{ active: activeTab === 'auth' }"
-        :aria-selected="activeTab === 'auth'"
-        @click="activeTab = 'auth'"
-      >
-        Auth
-        <span v-if="auth.type !== 'none'" class="auth-dot"></span>
-      </button>
+      <div class="section-rail-start">
+        <CustomDropdown
+          :modelValue="method"
+          :options="httpMethods"
+          class="method-select"
+          @update:modelValue="onMethodChange"
+        />
+        <span class="section-rail-rule" aria-hidden="true"></span>
+        <button
+          type="button"
+          role="tab"
+          class="section-rail-item"
+          :class="{ active: activeTab === 'params' }"
+          :aria-selected="activeTab === 'params'"
+          @click="activeTab = 'params'"
+        >
+          Params
+          <span v-if="enabledParamsCount > 0" class="badge">{{ enabledParamsCount }}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="section-rail-item"
+          :class="{ active: activeTab === 'body' }"
+          :aria-selected="activeTab === 'body'"
+          @click="activeTab = 'body'"
+        >
+          Body
+        </button>
+      </div>
+      <div class="section-rail-end">
+        <button
+          type="button"
+          role="tab"
+          class="section-rail-item"
+          :class="{ active: activeTab === 'auth' }"
+          :aria-selected="activeTab === 'auth'"
+          @click="activeTab = 'auth'"
+        >
+          Auth
+          <span v-if="auth.type !== 'none'" class="auth-dot"></span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="section-rail-item"
+          :class="{ active: activeTab === 'headers' }"
+          :aria-selected="activeTab === 'headers'"
+          @click="activeTab = 'headers'"
+        >
+          Headers
+          <span v-if="enabledHeadersCount > 0" class="badge">{{ enabledHeadersCount }}</span>
+        </button>
+      </div>
     </div>
 
     <!-- Options Panel -->
@@ -256,7 +277,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { getCurrentEditor, getCurrentEditorDefaults } from '../../../config/editors.js'
 import VariableHighlightInput from '../../VariableHighlightInput.vue'
 import CustomDropdown from '../../base/CustomDropdown.vue'
@@ -293,12 +314,51 @@ const props = defineProps({
   methodColor: {
     type: String,
     default: 'var(--color-text-primary)'
+  },
+  canSave: {
+    type: Boolean,
+    default: false
+  },
+  canSend: {
+    type: Boolean,
+    default: false
+  },
+  isLoading: {
+    type: Boolean,
+    default: false
   }
 })
 
-const emit = defineEmits(['update:method', 'update:url', 'send'])
+const emit = defineEmits(['update:method', 'update:url', 'send', 'save'])
 
-const activeTab = ref('params')
+const BODY_METHODS = ['POST', 'PUT', 'PATCH']
+
+/**
+ * Params for query-style methods, body for write methods.
+ * @param {string} method
+ * @returns {'params'|'body'}
+ */
+function preferredTabForMethod(method) {
+  return BODY_METHODS.includes(String(method).toUpperCase()) ? 'body' : 'params'
+}
+
+const activeTab = ref(preferredTabForMethod(props.method))
+
+watch(
+  () => props.method,
+  (method) => {
+    activeTab.value = preferredTabForMethod(method)
+  }
+)
+
+/**
+ * Persist method and open the section that matches it.
+ * @param {string} value
+ */
+function onMethodChange(value) {
+  emit('update:method', value)
+  activeTab.value = preferredTabForMethod(value)
+}
 const rawType = ref('json')
 
 const httpMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
@@ -401,10 +461,78 @@ function removeUrlEncoded(index) {
   align-items: stretch;
 }
 
-.method-select {
-  min-width: 132px;
-  width: 140px;
+.save-btn {
   flex-shrink: 0;
+  padding: 0 18px;
+  min-height: 48px;
+  font-size: 14px;
+  font-weight: 500;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+}
+
+.save-btn:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-dark);
+}
+
+.send-btn {
+  flex-shrink: 0;
+  padding: 0 28px;
+  min-height: 48px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: var(--color-text-primary);
+  color: var(--color-bg-primary);
+  border: none;
+  border-radius: 10px;
+}
+
+.send-btn:hover:not(:disabled) {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.send-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.method-select {
+  width: 118px;
+  min-width: 108px;
+  flex-shrink: 0;
+}
+
+.method-select :deep(.custom-dropdown-trigger) {
+  min-height: 34px;
+  padding: 6px 10px;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.method-select :deep(.custom-dropdown-trigger:hover:not(:disabled)) {
+  background: var(--color-bg-hover);
+  border-color: transparent;
 }
 
 .method-select :deep(.custom-dropdown-value) {
@@ -437,15 +565,36 @@ function removeUrlEncoded(index) {
 .section-rail {
   display: flex;
   align-items: stretch;
+  justify-content: space-between;
   flex-shrink: 0;
-  width: fit-content;
-  max-width: 100%;
+  width: 100%;
   padding: 4px;
-  gap: 2px;
+  gap: 8px;
+  flex-wrap: wrap;
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: 12px;
   box-shadow: var(--surface-highlight);
+}
+
+.section-rail-start,
+.section-rail-end {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  min-width: 0;
+}
+
+.section-rail-rule {
+  width: 1px;
+  margin: 6px 6px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--color-border-light) 15%,
+    var(--color-border-light) 85%,
+    transparent
+  );
 }
 
 .section-rail-item {
