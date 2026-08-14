@@ -49,8 +49,8 @@ export class ChatViewController extends BaseController {
       // View mode (composer default, conversation, split)
       viewMode: 'composer',
 
-      // Composer mode (curl, visual, script, ai)
-      composerMode: 'curl',
+      // Composer mode (visual default, curl, script, ai)
+      composerMode: 'visual',
 
       // Conversation sheet overlay (composer-first layout)
       conversationSheetOpen: false,
@@ -178,9 +178,6 @@ export class ChatViewController extends BaseController {
   async handleSend() {
     try {
       await this.chatController.sendRequest()
-
-      // Reset composer to curl mode (smaller size) after sending
-      this.setComposerMode('curl')
 
       const next = nextStateAfterSend(this.state)
       this.state.conversationSheetOpen = next.conversationSheetOpen

@@ -42,8 +42,8 @@ export class ChatController extends BaseController {
     super.init()
 
     this.createState({
-      // Composer mode: 'curl' or 'visual'
-      composerMode: 'curl',
+      // Composer mode: visual is the default for new requests
+      composerMode: 'visual',
 
       // cURL input
       curlInput: '',
