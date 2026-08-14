@@ -110,26 +110,27 @@
           <SegmentedControl
             v-model="body.mode"
             :options="bodyModes"
-            variant="stretch"
+            variant="split"
             aria-label="Body type"
-          />
-          <CustomDropdown
-            v-if="body.mode === 'raw'"
-            v-model="rawType"
-            :options="rawTypes"
-            class="raw-type-select"
           />
         </div>
 
-        <div v-if="body.mode === 'raw'" class="body-raw-editor">
-          <component
-            :is="TextEditor"
-            v-model="body.raw"
-            :language="rawEditorMode"
-            :theme="editorDefaults.theme"
-            :options="editorDefaults.options"
-            height="100%"
-            placeholder='{"key": "value"}'
+        <div v-if="body.mode === 'raw'" class="body-raw">
+          <div class="body-raw-editor">
+            <component
+              :is="TextEditor"
+              v-model="body.raw"
+              :language="rawEditorMode"
+              :theme="editorDefaults.theme"
+              :options="editorDefaults.options"
+              height="100%"
+              placeholder='{"key": "value"}'
+            />
+          </div>
+          <CustomDropdown
+            v-model="rawType"
+            :options="rawTypes"
+            class="raw-type-select"
           />
         </div>
 
@@ -664,23 +665,30 @@ input.kv-input {
 
 .body-mode-selector {
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 10px;
+  justify-content: center;
   flex-shrink: 0;
   width: 100%;
 }
 
-.raw-type-select {
-  align-self: flex-end;
-  width: 140px;
+.body-raw {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .body-raw-editor {
   flex: 1;
   min-height: 150px;
-  border-radius: 4px;
+  border-radius: 8px;
   overflow: hidden;
+  border: 1px solid var(--color-border);
+}
+
+.raw-type-select {
+  align-self: center;
+  width: 160px;
 }
 
 .auth-editor {

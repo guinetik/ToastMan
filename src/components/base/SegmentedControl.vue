@@ -41,6 +41,7 @@ const props = defineProps({
   /**
    * compact — hug content
    * stretch — full width, equal columns, hairline separators
+   * split — centered group with separators between items
    */
   variant: {
     type: String,
@@ -81,6 +82,9 @@ function select(value) {
 
 .segmented-option {
   appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: none;
   background: transparent;
   color: var(--color-text-secondary);
@@ -157,6 +161,51 @@ function select(value) {
 }
 
 .segmented.is-stretch .segmented-option.active {
+  box-shadow: inset 0 0 0 1px var(--color-border-light), var(--shadow-sm);
+}
+
+.segmented.is-split {
+  display: inline-flex;
+  width: auto;
+  padding: 0;
+  gap: 0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.segmented.is-split .segmented-option {
+  justify-content: center;
+  border-radius: 0;
+  min-height: 40px;
+  min-width: 7.5rem;
+  padding: 10px 18px;
+  position: relative;
+}
+
+.segmented.is-split .segmented-option + .segmented-option::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 22%;
+  bottom: 22%;
+  width: 1px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--color-border-light) 18%,
+    var(--color-border-light) 82%,
+    transparent
+  );
+  pointer-events: none;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.segmented.is-split .segmented-option.active + .segmented-option::before,
+.segmented.is-split .segmented-option.active::before {
+  opacity: 0;
+}
+
+.segmented.is-split .segmented-option.active {
   box-shadow: inset 0 0 0 1px var(--color-border-light), var(--shadow-sm);
 }
 
