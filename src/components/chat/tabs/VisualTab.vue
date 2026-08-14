@@ -110,7 +110,7 @@
           <SegmentedControl
             v-model="body.mode"
             :options="bodyModes"
-            variant="split"
+            variant="stretch"
             aria-label="Body type"
           />
         </div>
@@ -687,7 +687,7 @@ input.kv-input {
 }
 
 .raw-type-select {
-  align-self: center;
+  align-self: flex-end;
   width: 160px;
 }
 
