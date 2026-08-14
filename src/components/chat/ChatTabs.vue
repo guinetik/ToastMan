@@ -19,9 +19,6 @@
           </button>
         </div>
       </div>
-      <button class="add-tab-btn" @click="addNewTab" title="New Request">
-        +
-      </button>
     </div>
 
     <!-- Chat View for Active Tab -->
@@ -188,23 +185,6 @@ defineExpose({
 .tab-close:hover {
   background: var(--color-bg-hover);
   color: var(--color-text-primary);
-}
-
-.add-tab-btn {
-  padding: 6px 12px;
-  font-size: 16px;
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  cursor: pointer;
-  color: var(--color-text-secondary);
-  transition: all 0.2s ease;
-}
-
-.add-tab-btn:hover {
-  background: var(--color-bg-hover);
-  color: var(--color-text-primary);
-  border-color: var(--color-border-dark);
 }
 
 .chat-content {
