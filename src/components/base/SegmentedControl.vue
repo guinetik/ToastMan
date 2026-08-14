@@ -1,6 +1,7 @@
 <template>
   <div
     class="segmented"
+    :class="`is-${variant}`"
     role="radiogroup"
     :aria-label="ariaLabel"
   >
@@ -36,6 +37,14 @@ const props = defineProps({
   ariaLabel: {
     type: String,
     default: 'Options'
+  },
+  /**
+   * compact — hug content
+   * stretch — full width, equal columns, hairline separators
+   */
+  variant: {
+    type: String,
+    default: 'compact'
   }
 })
 
@@ -104,6 +113,51 @@ function select(value) {
 .segmented-option:focus-visible {
   outline: 2px solid var(--color-focus-ring);
   outline-offset: 1px;
+}
+
+.segmented.is-stretch {
+  display: flex;
+  width: 100%;
+  padding: 0;
+  gap: 0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.segmented.is-stretch .segmented-option {
+  flex: 1;
+  justify-content: center;
+  border-radius: 0;
+  min-height: 40px;
+  padding: 10px 12px;
+  position: relative;
+}
+
+.segmented.is-stretch .segmented-option + .segmented-option::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 22%;
+  bottom: 22%;
+  width: 1px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--color-border-light) 20%,
+    var(--color-border-light) 80%,
+    transparent
+  );
+  pointer-events: none;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.segmented.is-stretch .segmented-option.active + .segmented-option::before,
+.segmented.is-stretch .segmented-option.active::before {
+  opacity: 0;
+}
+
+.segmented.is-stretch .segmented-option.active {
+  box-shadow: inset 0 0 0 1px var(--color-border-light), var(--shadow-sm);
 }
 
 @media (prefers-reduced-motion: reduce) {

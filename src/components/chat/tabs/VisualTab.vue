@@ -17,34 +17,46 @@
       />
     </div>
 
-    <!-- Visual Sub-tabs -->
-    <div class="visual-tabs">
+    <!-- Section rail — not the same language as Editor/Visual/Script/Chat -->
+    <div class="section-rail" role="tablist" aria-label="Request sections">
       <button
-        class="visual-tab-btn"
+        type="button"
+        role="tab"
+        class="section-rail-item"
         :class="{ active: activeTab === 'params' }"
+        :aria-selected="activeTab === 'params'"
         @click="activeTab = 'params'"
       >
         Params
         <span v-if="enabledParamsCount > 0" class="badge">{{ enabledParamsCount }}</span>
       </button>
       <button
-        class="visual-tab-btn"
+        type="button"
+        role="tab"
+        class="section-rail-item"
         :class="{ active: activeTab === 'headers' }"
+        :aria-selected="activeTab === 'headers'"
         @click="activeTab = 'headers'"
       >
         Headers
         <span v-if="enabledHeadersCount > 0" class="badge">{{ enabledHeadersCount }}</span>
       </button>
       <button
-        class="visual-tab-btn"
+        type="button"
+        role="tab"
+        class="section-rail-item"
         :class="{ active: activeTab === 'body' }"
+        :aria-selected="activeTab === 'body'"
         @click="activeTab = 'body'"
       >
         Body
       </button>
       <button
-        class="visual-tab-btn"
+        type="button"
+        role="tab"
+        class="section-rail-item"
         :class="{ active: activeTab === 'auth' }"
+        :aria-selected="activeTab === 'auth'"
         @click="activeTab = 'auth'"
       >
         Auth
@@ -98,6 +110,7 @@
           <SegmentedControl
             v-model="body.mode"
             :options="bodyModes"
+            variant="stretch"
             aria-label="Body type"
           />
           <CustomDropdown
@@ -420,37 +433,50 @@ function removeUrlEncoded(index) {
   border-color: var(--color-text-secondary);
 }
 
-.visual-tabs {
+.section-rail {
   display: flex;
-  gap: 4px;
+  align-items: stretch;
   flex-shrink: 0;
+  width: fit-content;
+  max-width: 100%;
+  padding: 4px;
+  gap: 2px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: var(--surface-highlight);
 }
 
-.visual-tab-btn {
-  padding: 8px 16px;
-  font-size: 13px;
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  color: var(--color-text-secondary);
+.section-rail-item {
   display: flex;
   align-items: center;
   gap: 6px;
-  min-height: 36px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  padding: 8px 16px;
+  min-height: 34px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 9px;
+  cursor: pointer;
   transition:
+    background var(--duration-fast) var(--ease-out),
     color var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out),
-    background var(--duration-fast) var(--ease-out);
+    box-shadow var(--duration-fast) var(--ease-out);
 }
 
-.visual-tab-btn:hover {
+.section-rail-item:hover:not(.active) {
   color: var(--color-text-primary);
+  background: var(--color-bg-hover);
 }
 
-.visual-tab-btn.active {
+.section-rail-item.active {
+  background: var(--color-bg-elevated);
   color: var(--color-text-primary);
-  border-bottom-color: var(--color-text-primary);
+  box-shadow: var(--shadow-sm);
 }
 
 .badge {
@@ -638,15 +664,16 @@ input.kv-input {
 
 .body-mode-selector {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
   flex-shrink: 0;
-  flex-wrap: wrap;
+  width: 100%;
 }
 
 .raw-type-select {
-  margin-left: auto;
-  width: 120px;
+  align-self: flex-end;
+  width: 140px;
 }
 
 .body-raw-editor {
@@ -748,7 +775,7 @@ input.auth-input::placeholder {
 @media (prefers-reduced-motion: reduce) {
   .visual-panel,
   .kv-empty,
-  .visual-tab-btn {
+  .section-rail-item {
     animation: none;
     transition: none;
   }
