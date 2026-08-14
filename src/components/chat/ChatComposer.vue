@@ -249,42 +249,52 @@ function save() {
   overflow: hidden;
 }
 
-/* Tab Navigation */
+/* Parent mode tabs — larger than Visual's section rail */
 .composer-tabs {
   display: flex;
-  gap: 4px;
   flex-shrink: 0;
-  border-bottom: 1px solid var(--color-border);
-  padding-bottom: 0;
+  width: 100%;
+  padding: 5px;
+  gap: 4px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  box-shadow: var(--surface-highlight);
 }
 
 .tab-btn {
-  padding: 10px 20px;
-  font-size: 13px;
-  font-weight: 500;
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  min-height: 42px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   background: transparent;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-radius: 10px;
   cursor: pointer;
   color: var(--color-text-secondary);
-  transition: all 0.2s ease;
-  position: relative;
-  margin-bottom: -1px;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
 }
 
-.tab-btn:hover {
+.tab-btn:hover:not(.active) {
   color: var(--color-text-primary);
   background: var(--color-bg-hover);
 }
 
-.tab-btn.active {
-  color: var(--color-text-primary);
-  border-bottom-color: var(--color-text-primary);
-  background: transparent;
-}
-
+.tab-btn.active,
 .tab-btn[aria-selected="true"] {
-  font-weight: 600;
+  color: var(--color-text-primary);
+  background: var(--color-bg-elevated);
+  box-shadow: var(--shadow-sm);
+  font-weight: 650;
 }
 
 /* Indicator for Script tab */
@@ -390,8 +400,9 @@ function save() {
   }
 
   .tab-btn {
-    padding: 6px 12px;
-    font-size: 12px;
+    padding: 8px 12px;
+    min-height: 38px;
+    font-size: 14px;
   }
 
   .save-btn,
