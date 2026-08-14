@@ -51,8 +51,12 @@
       >
         <EditorTab
           :curlInput="curlInput"
+          :can-save="canSave"
+          :can-send="canSend"
+          :is-loading="isLoading"
           @update:curlInput="handleCurlUpdate"
           @send="send"
+          @save="save"
         />
       </div>
 
@@ -100,7 +104,7 @@
     </div>
 
     <!-- Action Buttons (hide in AI/Chat mode) -->
-    <div v-if="mode !== 'ai' && mode !== 'visual'" class="composer-actions">
+    <div v-if="mode === 'script'" class="composer-actions">
       <button
         v-if="canSave"
         class="save-btn"
